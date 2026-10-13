@@ -88,9 +88,17 @@
         {% endfor %}
       </div>
 
-      <div class="form-group" style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--gray-200);">
+      <div class="form-group" style="background: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
         <label class="form-label" for="{{ form.new_password.id_for_label }}">Reset Password (Optional)</label>
-        {{ form.new_password }}
+        <div class="password-input-wrapper">
+          {{ form.new_password }}
+          <button type="button" class="password-toggle-btn"
+                  aria-label="Show password"
+                  title="Show password"
+                  data-target="{{ form.new_password.id_for_label }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
         {% if form.new_password.help_text %}
           <div class="form-help">{{ form.new_password.help_text }}</div>
         {% endif %}

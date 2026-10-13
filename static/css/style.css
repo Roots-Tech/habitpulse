@@ -768,6 +768,49 @@ input[type="password"] {
   padding-right: 2.75rem;
 }
 
+.password-input-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  padding-right: 2.75rem !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+  line-height: 1;
+  user-select: none;
+}
+
+.password-toggle-btn:hover {
+  color: var(--text-main);
+  background-color: var(--surface-raised);
+}
+
+.password-toggle-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.password-toggle-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
 .form-control:focus,
 .form-input:focus,
 .form-select:focus,

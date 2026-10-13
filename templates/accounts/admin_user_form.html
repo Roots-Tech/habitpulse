@@ -59,7 +59,15 @@
 
       <div class="form-group">
         <label class="form-label" for="{{ form.password.id_for_label }}">Password <span style="color: var(--danger);">*</span></label>
-        {{ form.password }}
+        <div class="password-input-wrapper">
+          {{ form.password }}
+          <button type="button" class="password-toggle-btn"
+                  aria-label="Show password"
+                  title="Show password"
+                  data-target="{{ form.password.id_for_label }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
         {% for error in form.password.errors %}
           <div class="form-error">{{ error }}</div>
         {% endfor %}
