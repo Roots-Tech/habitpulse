@@ -28,6 +28,9 @@ def create_personal_workspace_for_user(user, workspace_name=None):
         status=Membership.Status.ACTIVE,
     )
 
+    from habits.models import seed_default_master_data_for_tenant
+    seed_default_master_data_for_tenant(tenant)
+
     return tenant, membership
 
 

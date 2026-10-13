@@ -33,10 +33,20 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="{{ form.category.id_for_label }}">Category</label>
-        {{ form.category }}
-        {% if form.category.errors %}
-          <div class="form-error">{{ form.category.errors.0 }}</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+          <label class="form-label" for="{{ form.category_ref.id_for_label }}" style="margin-bottom: 0;">Category</label>
+          <a href="{% url 'category_create' %}" target="_blank" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 500;">+ New Category</a>
+        </div>
+        {% if form.category_ref %}
+          {{ form.category_ref }}
+          {% if form.category_ref.errors %}
+            <div class="form-error">{{ form.category_ref.errors.0 }}</div>
+          {% endif %}
+        {% else %}
+          {{ form.category }}
+          {% if form.category.errors %}
+            <div class="form-error">{{ form.category.errors.0 }}</div>
+          {% endif %}
         {% endif %}
       </div>
 
@@ -95,10 +105,20 @@
         </p>
 
         <div class="form-group">
-          <label class="form-label" for="{{ form.validation_rule.id_for_label }}">Rule Strategy</label>
-          {{ form.validation_rule }}
-          {% if form.validation_rule.errors %}
-            <div class="form-error">{{ form.validation_rule.errors.0 }}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <label class="form-label" for="{{ form.rule_strategy_ref.id_for_label }}" style="margin-bottom: 0;">Rule Strategy</label>
+            <a href="{% url 'rule_strategy_create' %}" target="_blank" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 500;">+ New Strategy</a>
+          </div>
+          {% if form.rule_strategy_ref %}
+            {{ form.rule_strategy_ref }}
+            {% if form.rule_strategy_ref.errors %}
+              <div class="form-error">{{ form.rule_strategy_ref.errors.0 }}</div>
+            {% endif %}
+          {% else %}
+            {{ form.validation_rule }}
+            {% if form.validation_rule.errors %}
+              <div class="form-error">{{ form.validation_rule.errors.0 }}</div>
+            {% endif %}
           {% endif %}
         </div>
 
@@ -174,4 +194,18 @@
     </form>
   </div>
 </div>
+
+<script id="rule-strategies-meta" type="application/json">
+{
+  {% for strat in available_rule_strategies %}
+    "{{ strat.id }}": {
+      "engine": "{{ strat.engine_type }}",
+      "has_time_window": {{ strat.has_time_window|yesno:"true,false" }},
+      "requires_numeric": {{ strat.requires_numeric|yesno:"true,false" }},
+      "requires_evidence": {{ strat.requires_evidence|yesno:"true,false" }},
+      "default_unit": "{{ strat.default_unit|default:''|escapejs }}"
+    }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
 {% endblock %}

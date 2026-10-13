@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Category - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 520px; margin: 2rem auto;">
+  <div class="card" style="box-shadow: var(--shadow); border-top: 4px solid var(--danger);">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+      <span style="font-size: 2rem;">⚠️</span>
+      <div>
+        <h2 style="font-size: 1.35rem; font-weight: 700; color: var(--gray-900); margin: 0;">Delete Habit Category</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Confirm permanent removal of master data</p>
+      </div>
+    </div>
+
+    <div style="background-color: var(--surface-raised); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.5rem; border: 1px solid var(--border);">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+        <span style="font-size: 1.25rem;">{{ category.icon|default:"📁" }}</span>
+        <strong style="font-size: 1.1rem; color: var(--gray-900);">{{ category.name }}</strong>
+      </div>
+      {% if category.description %}
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">{{ category.description }}</p>
+      {% endif %}
+
+      {% if habits_count > 0 %}
+        <div style="color: #f59e0b; font-size: 0.85rem; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.5rem;">
+          <span>⚠️</span> <span>Currently referenced by <strong>{{ habits_count }} habit{{ habits_count|pluralize }}</strong>. Deleting will unassign the category from these habits.</span>
+        </div>
+      {% else %}
+        <div style="color: var(--text-muted); font-size: 0.85rem;">
+          No habits currently reference this category.
+        </div>
+      {% endif %}
+    </div>
+
+    <p style="color: var(--gray-900); font-size: 0.925rem; margin-bottom: 1.5rem;">
+      Are you sure you want to delete <strong>{{ category.name }}</strong>? This action cannot be undone.
+    </p>
+
+    <form method="post" style="display: flex; gap: 0.75rem;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary" style="background-color: var(--danger); border-color: var(--danger); flex: 1;">
+        Yes, Delete Category
+      </button>
+      <a href="{% url 'category_list' %}" class="btn btn-outline">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -6,6 +6,109 @@ from django.utils import timezone
 from tenants.models import Tenant
 
 
+class HabitCategory(models.Model):
+    """
+    Master Data: Configurable Habit Categories with full CRUD support.
+    Strictly tenant-scoped.
+    """
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="habit_categories",
+    )
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    icon = models.CharField(max_length=20, blank=True, default="📁", help_text="Emoji or icon symbol")
+    color = models.CharField(max_length=30, blank=True, default="#38bdf8", help_text="Badge color hex")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = [("tenant", "name")]
+        verbose_name = "Habit Category"
+        verbose_name_plural = "Habit Categories"
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def habits_count(self):
+        return self.habits.count()
+
+
+class RuleStrategy(models.Model):
+    """
+    Master Data: Configurable Completion Validation Rule Strategies with full CRUD support.
+    Strictly tenant-scoped.
+    """
+    class EngineType(models.TextChoices):
+        STANDARD = "STANDARD", "Honor System (One-Click)"
+        TIME_WINDOW = "TIME_WINDOW", "Time Window Constrained"
+        EVIDENCE_FILE = "EVIDENCE_FILE", "Proof Required (Image/Doc)"
+        NUMERIC_TARGET = "NUMERIC_TARGET", "Quantitative Goal"
+        TIME_AND_EVIDENCE = "TIME_AND_EVIDENCE", "Time Window + Proof Required"
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="rule_strategies",
+    )
+    name = models.CharField(max_length=120)
+    engine_type = models.CharField(
+        max_length=30,
+        choices=EngineType.choices,
+        default=EngineType.STANDARD,
+        help_text="Underlying verification engine rule",
+    )
+    description = models.TextField(blank=True, default="", help_text="Explanation and instructions for this strategy")
+    requires_evidence = models.BooleanField(default=False)
+    requires_numeric = models.BooleanField(default=False)
+    has_time_window = models.BooleanField(default=False)
+    default_unit = models.CharField(max_length=30, blank=True, default="", help_text="Default metric unit (optional)")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = [("tenant", "name")]
+        verbose_name = "Rule Strategy"
+        verbose_name_plural = "Rule Strategies"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        # Auto-align requirement flags with selected engine_type
+        if self.engine_type == self.EngineType.TIME_WINDOW:
+            self.has_time_window = True
+            self.requires_evidence = False
+            self.requires_numeric = False
+        elif self.engine_type == self.EngineType.EVIDENCE_FILE:
+            self.requires_evidence = True
+            self.has_time_window = False
+            self.requires_numeric = False
+        elif self.engine_type == self.EngineType.NUMERIC_TARGET:
+            self.requires_numeric = True
+            self.has_time_window = False
+            self.requires_evidence = False
+        elif self.engine_type == self.EngineType.TIME_AND_EVIDENCE:
+            self.has_time_window = True
+            self.requires_evidence = True
+            self.requires_numeric = False
+        elif self.engine_type == self.EngineType.STANDARD:
+            self.has_time_window = False
+            self.requires_evidence = False
+            self.requires_numeric = False
+        super().save(*args, **kwargs)
+
+    @property
+    def habits_count(self):
+        return self.habits.count()
+
+
 class Habit(models.Model):
     """
     Represents an individual habit with scheduling configuration.
@@ -52,11 +155,24 @@ class Habit(models.Model):
     )
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True, default="")
-    category = models.CharField(
-        max_length=50,
-        choices=Category.choices,
+    category_ref = models.ForeignKey(
+        HabitCategory,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        default=Category.OTHER,
+        related_name="habits",
+    )
+    category = models.CharField(
+        max_length=100,
+        blank=True,
+        default="Other",
+    )
+    rule_strategy_ref = models.ForeignKey(
+        RuleStrategy,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="habits",
     )
     frequency = models.CharField(
         max_length=20,
@@ -221,6 +337,42 @@ class Habit(models.Model):
         sorted_days = sorted(self.selected_weekdays or [])
         return ", ".join(days_map[d] for d in sorted_days) if sorted_days else "None"
 
+    def save(self, *args, **kwargs):
+        # 1. Synchronize category and category_ref
+        if self.category and self.tenant_id:
+            if not self.category_ref or self.category_ref.name != self.category:
+                cat, _ = HabitCategory.objects.get_or_create(
+                    tenant=self.tenant,
+                    name=self.category,
+                    defaults={"is_active": True},
+                )
+                self.category_ref = cat
+        elif self.category_ref:
+            self.category = self.category_ref.name
+
+        # 2. Synchronize validation_rule and rule_strategy_ref
+        if self.validation_rule and self.tenant_id:
+            if not self.rule_strategy_ref or self.rule_strategy_ref.engine_type != self.validation_rule:
+                strat = RuleStrategy.objects.filter(
+                    tenant=self.tenant,
+                    engine_type=self.validation_rule,
+                ).first()
+                if not strat:
+                    label = dict(self.ValidationRule.choices).get(self.validation_rule, self.validation_rule)
+                    strat, _ = RuleStrategy.objects.get_or_create(
+                        tenant=self.tenant,
+                        name=label,
+                        defaults={
+                            "engine_type": self.validation_rule,
+                            "is_active": True,
+                        },
+                    )
+                self.rule_strategy_ref = strat
+        elif self.rule_strategy_ref:
+            self.validation_rule = self.rule_strategy_ref.engine_type
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
 
@@ -326,3 +478,67 @@ class HabitCompletion(models.Model):
 
     def __str__(self):
         return f"{self.habit.name} - {self.completion_date}"
+
+
+def seed_default_master_data_for_tenant(tenant):
+    """
+    Seeds baseline master data (Categories and Rule Strategies) for a tenant if not present.
+    """
+    default_categories = [
+        {"name": "Health", "icon": "🍎", "color": "#10b981", "description": "Physical health, nutrition, and well-being."},
+        {"name": "Fitness", "icon": "🏋️", "color": "#f59e0b", "description": "Exercise, workouts, and athletic training."},
+        {"name": "Learning", "icon": "📚", "color": "#6366f1", "description": "Reading, studying, coding, and skill development."},
+        {"name": "Productivity", "icon": "⚡", "color": "#3b82f6", "description": "Work habits, focus routines, and organization."},
+        {"name": "Personal Development", "icon": "🌱", "color": "#ec4899", "description": "Mindfulness, meditation, journaling, and self-improvement."},
+        {"name": "Other", "icon": "📌", "color": "#8b5cf6", "description": "General habits and hobbies."},
+    ]
+    for cat in default_categories:
+        HabitCategory.objects.get_or_create(
+            tenant=tenant,
+            name=cat["name"],
+            defaults={
+                "icon": cat["icon"],
+                "color": cat["color"],
+                "description": cat["description"],
+                "is_active": True,
+            },
+        )
+
+    default_rules = [
+        {
+            "name": "Honor System (One-Click)",
+            "engine_type": RuleStrategy.EngineType.STANDARD,
+            "description": "Standard honor system. Check off habit with a single tap.",
+        },
+        {
+            "name": "Time Window Constrained",
+            "engine_type": RuleStrategy.EngineType.TIME_WINDOW,
+            "description": "Can only be completed within a defined daily time window.",
+        },
+        {
+            "name": "Proof Required (Image/Doc)",
+            "engine_type": RuleStrategy.EngineType.EVIDENCE_FILE,
+            "description": "Requires uploading an image or document as proof of completion.",
+        },
+        {
+            "name": "Quantitative Goal",
+            "engine_type": RuleStrategy.EngineType.NUMERIC_TARGET,
+            "description": "Requires logging a numeric value that reaches or exceeds your target.",
+        },
+        {
+            "name": "Time Window + Proof Required",
+            "engine_type": RuleStrategy.EngineType.TIME_AND_EVIDENCE,
+            "description": "Requires completing within a time window AND uploading proof.",
+        },
+    ]
+    for rule in default_rules:
+        RuleStrategy.objects.get_or_create(
+            tenant=tenant,
+            name=rule["name"],
+            defaults={
+                "engine_type": rule["engine_type"],
+                "description": rule["description"],
+                "is_active": True,
+            },
+        )
+

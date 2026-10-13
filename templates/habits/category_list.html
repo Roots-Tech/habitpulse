@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Habit Categories - Master Data - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <span style="font-size: 1.5rem;">📁</span>
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--gray-900); margin: 0;">Habit Categories</h1>
+        <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--primary); font-size: 0.75rem;">Master Data</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.925rem; margin: 0;">
+        Manage and configure categories used to group habits across your workspace.
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <a href="{% url 'category_create' %}" class="btn btn-primary">+ New Category</a>
+    </div>
+  </div>
+
+  <!-- Search Filter Bar -->
+  <div class="card" style="padding: 0.85rem 1.25rem; margin-bottom: 1.5rem;">
+    <form method="get" action="{% url 'category_list' %}" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 240px; position: relative;">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Search categories by name or description..." class="form-control" style="padding-left: 2.25rem;">
+        <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem;">🔍</span>
+      </div>
+      <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+      {% if search_query %}
+        <a href="{% url 'category_list' %}" class="btn btn-outline btn-sm">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Category List Table / Cards -->
+  {% if categories %}
+    <div class="card" style="padding: 0; overflow: hidden; box-shadow: var(--shadow);">
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.925rem;">
+          <thead>
+            <tr style="background-color: var(--surface-raised); border-bottom: 1px solid var(--border-strong); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">
+              <th style="padding: 1rem 1.25rem;">Category</th>
+              <th style="padding: 1rem 1.25rem;">Color</th>
+              <th style="padding: 1rem 1.25rem;">Description</th>
+              <th style="padding: 1rem 1.25rem; text-align: center;">Linked Habits</th>
+              <th style="padding: 1rem 1.25rem; text-align: center;">Status</th>
+              <th style="padding: 1rem 1.25rem; text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cat in categories %}
+              <tr style="border-bottom: 1px solid var(--border); transition: background-color 0.15s ease;">
+                <td style="padding: 1rem 1.25rem;">
+                  <div style="display: flex; align-items: center; gap: 0.65rem;">
+                    <span style="font-size: 1.25rem; line-height: 1;">{{ cat.icon|default:"📁" }}</span>
+                    <div>
+                      <span style="font-weight: 700; color: var(--gray-900); font-size: 1rem;">{{ cat.name }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td style="padding: 1rem 1.25rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="display: inline-block; width: 18px; height: 18px; border-radius: 5px; background-color: {{ cat.color }}; border: 1px solid rgba(0,0,0,0.15);"></span>
+                    <span style="font-family: monospace; font-size: 0.825rem; color: var(--text-muted);">{{ cat.color }}</span>
+                  </div>
+                </td>
+                <td style="padding: 1rem 1.25rem; color: var(--text-muted); max-width: 320px;">
+                  {{ cat.description|default:"—" }}
+                </td>
+                <td style="padding: 1rem 1.25rem; text-align: center;">
+                  <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--gray-900); font-weight: 600;">
+                    {{ cat.total_habits }} habit{{ cat.total_habits|pluralize }}
+                  </span>
+                </td>
+                <td style="padding: 1rem 1.25rem; text-align: center;">
+                  {% if cat.is_active %}
+                    <span class="badge badge-success">Active</span>
+                  {% else %}
+                    <span class="badge badge-danger">Inactive</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 1rem 1.25rem; text-align: right;">
+                  <div style="display: inline-flex; gap: 0.5rem;">
+                    <a href="{% url 'category_edit' cat.pk %}" class="btn btn-outline btn-sm">Edit</a>
+                    <a href="{% url 'category_delete' cat.pk %}" class="btn btn-outline btn-sm" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.4);">Delete</a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">📁</div>
+      <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.5rem;">No Categories Found</h3>
+      <p style="color: var(--text-muted); max-width: 420px; margin: 0 auto 1.5rem;">
+        {% if search_query %}
+          No habit categories matched "{{ search_query }}". Try clearing your search.
+        {% else %}
+          You haven't added any habit categories yet. Create your first category to organize your habits.
+        {% endif %}
+      </p>
+      {% if search_query %}
+        <a href="{% url 'category_list' %}" class="btn btn-outline">Clear Filter</a>
+      {% else %}
+        <a href="{% url 'category_create' %}" class="btn btn-primary">+ Create First Category</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

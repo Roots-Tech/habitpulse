@@ -4,13 +4,25 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .forms import HabitForm, HabitCompletionSubmissionForm
-from .models import Habit, HabitCompletion
+from .forms import (
+    HabitCategoryForm,
+    HabitCompletionSubmissionForm,
+    HabitForm,
+    RuleStrategyForm,
+)
+from .models import (
+    Habit,
+    HabitCategory,
+    HabitCompletion,
+    RuleStrategy,
+    seed_default_master_data_for_tenant,
+)
 from .services import (
     calculate_completion_rate,
     calculate_streaks,
@@ -58,7 +70,7 @@ def habit_create_view(request):
         raise Http404("Workspace not found.")
 
     if request.method == "POST":
-        form = HabitForm(request.POST)
+        form = HabitForm(request.POST, tenant=tenant)
         if form.is_valid():
             habit = form.save(commit=False)
             habit.tenant = tenant
@@ -69,10 +81,13 @@ def habit_create_view(request):
         else:
             messages.error(request, "Please fix the errors in the habit form.")
     else:
-        form = HabitForm()
+        form = HabitForm(tenant=tenant)
+
+    available_rule_strategies = RuleStrategy.objects.filter(tenant=tenant, is_active=True)
 
     return render(request, "habits/habit_form.html", {
         "form": form,
+        "available_rule_strategies": available_rule_strategies,
         "action_title": "Create a New Habit",
         "submit_label": "Create Habit",
     })
@@ -90,7 +105,7 @@ def habit_update_view(request, pk):
     habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
 
     if request.method == "POST":
-        form = HabitForm(request.POST, instance=habit)
+        form = HabitForm(request.POST, instance=habit, tenant=tenant)
         if form.is_valid():
             form.save()
             messages.success(request, f'Habit "{habit.name}" updated successfully!')
@@ -98,11 +113,14 @@ def habit_update_view(request, pk):
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitForm(instance=habit)
+        form = HabitForm(instance=habit, tenant=tenant)
+
+    available_rule_strategies = RuleStrategy.objects.filter(tenant=tenant, is_active=True)
 
     return render(request, "habits/habit_form.html", {
         "form": form,
         "habit": habit,
+        "available_rule_strategies": available_rule_strategies,
         "action_title": f'Edit "{habit.name}"',
         "submit_label": "Save Changes",
     })
@@ -321,3 +339,238 @@ def habit_stats_view(request, pk):
         "stats": stats,
         "today": today,
     })
+
+
+# ==============================================================================
+# MASTER DATA: HABIT CATEGORIES CRUD
+# ==============================================================================
+
+@login_required
+def category_list_view(request):
+    """
+    Master Data: Lists all Habit Categories in the user's active workspace.
+    Supports search query (?q=).
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    if not HabitCategory.objects.filter(tenant=tenant).exists():
+        seed_default_master_data_for_tenant(tenant)
+
+    q = request.GET.get("q", "").strip()
+    categories = HabitCategory.objects.filter(tenant=tenant).annotate(
+        total_habits=Count("habits")
+    )
+    if q:
+        categories = categories.filter(
+            Q(name__icontains=q) | Q(description__icontains=q)
+        )
+
+    categories = categories.order_by("name")
+
+    return render(request, "habits/category_list.html", {
+        "categories": categories,
+        "search_query": q,
+    })
+
+
+@login_required
+def category_create_view(request):
+    """
+    Master Data: Create a new Habit Category for the active tenant.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    if request.method == "POST":
+        form = HabitCategoryForm(request.POST, tenant=tenant)
+        if form.is_valid():
+            category = form.save(commit=False)
+            category.tenant = tenant
+            category.save()
+            messages.success(request, f'Category "{category.name}" created successfully!')
+            return redirect("category_list")
+        else:
+            messages.error(request, "Please fix the errors below.")
+    else:
+        form = HabitCategoryForm(tenant=tenant)
+
+    return render(request, "habits/category_form.html", {
+        "form": form,
+        "action_title": "Create Habit Category",
+        "submit_label": "Create Category",
+    })
+
+
+@login_required
+def category_update_view(request, pk):
+    """
+    Master Data: Edit an existing Habit Category. Strictly tenant-scoped.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    category = get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
+
+    if request.method == "POST":
+        form = HabitCategoryForm(request.POST, instance=category, tenant=tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Category "{category.name}" updated successfully!')
+            return redirect("category_list")
+        else:
+            messages.error(request, "Please fix the errors below.")
+    else:
+        form = HabitCategoryForm(instance=category, tenant=tenant)
+
+    return render(request, "habits/category_form.html", {
+        "form": form,
+        "category": category,
+        "action_title": f'Edit Category: "{category.name}"',
+        "submit_label": "Save Changes",
+    })
+
+
+@login_required
+def category_delete_view(request, pk):
+    """
+    Master Data: Delete a Habit Category. Strictly tenant-scoped.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    category = get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
+    habits_count = category.habits.count()
+
+    if request.method == "POST":
+        category_name = category.name
+        category.delete()
+        messages.success(request, f'Category "{category_name}" was deleted successfully.')
+        return redirect("category_list")
+
+    return render(request, "habits/category_confirm_delete.html", {
+        "category": category,
+        "habits_count": habits_count,
+    })
+
+
+# ==============================================================================
+# MASTER DATA: RULE STRATEGIES CRUD
+# ==============================================================================
+
+@login_required
+def rule_strategy_list_view(request):
+    """
+    Master Data: Lists all Rule Strategies in the user's active workspace.
+    Supports search query (?q=).
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    if not RuleStrategy.objects.filter(tenant=tenant).exists():
+        seed_default_master_data_for_tenant(tenant)
+
+    q = request.GET.get("q", "").strip()
+    strategies = RuleStrategy.objects.filter(tenant=tenant).annotate(
+        total_habits=Count("habits")
+    )
+    if q:
+        strategies = strategies.filter(
+            Q(name__icontains=q) | Q(description__icontains=q) | Q(engine_type__icontains=q)
+        )
+
+    strategies = strategies.order_by("name")
+
+    return render(request, "habits/rule_strategy_list.html", {
+        "strategies": strategies,
+        "search_query": q,
+    })
+
+
+@login_required
+def rule_strategy_create_view(request):
+    """
+    Master Data: Create a new Rule Strategy for the active tenant.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    if request.method == "POST":
+        form = RuleStrategyForm(request.POST, tenant=tenant)
+        if form.is_valid():
+            strategy = form.save(commit=False)
+            strategy.tenant = tenant
+            strategy.save()
+            messages.success(request, f'Rule Strategy "{strategy.name}" created successfully!')
+            return redirect("rule_strategy_list")
+        else:
+            messages.error(request, "Please fix the errors below.")
+    else:
+        form = RuleStrategyForm(tenant=tenant)
+
+    return render(request, "habits/rule_strategy_form.html", {
+        "form": form,
+        "action_title": "Create Rule Strategy",
+        "submit_label": "Create Strategy",
+    })
+
+
+@login_required
+def rule_strategy_update_view(request, pk):
+    """
+    Master Data: Edit an existing Rule Strategy. Strictly tenant-scoped.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    strategy = get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
+
+    if request.method == "POST":
+        form = RuleStrategyForm(request.POST, instance=strategy, tenant=tenant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Rule Strategy "{strategy.name}" updated successfully!')
+            return redirect("rule_strategy_list")
+        else:
+            messages.error(request, "Please fix the errors below.")
+    else:
+        form = RuleStrategyForm(instance=strategy, tenant=tenant)
+
+    return render(request, "habits/rule_strategy_form.html", {
+        "form": form,
+        "strategy": strategy,
+        "action_title": f'Edit Rule Strategy: "{strategy.name}"',
+        "submit_label": "Save Changes",
+    })
+
+
+@login_required
+def rule_strategy_delete_view(request, pk):
+    """
+    Master Data: Delete a Rule Strategy. Strictly tenant-scoped.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    strategy = get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
+    habits_count = strategy.habits.count()
+
+    if request.method == "POST":
+        strategy_name = strategy.name
+        strategy.delete()
+        messages.success(request, f'Rule Strategy "{strategy_name}" was deleted successfully.')
+        return redirect("rule_strategy_list")
+
+    return render(request, "habits/rule_strategy_confirm_delete.html", {
+        "strategy": strategy,
+        "habits_count": habits_count,
+    })
+

@@ -21,28 +21,56 @@ document.addEventListener("DOMContentLoaded", () => {
     updateWeekdayVisibility(); // Initial check on load
   }
 
-  // 1b. Validation Rule Toggle in Habit Form
+  // 1b. Validation Rule / Rule Strategy Toggle in Habit Form
+  const strategySelect = document.getElementById("id_rule_strategy_ref");
   const ruleSelect = document.getElementById("id_validation_rule");
   const timeContainer = document.getElementById("time-window-container");
   const numericContainer = document.getElementById("numeric-target-container");
   const evidenceContainer = document.getElementById("evidence-hint-container");
+  const unitInput = document.getElementById("id_unit_label");
 
-  if (ruleSelect) {
-    const updateValidationRuleVisibility = () => {
+  let strategiesMeta = {};
+  const metaElem = document.getElementById("rule-strategies-meta");
+  if (metaElem) {
+    try {
+      strategiesMeta = JSON.parse(metaElem.textContent);
+    } catch (e) {
+      console.error("Failed to parse rule strategies meta", e);
+    }
+  }
+
+  const updateStrategyVisibility = () => {
+    let hasTime = false;
+    let hasNumeric = false;
+    let hasEvidence = false;
+
+    if (strategySelect && strategySelect.value && strategiesMeta[strategySelect.value]) {
+      const meta = strategiesMeta[strategySelect.value];
+      hasTime = !!meta.has_time_window;
+      hasNumeric = !!meta.requires_numeric;
+      hasEvidence = !!meta.requires_evidence;
+      if (meta.default_unit && unitInput && !unitInput.value.trim()) {
+        unitInput.value = meta.default_unit;
+      }
+    } else if (ruleSelect) {
       const val = ruleSelect.value;
-      if (timeContainer) {
-        timeContainer.style.display = (val === "TIME_WINDOW" || val === "TIME_AND_EVIDENCE") ? "block" : "none";
-      }
-      if (numericContainer) {
-        numericContainer.style.display = (val === "NUMERIC_TARGET") ? "block" : "none";
-      }
-      if (evidenceContainer) {
-        evidenceContainer.style.display = (val === "EVIDENCE_FILE" || val === "TIME_AND_EVIDENCE") ? "block" : "none";
-      }
-    };
+      hasTime = (val === "TIME_WINDOW" || val === "TIME_AND_EVIDENCE");
+      hasNumeric = (val === "NUMERIC_TARGET");
+      hasEvidence = (val === "EVIDENCE_FILE" || val === "TIME_AND_EVIDENCE");
+    }
 
-    ruleSelect.addEventListener("change", updateValidationRuleVisibility);
-    updateValidationRuleVisibility(); // Initial check on load
+    if (timeContainer) timeContainer.style.display = hasTime ? "block" : "none";
+    if (numericContainer) numericContainer.style.display = hasNumeric ? "block" : "none";
+    if (evidenceContainer) evidenceContainer.style.display = hasEvidence ? "block" : "none";
+  };
+
+  if (strategySelect) {
+    strategySelect.addEventListener("change", updateStrategyVisibility);
+    updateStrategyVisibility();
+  }
+  if (ruleSelect) {
+    ruleSelect.addEventListener("change", updateStrategyVisibility);
+    if (!strategySelect) updateStrategyVisibility();
   }
 
   // 2. Alert Dismissal

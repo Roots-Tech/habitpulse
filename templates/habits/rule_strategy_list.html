@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Rule Strategies - Master Data - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <span style="font-size: 1.5rem;">🛡️</span>
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--gray-900); margin: 0;">Rule Strategies</h1>
+        <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--primary); font-size: 0.75rem;">Master Data</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.925rem; margin: 0;">
+        Manage completion validation rules and verification engines enforcing habit accountability.
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <a href="{% url 'rule_strategy_create' %}" class="btn btn-primary">+ New Rule Strategy</a>
+    </div>
+  </div>
+
+  <!-- Search Filter Bar -->
+  <div class="card" style="padding: 0.85rem 1.25rem; margin-bottom: 1.5rem;">
+    <form method="get" action="{% url 'rule_strategy_list' %}" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 240px; position: relative;">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Search rule strategies by name or engine..." class="form-control" style="padding-left: 2.25rem;">
+        <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem;">🔍</span>
+      </div>
+      <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+      {% if search_query %}
+        <a href="{% url 'rule_strategy_list' %}" class="btn btn-outline btn-sm">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Rule Strategy Table -->
+  {% if strategies %}
+    <div class="card" style="padding: 0; overflow: hidden; box-shadow: var(--shadow);">
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.925rem;">
+          <thead>
+            <tr style="background-color: var(--surface-raised); border-bottom: 1px solid var(--border-strong); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">
+              <th style="padding: 1rem 1.25rem;">Strategy Name</th>
+              <th style="padding: 1rem 1.25rem;">Underlying Engine</th>
+              <th style="padding: 1rem 1.25rem;">Constraints & Unit</th>
+              <th style="padding: 1rem 1.25rem; text-align: center;">Linked Habits</th>
+              <th style="padding: 1rem 1.25rem; text-align: center;">Status</th>
+              <th style="padding: 1rem 1.25rem; text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for strat in strategies %}
+              <tr style="border-bottom: 1px solid var(--border); transition: background-color 0.15s ease;">
+                <td style="padding: 1rem 1.25rem;">
+                  <div>
+                    <span style="font-weight: 700; color: var(--gray-900); font-size: 1rem;">{{ strat.name }}</span>
+                    {% if strat.description %}
+                      <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.2rem; max-width: 320px;">
+                        {{ strat.description }}
+                      </div>
+                    {% endif %}
+                  </div>
+                </td>
+                <td style="padding: 1rem 1.25rem;">
+                  {% if strat.engine_type == 'STANDARD' %}
+                    <span class="badge" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);">
+                      ✓ Honor System (One-Click)
+                    </span>
+                  {% elif strat.engine_type == 'TIME_WINDOW' %}
+                    <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">
+                      ⏰ Time Window
+                    </span>
+                  {% elif strat.engine_type == 'EVIDENCE_FILE' %}
+                    <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">
+                      📎 Proof Required
+                    </span>
+                  {% elif strat.engine_type == 'NUMERIC_TARGET' %}
+                    <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);">
+                      🎯 Quantitative Metric
+                    </span>
+                  {% elif strat.engine_type == 'TIME_AND_EVIDENCE' %}
+                    <span class="badge" style="background-color: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.35);">
+                      ⏰ Time + 📎 Proof
+                    </span>
+                  {% else %}
+                    <span class="badge">{{ strat.get_engine_type_display }}</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 1rem 1.25rem;">
+                  <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; font-size: 0.8rem;">
+                    {% if strat.has_time_window %}
+                      <span style="color: #38bdf8; background-color: var(--surface-raised); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">Time-Locked</span>
+                    {% endif %}
+                    {% if strat.requires_evidence %}
+                      <span style="color: #c084fc; background-color: var(--surface-raised); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">Upload Proof</span>
+                    {% endif %}
+                    {% if strat.requires_numeric %}
+                      <span style="color: #fbbf24; background-color: var(--surface-raised); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">Target Goal</span>
+                    {% endif %}
+                    {% if strat.default_unit %}
+                      <span style="color: var(--text-muted); background-color: var(--surface-raised); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">Unit: <strong>{{ strat.default_unit }}</strong></span>
+                    {% endif %}
+                    {% if not strat.has_time_window and not strat.requires_evidence and not strat.requires_numeric and not strat.default_unit %}
+                      <span style="color: var(--text-muted);">None</span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td style="padding: 1rem 1.25rem; text-align: center;">
+                  <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--gray-900); font-weight: 600;">
+                    {{ strat.total_habits }} habit{{ strat.total_habits|pluralize }}
+                  </span>
+                </td>
+                <td style="padding: 1rem 1.25rem; text-align: center;">
+                  {% if strat.is_active %}
+                    <span class="badge badge-success">Active</span>
+                  {% else %}
+                    <span class="badge badge-danger">Inactive</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 1rem 1.25rem; text-align: right;">
+                  <div style="display: inline-flex; gap: 0.5rem;">
+                    <a href="{% url 'rule_strategy_edit' strat.pk %}" class="btn btn-outline btn-sm">Edit</a>
+                    <a href="{% url 'rule_strategy_delete' strat.pk %}" class="btn btn-outline btn-sm" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.4);">Delete</a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🛡️</div>
+      <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.5rem;">No Rule Strategies Found</h3>
+      <p style="color: var(--text-muted); max-width: 420px; margin: 0 auto 1.5rem;">
+        {% if search_query %}
+          No rule strategies matched "{{ search_query }}". Try clearing your search.
+        {% else %}
+          You haven't configured any rule strategies yet. Create custom strategies to enforce habit completion criteria.
+        {% endif %}
+      </p>
+      {% if search_query %}
+        <a href="{% url 'rule_strategy_list' %}" class="btn btn-outline">Clear Filter</a>
+      {% else %}
+        <a href="{% url 'rule_strategy_create' %}" class="btn btn-primary">+ Create First Strategy</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

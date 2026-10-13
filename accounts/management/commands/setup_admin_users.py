@@ -106,6 +106,12 @@ class Command(BaseCommand):
             orphaned_tenants.delete()
             self.stdout.write(self.style.WARNING(f"Cleaned up {count_orphans} orphaned tenant(s)"))
 
+        # 4. Seed default master data (Categories and Rule Strategies) for all tenants
+        from habits.models import seed_default_master_data_for_tenant
+        for tenant in Tenant.objects.all():
+            seed_default_master_data_for_tenant(tenant)
+        self.stdout.write(self.style.SUCCESS("Seeded default master data for all active workspaces."))
+
         # Verify final user count
         final_users = list(User.objects.values_list("username", "is_superuser"))
         self.stdout.write(self.style.SUCCESS(

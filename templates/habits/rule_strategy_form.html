@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ action_title }} - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 1rem auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="{% url 'rule_strategy_list' %}" class="btn btn-outline btn-sm">&larr; Back to Rule Strategies</a>
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow);">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+      <span style="font-size: 1.35rem;">🛡️</span>
+      <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-900); margin: 0;">{{ action_title }}</h1>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
+      Configure master data completion validation rules, underlying engine, and requirements
+    </p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error" style="margin-bottom: 1rem;">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.name.id_for_label }}">Strategy Name <span style="color: var(--danger);">*</span></label>
+        {{ form.name }}
+        {% if form.name.errors %}
+          <div class="form-error">{{ form.name.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help">e.g., "Honor System (One-Click)", "Morning Focus Window", "Workout Rep Counter", "Proof Required"</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.engine_type.id_for_label }}">Underlying Verification Engine <span style="color: var(--danger);">*</span></label>
+        {{ form.engine_type }}
+        {% if form.engine_type.errors %}
+          <div class="form-error">{{ form.engine_type.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help">The backend validation engine that evaluates compliance before a habit day can be marked complete.</div>
+      </div>
+
+      <!-- Engine Explanation Guide -->
+      <div style="background-color: var(--surface-raised); border-radius: var(--radius-sm); border: 1px solid var(--border-strong); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.825rem; color: var(--text-muted);">
+        <div style="font-weight: 600; color: var(--gray-900); margin-bottom: 0.35rem;">Engine Specifications:</div>
+        <ul style="margin: 0; padding-left: 1.2rem; display: grid; gap: 0.25rem;">
+          <li><strong>Honor System:</strong> Standard 1-click check-off directly from the dashboard.</li>
+          <li><strong>Time Window:</strong> Locks completion outside of specified start and end hours.</li>
+          <li><strong>Proof Required:</strong> Requires attaching a photo or document (PNG, JPG, PDF).</li>
+          <li><strong>Quantitative Goal:</strong> Requires entering a metric value meeting a target threshold.</li>
+          <li><strong>Time Window + Proof:</strong> Enforces both a time window AND an uploaded evidence attachment.</li>
+        </ul>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.default_unit.id_for_label }}">Default Unit Label (Optional)</label>
+        {{ form.default_unit }}
+        {% if form.default_unit.errors %}
+          <div class="form-error">{{ form.default_unit.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help">Default metric unit pre-filled when creating habits with quantitative goals (e.g., mins, km, pages, reps).</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.description.id_for_label }}">Description & User Instructions (Optional)</label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <div class="form-error">{{ form.description.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group" style="margin-top: 1.25rem;">
+        <div class="form-check">
+          {{ form.is_active }}
+          <label class="form-label" for="{{ form.is_active.id_for_label }}" style="margin-bottom: 0; cursor: pointer;">
+            Active Strategy (available in habit creation and editing dropdowns)
+          </label>
+        </div>
+        {% if form.is_active.errors %}
+          <div class="form-error">{{ form.is_active.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 2rem;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">{{ submit_label }}</button>
+        <a href="{% url 'rule_strategy_list' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
