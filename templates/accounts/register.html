@@ -5,11 +5,11 @@
 {% block container_class %}auth-container{% endblock %}
 
 {% block content %}
-<div class="card" style="box-shadow: var(--shadow-lg);">
-  <div style="text-align: center; margin-bottom: 1.5rem;">
-    <img src="{% static 'images/habit_icon.png' %}" alt="HabitPulse" style="width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 0.75rem; display: block; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
-    <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-900);">Create Your Account</h1>
-    <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Get started with your personal workspace</p>
+<div class="card">
+  <div style="text-align: center; margin-bottom: 1.75rem;">
+    <img src="{% static 'images/habit_icon.png' %}" alt="HabitPulse" style="width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 0.85rem; display: block; box-shadow: 0 4px 14px rgba(0,0,0,0.25);">
+    <h1 style="font-size: 1.55rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">Create Your Account</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem;">Get started with your personal workspace</p>
   </div>
 
   <form method="post" action="{% url 'register' %}">
@@ -60,10 +60,10 @@
       {% endfor %}
     </div>
 
-    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1rem;">Sign Up & Create Workspace</button>
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1.25rem; padding: 0.75rem 1rem; font-size: 0.95rem; font-weight: 700;">Sign Up & Create Workspace</button>
   </form>
 
-  <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); font-size: 0.875rem; color: #ecd2d2;">
+  <div style="text-align: center; margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); font-size: 0.875rem; color: var(--text-muted);">
     Already have an account? <a href="{% url 'login' %}" style="font-weight: 600; color: var(--primary);">Log in</a>
   </div>
 </div>

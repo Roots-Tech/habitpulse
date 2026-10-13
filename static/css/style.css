@@ -263,7 +263,14 @@ body {
   background-attachment: fixed;
 }
 
-[data-theme="light"] body,
+[data-theme="light"] body {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
 [data-theme="rose"] body,
 [data-theme="dark"] body {
   background-image: none;
@@ -304,9 +311,17 @@ a:hover {
 
 .auth-container {
   max-width: 440px;
-  margin: 4rem auto;
+  margin: 3.5rem auto;
   padding: 0 1.25rem;
   width: 100%;
+}
+
+.auth-container .card {
+  padding: 2.25rem 2rem;
+  border-radius: 18px;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  background-color: var(--surface);
 }
 
 /* Header & Frosted Navbar */
@@ -711,6 +726,7 @@ a:hover {
 /* Form Controls */
 .form-group {
   margin-bottom: 1.25rem;
+  text-align: left;
 }
 
 .form-label {
@@ -718,37 +734,75 @@ a:hover {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-main);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.45rem;
+  text-align: left;
 }
 
+.form-control,
 .form-input,
 .form-select,
-.form-textarea {
+.form-textarea,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+select,
+textarea {
+  display: block;
   width: 100%;
-  padding: 0.65rem 0.875rem;
-  border: 1px solid var(--border-strong);
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background-color: var(--surface-raised);
   color: var(--text-main);
   font-size: 0.95rem;
   font-family: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
+.form-control:focus,
 .form-input:focus,
 .form-select:focus,
-.form-textarea:focus {
+.form-textarea:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+input[type="time"]:focus,
+select:focus,
+textarea:focus {
   border-color: var(--primary);
   outline: none;
   box-shadow: 0 0 0 3px var(--primary-light);
+  background-color: var(--surface);
 }
 
+.form-control::placeholder,
 .form-input::placeholder,
-.form-textarea::placeholder {
-  color: var(--text-dim);
+.form-textarea::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 
-.form-select {
+.form-control:disabled,
+.form-input:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--surface);
+}
+
+.form-select,
+select.form-control {
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
@@ -757,11 +811,13 @@ a:hover {
   padding-right: 2.25rem;
 }
 
-[data-theme="light"] .form-select {
+[data-theme="light"] .form-select,
+[data-theme="light"] select.form-control {
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
 }
 
-.form-select option {
+.form-select option,
+select.form-control option {
   background-color: var(--surface);
   color: var(--text-main);
 }
