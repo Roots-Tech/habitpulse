@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}Users - Admin Panel - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+  <!-- Top Navigation & Action Toolbar (matching ERP/Odoo style) -->
+  <div class="admin-toolbar">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="{% url 'admin_user_create' %}" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.875rem;">
+        New
+      </a>
+      <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--gray-900); display: flex; align-items: center; gap: 0.4rem; margin: 0;">
+        Users <span style="font-size: 1rem; color: var(--gray-400); cursor: pointer;" title="Settings">⚙</span>
+      </h1>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <!-- Search Box with filter indicator -->
+      <form method="get" action="{% url 'admin_users_list' %}" style="margin: 0;">
+        <div class="admin-search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gray-400);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          {% if search_query %}
+            <span class="badge" style="background-color: rgba(56, 189, 248, 0.2); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.45); font-size: 0.75rem; text-transform: none;">
+              Search: {{ search_query }}
+              <a href="{% url 'admin_users_list' %}" style="margin-left: 4px; text-decoration: none; color: inherit;">&times;</a>
+            </span>
+          {% endif %}
+          <input type="text" name="q" value="{{ search_query }}" placeholder="Search users by name, login, email..." aria-label="Search users">
+        </div>
+      </form>
+
+      <!-- Pagination / Counter indicator -->
+      <div style="font-size: 0.85rem; color: #b9dcf2; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+        <span>1 - {{ filtered_count }} / {{ total_count }}</span>
+        <div style="display: inline-flex; border: 1px solid var(--border-strong); border-radius: 4px; overflow: hidden;">
+          <span style="padding: 2px 7px; background: var(--surface-raised); color: #d4edfb; font-size: 0.75rem;">&lt;</span>
+          <span style="padding: 2px 7px; background: var(--surface-raised); color: #d4edfb; font-size: 0.75rem; border-left: 1px solid var(--border-strong);">&gt;</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Data Table (Matching Image 2) -->
+  <div class="admin-table-container">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th style="width: 36px; text-align: center;">
+            <input type="checkbox" aria-label="Select all users" style="cursor: pointer;">
+          </th>
+          <th>Name</th>
+          <th>Login</th>
+          <th>Language / Role</th>
+          <th>Latest Authentication</th>
+          <th>Company / Workspace</th>
+          <th style="text-align: center;">Status</th>
+          <th style="text-align: center; width: 140px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          <tr>
+            <td style="text-align: center;">
+              <input type="checkbox" aria-label="Select user {{ u.login }}" style="cursor: pointer;">
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span class="user-avatar" style="width: 28px; height: 28px; font-size: 0.75rem;">
+                  {{ u.display_name|slice:":1"|upper }}
+                </span>
+                <div>
+                  <a href="{% url 'admin_user_edit' u.id %}" style="font-weight: 600; color: var(--gray-900);">
+                    {{ u.display_name }}
+                  </a>
+                  {% if u.display_name != u.login %}
+                    <div style="font-size: 0.75rem; color: var(--gray-500);">@{{ u.login }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td>
+              <div>{{ u.email }}</div>
+            </td>
+            <td>
+              <span style="color: var(--gray-700);">{{ u.language }}</span>
+              <span style="font-size: 0.75rem; color: var(--gray-400); margin-left: 4px;">({{ u.role }})</span>
+            </td>
+            <td>
+              {% if u.last_login %}
+                <span style="font-family: monospace; font-size: 0.825rem; color: var(--gray-700);">
+                  {{ u.last_login|date:"m/d/Y H:i:s" }}
+                </span>
+              {% else %}
+                <span style="color: var(--gray-400); font-size: 0.8rem;">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span style="color: var(--gray-800); font-weight: 500;">{{ u.company }}</span>
+              <div style="font-size: 0.75rem; color: var(--gray-500);">{{ u.habits_count }} habit{{ u.habits_count|pluralize }}</div>
+            </td>
+            <td style="text-align: center;">
+              <span class="badge {{ u.status_class }}" style="padding: 0.3rem 0.75rem; border-radius: 9999px; font-size: 0.72rem; letter-spacing: 0.02em;">
+                {{ u.status_label }}
+              </span>
+            </td>
+            <td style="text-align: center; white-space: nowrap;">
+              <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Edit User">
+                  Edit
+                </a>
+                {% if u.id != request.user.id %}
+                  <form method="post" action="{% url 'admin_user_delete' u.id %}"
+                        onsubmit="return confirm('Delete user &quot;{{ u.login }}&quot;? All their habits and data will be removed.');"
+                        style="display: inline; margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger-outline btn-sm" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Delete User">
+                      Delete
+                    </button>
+                  </form>
+                {% else %}
+                  <span class="badge" style="background-color: var(--gray-100); color: var(--gray-500); font-size: 0.7rem;">You</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 3rem 1rem; color: var(--gray-500);">
+              <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">No users found matching your search.</div>
+              {% if search_query %}
+                <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">Clear Search</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

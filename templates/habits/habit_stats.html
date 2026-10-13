@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Statistics - {{ habit.name }} - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+      <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">&larr; Dashboard</a>
+      <a href="{% url 'habit_calendar' habit.pk %}" class="btn btn-outline btn-sm">📅 Calendar</a>
+      {% if habit.category %}
+        <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
+      {% endif %}
+    </div>
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--gray-900);">{{ habit.name }} — Progress & Analytics</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem;">Started on {{ habit.start_date }} &bull; Frequency: {{ habit.get_weekday_display_names }}</p>
+  </div>
+
+  <div style="display: flex; gap: 0.5rem;">
+    <a href="{% url 'habit_edit' habit.pk %}" class="btn btn-secondary btn-sm">Edit Habit</a>
+  </div>
+</div>
+
+<!-- Primary Metric Cards -->
+<div class="stats-grid">
+  <div class="metric-card">
+    <div class="metric-header">Current Streak</div>
+    <div class="metric-value" style="color: #ea580c;">🔥 {{ stats.current_streak }}</div>
+    <div class="metric-sub">Consecutive scheduled days</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">Longest Streak</div>
+    <div class="metric-value" style="color: #059669;">🏆 {{ stats.longest_streak }}</div>
+    <div class="metric-sub">All-time record</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">Total Completed</div>
+    <div class="metric-value">{{ stats.total_completed }}</div>
+    <div class="metric-sub">Lifetime completed days</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">Today's Status</div>
+    <div class="metric-value">
+      {% if stats.is_completed_today %}
+        <span style="color: #059669;">Done ✓</span>
+      {% elif stats.is_scheduled_today %}
+        <span style="color: #d97706;">Pending •</span>
+      {% else %}
+        <span style="color: var(--gray-400); font-size: 1.5rem;">Rest Day</span>
+      {% endif %}
+    </div>
+    <div class="metric-sub">
+      {% if stats.is_scheduled_today %}Scheduled for today{% else %}Unscheduled day{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Completion Rates Breakdown with Visual Bars -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+  <!-- 7-Day Window -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title" style="font-size: 1.15rem;">Last 7 Days Consistency</h3>
+        <p class="card-description">Trailing 7 calendar days up to today</p>
+      </div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">
+        {% if stats.rate_7d.rate is not None %}{{ stats.rate_7d.rate }}%{% else %}N/A{% endif %}
+      </div>
+    </div>
+
+    {% if stats.rate_7d.eligible > 0 %}
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width: {{ stats.rate_7d.rate|default:0 }}%;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+        <span>{{ stats.rate_7d.completed }} completed</span>
+        <span>{{ stats.rate_7d.eligible }} eligible scheduled days</span>
+      </div>
+    {% else %}
+      <div style="padding: 1rem; background-color: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.875rem; color: #cbd5e1; text-align: center;">
+        No eligible scheduled days in the last 7 days (newly created habit or rest period).
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- 30-Day Window -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title" style="font-size: 1.15rem;">Last 30 Days Consistency</h3>
+        <p class="card-description">Trailing 30 calendar days up to today</p>
+      </div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">
+        {% if stats.rate_30d.rate is not None %}{{ stats.rate_30d.rate }}%{% else %}N/A{% endif %}
+      </div>
+    </div>
+
+    {% if stats.rate_30d.eligible > 0 %}
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width: {{ stats.rate_30d.rate|default:0 }}%;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+        <span>{{ stats.rate_30d.completed }} completed</span>
+        <span>{{ stats.rate_30d.eligible }} eligible scheduled days</span>
+      </div>
+    {% else %}
+      <div style="padding: 1rem; background-color: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.875rem; color: #cbd5e1; text-align: center;">
+        No eligible scheduled days in the last 30 days.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- All-Time Window -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title" style="font-size: 1.15rem;">All-Time Adherence</h3>
+        <p class="card-description">Since habit creation on {{ habit.start_date }}</p>
+      </div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">
+        {% if stats.all_time.rate is not None %}{{ stats.all_time.rate }}%{% else %}N/A{% endif %}
+      </div>
+    </div>
+
+    {% if stats.all_time.eligible > 0 %}
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width: {{ stats.all_time.rate|default:0 }}%;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+        <span>{{ stats.all_time.completed }} completed</span>
+        <span>{{ stats.all_time.eligible }} total eligible days</span>
+      </div>
+    {% else %}
+      <div style="padding: 1rem; background-color: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.875rem; color: #cbd5e1; text-align: center;">
+        Habit start date is set to the future. No eligible days elapsed yet.
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

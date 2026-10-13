@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Log In - HabitPulse{% endblock %}
+{% block container_class %}auth-container{% endblock %}
+
+{% block content %}
+<div class="card" style="box-shadow: var(--shadow-lg);">
+  <div style="text-align: center; margin-bottom: 1.5rem;">
+    <img src="{% static 'images/habit_icon.png' %}" alt="HabitPulse" style="width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 0.75rem; display: block; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+    <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-900);">Welcome Back</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Log in to continue building your daily habits</p>
+  </div>
+
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-error" style="margin-bottom: 1rem;">
+        {% for error in form.non_field_errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="form-group">
+      <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+      {{ form.username }}
+      {% if form.username.errors %}
+        <div class="form-error">{{ form.username.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+      {{ form.password }}
+      {% if form.password.errors %}
+        <div class="form-error">{{ form.password.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1rem;">Log In</button>
+  </form>
+
+  <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); font-size: 0.875rem; color: #ecd2d2;">
+    Don't have an account? <a href="{% url 'register' %}" style="font-weight: 600; color: var(--primary);">Sign up</a>
+  </div>
+</div>
+{% endblock %}

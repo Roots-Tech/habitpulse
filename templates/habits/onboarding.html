@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Welcome - Build Better Habits{% endblock %}
+
+{% block content %}
+<div class="onboarding-hero">
+  <div class="onboarding-icon" style="width: auto; height: auto; margin: 0 auto 1.5rem;">
+    <img src="{% static 'images/habit_icon.png' %}" alt="Habit App Icon" style="width: 108px; height: 108px; border-radius: 24px; box-shadow: 0 14px 28px -6px rgba(0,0,0,0.3); object-fit: cover; display: block;">
+  </div>
+  <h1 class="onboarding-title">Build better habits, one day at a time.</h1>
+  <p class="onboarding-desc">
+    Welcome to your habit tracking workspace! Here you can define your daily routines,
+    record daily progress, track continuous streaks, and inspect monthly consistency calendars.
+  </p>
+
+  <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+    <a href="{% url 'habit_create' %}" class="btn btn-primary" style="font-size: 1.05rem; padding: 0.8rem 1.75rem;">
+      ✨ Create Your First Habit
+    </a>
+  </div>
+
+  <div class="onboarding-inspiration-box">
+    <h3 class="onboarding-inspiration-title">💡 Quick Inspiration to get started:</h3>
+    <ul class="onboarding-inspiration-list">
+      <li><span class="inspiration-tag">Health:</span> Drink 2 liters of water daily</li>
+      <li><span class="inspiration-tag">Fitness:</span> Exercise for 30 minutes</li>
+      <li><span class="inspiration-tag">Learning:</span> Solve two DSA problems</li>
+      <li><span class="inspiration-tag">Productivity:</span> Practice Python coding</li>
+      <li><span class="inspiration-tag">Personal Development:</span> Read 20 pages of a book</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

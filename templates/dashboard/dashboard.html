@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <div style="font-size: 0.85rem; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+      {{ today|date:"l, F j, Y" }}
+    </div>
+    <h1 style="font-size: 2rem; font-weight: 800; color: var(--gray-900); letter-spacing: -0.02em;">Daily Focus</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">
+      {{ completed_today_count }} of {{ scheduled_today_count }} scheduled habits completed today
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{% url 'habit_create' %}" class="btn btn-primary">+ Add Habit</a>
+  </div>
+</div>
+
+{% if all_completed_today %}
+  <div class="celebration-banner" role="status">
+    <div class="celebration-icon">🎉</div>
+    <div>
+      <div class="celebration-title">Outstanding work! All scheduled habits completed today!</div>
+      <div class="celebration-subtitle">You showed up and hit 100% of your targets for today. Keep this momentum going tomorrow!</div>
+    </div>
+  </div>
+{% endif %}
+
+{% if habit_cards %}
+  <div class="dashboard-grid">
+    {% for item in habit_cards %}
+      <div class="card habit-card {% if item.is_completed_today %}completed-today{% endif %}">
+        <div>
+          <div class="card-header">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
+                {% if item.habit.category %}
+                  <span class="badge badge-{{ item.habit.category|lower|slugify }}">{{ item.habit.category }}</span>
+                {% endif %}
+                {% if not item.is_scheduled_today %}
+                  <span class="badge" style="background-color: var(--surface-raised); color: #cbd5e1; border: 1px solid var(--border-strong);">Rest Day</span>
+                {% endif %}
+                {% if item.habit.has_time_window %}
+                  <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);" title="Allowed hours">⏰ {{ item.habit.get_time_window_display }}</span>
+                {% endif %}
+                {% if item.habit.requires_numeric %}
+                  <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);" title="Target threshold">🎯 {{ item.habit.target_value }} {{ item.habit.unit_label }}</span>
+                {% endif %}
+                {% if item.habit.requires_evidence and not item.habit.has_time_window %}
+                  <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);" title="Proof of work required">📎 Proof Required</span>
+                {% endif %}
+              </div>
+              <h2 class="card-title" style="font-size: 1.15rem;">{{ item.habit.name }}</h2>
+            </div>
+
+            {% if item.is_completed_today %}
+              <span style="font-size: 1.5rem;" title="Completed today">✅</span>
+            {% elif item.is_scheduled_today %}
+              <span style="font-size: 1.5rem;" title="Scheduled today">⏳</span>
+            {% else %}
+              <span style="font-size: 1.5rem;" title="Not scheduled for today">💤</span>
+            {% endif %}
+          </div>
+
+          {% if item.habit.description %}
+            <p class="card-description">{{ item.habit.description|truncatewords:15 }}</p>
+          {% endif %}
+
+          <div class="stats-row">
+            <div class="stat-item">
+              <span class="stat-label">Current Streak</span>
+              <span class="stat-value streak">
+                🔥 {{ item.current_streak }} <small style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">days</small>
+              </span>
+            </div>
+
+            <div class="stat-item">
+              <span class="stat-label">7-Day Rate</span>
+              <span class="stat-value">
+                {% if item.rate_7d is not None %}
+                  {{ item.rate_7d }}%
+                {% else %}
+                  <span style="font-size: 0.85rem; color: var(--gray-400); font-weight: normal;">No days yet</span>
+                {% endif %}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="habit-card-actions">
+          <div style="display: flex; gap: 0.4rem;">
+            <a href="{% url 'habit_calendar' item.habit.pk %}" class="btn btn-outline btn-sm" title="View monthly calendar">📅 Calendar</a>
+            <a href="{% url 'habit_stats' item.habit.pk %}" class="btn btn-outline btn-sm" title="View detailed statistics">📊 Stats</a>
+          </div>
+
+          <div>
+            {% if item.is_completed_today %}
+              <form method="post" action="{% url 'habit_undo_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline btn-sm" style="color: var(--gray-600);">
+                  ↺ Undo
+                </button>
+              </form>
+            {% elif item.is_scheduled_today %}
+              {% if not item.time_allowed %}
+                <button type="button" class="btn btn-outline btn-sm" disabled style="opacity: 0.65; cursor: not-allowed; border-color: rgba(239, 68, 68, 0.4); color: var(--danger);" title="{{ item.time_status }}">
+                  🔒 {{ item.time_status }}
+                </button>
+              {% elif item.habit.requires_modal %}
+                <button type="button"
+                        class="btn btn-success btn-sm open-completion-modal"
+                        data-habit-id="{{ item.habit.pk }}"
+                        data-habit-name="{{ item.habit.name }}"
+                        data-action-url="{% url 'habit_complete' item.habit.pk %}"
+                        data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
+                        data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
+                        data-target-value="{{ item.habit.target_value|default:'' }}"
+                        data-unit-label="{{ item.habit.unit_label|default:'' }}"
+                        data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% else %}Verify completion{% endif %}">
+                  ✓ Verify & Complete
+                </button>
+              {% else %}
+                <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-success btn-sm">
+                    ✓ Mark Complete
+                  </button>
+                </form>
+              {% endif %}
+            {% else %}
+              <span style="font-size: 0.8rem; color: var(--gray-500); font-style: italic;">Unscheduled today</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--gray-800); margin-bottom: 0.5rem;">No active habits to track</h2>
+    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;">Create a habit or reactivate existing habits from your habits list.</p>
+    <a href="{% url 'habit_create' %}" class="btn btn-primary">+ Create a Habit</a>
+  </div>
+{% endif %}
+
+<!-- Habit Verification Modal -->
+<div id="habit-verification-modal" class="modal-backdrop" style="display: none;">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-habit-title" style="font-size: 1.25rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.2rem;">Verify Habit</h3>
+        <p id="modal-habit-subtitle" style="font-size: 0.825rem; color: var(--text-muted); margin: 0;">Submit evidence or progress metrics</p>
+      </div>
+      <button type="button" class="modal-close-btn" id="close-verification-modal" aria-label="Close modal">&times;</button>
+    </div>
+
+    <form id="verification-form" method="post" enctype="multipart/form-data" action="">
+      {% csrf_token %}
+      <div class="modal-body">
+        <div id="modal-alert" class="alert alert-error" style="display: none; margin-bottom: 1rem;"></div>
+
+        <!-- Numeric Field -->
+        <div id="modal-numeric-group" class="form-group" style="display: none;">
+          <label class="form-label" for="modal-logged-value">
+            <span id="modal-numeric-label">Your Achieved Value</span> <span style="color: var(--danger);">*</span>
+          </label>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="number" step="any" id="modal-logged-value" name="logged_value" class="form-control" placeholder="e.g. 30" style="flex: 1;">
+            <span id="modal-unit-badge" class="badge" style="background-color: var(--surface-raised); font-size: 0.875rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border-strong);">unit</span>
+          </div>
+          <div class="form-help" id="modal-numeric-help">Goal threshold</div>
+        </div>
+
+        <!-- Evidence File Field -->
+        <div id="modal-evidence-group" class="form-group" style="display: none;">
+          <label class="form-label" for="modal-evidence-file">
+            Proof of Completion (Photo or Document) <span style="color: var(--danger);">*</span>
+          </label>
+          <input type="file" id="modal-evidence-file" name="evidence_file" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf">
+          <div class="form-help">Accepted formats: JPG, PNG, WEBP, PDF (max 5 MB). Stored securely.</div>
+        </div>
+
+        <!-- Optional Notes Field -->
+        <div class="form-group">
+          <label class="form-label" for="modal-notes">Reflection / Notes (Optional)</label>
+          <input type="text" id="modal-notes" name="notes" class="form-control" placeholder="Quick thought, reflection, or comment...">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline btn-sm" id="cancel-verification-modal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="submit-verification-btn">✓ Submit & Complete</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

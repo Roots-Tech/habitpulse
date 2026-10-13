@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Habits - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+  <div>
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--gray-900);">All Habits</h1>
+    <p style="color: var(--text-muted); font-size: 0.925rem;">Manage, edit, or adjust the schedule of your habits</p>
+  </div>
+  <a href="{% url 'habit_create' %}" class="btn btn-primary">+ Create New Habit</a>
+</div>
+
+{% if habits %}
+  <div style="display: grid; gap: 1rem;">
+    {% for habit in habits %}
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; {% if not habit.is_active %}opacity: 0.65; background-color: var(--gray-50);{% endif %}">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900);">{{ habit.name }}</h3>
+            {% if habit.category %}
+              <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
+            {% endif %}
+            {% if habit.has_time_window %}
+              <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">⏰ {{ habit.get_time_window_display }}</span>
+            {% endif %}
+            {% if habit.requires_numeric %}
+              <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);">🎯 {{ habit.target_value }} {{ habit.unit_label }}</span>
+            {% endif %}
+            {% if habit.requires_evidence and not habit.has_time_window %}
+              <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">📎 Proof Required</span>
+            {% endif %}
+            {% if not habit.is_active %}
+              <span class="badge" style="background-color: var(--surface-raised); color: #cbd5e1; border: 1px solid var(--border-strong);">Inactive</span>
+            {% endif %}
+          </div>
+
+          {% if habit.description %}
+            <p style="color: #cbd5e1; font-size: 0.875rem; margin-bottom: 0.4rem;">{{ habit.description }}</p>
+          {% endif %}
+
+          <div style="display: flex; gap: 1.5rem; font-size: 0.8rem; color: #94a3b8; flex-wrap: wrap;">
+            <span><strong>Schedule:</strong> {{ habit.get_weekday_display_names }}</span>
+            <span><strong>Started:</strong> {{ habit.start_date }}</span>
+            <span><strong>Rule:</strong> {{ habit.get_validation_rule_display }}</span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <a href="{% url 'habit_calendar' habit.pk %}" class="btn btn-outline btn-sm">📅 Calendar</a>
+          <a href="{% url 'habit_stats' habit.pk %}" class="btn btn-outline btn-sm">📊 Stats</a>
+          <a href="{% url 'habit_edit' habit.pk %}" class="btn btn-secondary btn-sm">Edit</a>
+
+          <form method="post" action="{% url 'habit_toggle_active' habit.pk %}" style="display: inline;">
+            {% csrf_token %}
+            {% if habit.is_active %}
+              <button type="submit" class="btn btn-outline btn-sm" style="color: #fbbf24; border-color: rgba(251, 191, 36, 0.45);">Deactivate</button>
+            {% else %}
+              <button type="submit" class="btn btn-success btn-sm">Reactivate</button>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 3rem 1rem;">
+    <p style="color: var(--text-muted); margin-bottom: 1rem;">No habits found in this workspace.</p>
+    <a href="{% url 'habit_create' %}" class="btn btn-primary">Create Your First Habit</a>
+  </div>
+{% endif %}
+{% endblock %}

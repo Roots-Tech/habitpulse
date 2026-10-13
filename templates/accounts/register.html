@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Account - HabitPulse{% endblock %}
+{% block container_class %}auth-container{% endblock %}
+
+{% block content %}
+<div class="card" style="box-shadow: var(--shadow-lg);">
+  <div style="text-align: center; margin-bottom: 1.5rem;">
+    <img src="{% static 'images/habit_icon.png' %}" alt="HabitPulse" style="width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 0.75rem; display: block; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+    <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-900);">Create Your Account</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Get started with your personal workspace</p>
+  </div>
+
+  <form method="post" action="{% url 'register' %}">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-error" style="margin-bottom: 1rem;">
+        {% for error in form.non_field_errors %}
+          <div>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="form-group">
+      <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+      {{ form.username }}
+      {% for error in form.username.errors %}
+        <div class="form-error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+      {{ form.email }}
+      {% for error in form.email.errors %}
+        <div class="form-error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+      {{ form.password }}
+      {% for error in form.password.errors %}
+        <div class="form-error">{{ error }}</div>
+      {% endfor %}
+      <div class="form-help" style="font-size: 0.78rem; line-height: 1.4; margin-top: 0.35rem; color: var(--gray-500);">
+        • Must be at least 8 characters long.<br>
+        • Cannot be too similar to your username or email.<br>
+        • Cannot be an entirely numeric or commonly used password.
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }}</label>
+      {{ form.password_confirm }}
+      {% for error in form.password_confirm.errors %}
+        <div class="form-error">{{ error }}</div>
+      {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1rem;">Sign Up & Create Workspace</button>
+  </form>
+
+  <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); font-size: 0.875rem; color: #ecd2d2;">
+    Already have an account? <a href="{% url 'login' %}" style="font-weight: 600; color: var(--primary);">Log in</a>
+  </div>
+</div>
+{% endblock %}

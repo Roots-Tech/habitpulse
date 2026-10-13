@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Create User - Admin Panel - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 1rem auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">&larr; Back to Users</a>
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow);">
+    <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.25rem;">Create New User</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">Add a new user and provision their personal workspace</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error" style="margin-bottom: 1rem;">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.username.id_for_label }}">Username <span style="color: var(--danger);">*</span></label>
+        {{ form.username }}
+        {% for error in form.username.errors %}
+          <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.email.id_for_label }}">Email <span style="color: var(--danger);">*</span></label>
+        {{ form.email }}
+        {% for error in form.email.errors %}
+          <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name</label>
+          {{ form.first_name }}
+          {% for error in form.first_name.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name</label>
+          {{ form.last_name }}
+          {% for error in form.last_name.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.password.id_for_label }}">Password <span style="color: var(--danger);">*</span></label>
+        {{ form.password }}
+        {% for error in form.password.errors %}
+          <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.workspace_name.id_for_label }}">{{ form.workspace_name.label }}</label>
+        {{ form.workspace_name }}
+        {% if form.workspace_name.help_text %}
+          <div class="form-help">{{ form.workspace_name.help_text }}</div>
+        {% endif %}
+        {% for error in form.workspace_name.errors %}
+          <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="form-group" style="margin-top: 1rem;">
+        <div class="form-check">
+          {{ form.is_staff }}
+          <label class="form-label" for="{{ form.is_staff.id_for_label }}" style="margin-bottom: 0; cursor: pointer;">
+            Grant Staff / Admin Privileges
+          </label>
+        </div>
+        {% for error in form.is_staff.errors %}
+          <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 2rem;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">Create User</button>
+        <a href="{% url 'admin_users_list' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

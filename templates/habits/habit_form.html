@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ action_title }} - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 1rem auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">&larr; Back to Dashboard</a>
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow);">
+    <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.25rem;">{{ action_title }}</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">Configure your habit goals, schedule, and verification rules</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error" style="margin-bottom: 1rem;">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.name.id_for_label }}">Habit Name <span style="color: var(--danger);">*</span></label>
+        {{ form.name }}
+        {% if form.name.errors %}
+          <div class="form-error">{{ form.name.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help">e.g., "Morning Jog 5km", "Daily Reading", "Drink 3L Water", "Solve 2 DSA problems"</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.category.id_for_label }}">Category</label>
+        {{ form.category }}
+        {% if form.category.errors %}
+          <div class="form-error">{{ form.category.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.description.id_for_label }}">Description (Optional)</label>
+        {{ form.description }}
+        {% if form.description.errors %}
+          <div class="form-error">{{ form.description.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="{{ form.frequency.id_for_label }}">Frequency</label>
+          {{ form.frequency }}
+          {% if form.frequency.errors %}
+            <div class="form-error">{{ form.frequency.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.start_date.id_for_label }}">Start Date</label>
+          {{ form.start_date }}
+          {% if form.start_date.errors %}
+            <div class="form-error">{{ form.start_date.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Selected Weekdays Container (shown if frequency == WEEKDAYS) -->
+      <div id="weekday-selector-container" class="form-group" style="display: none; background-color: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-strong);">
+        <label class="form-label" style="margin-bottom: 0.25rem;">Scheduled Days of the Week <span style="color: var(--danger);">*</span></label>
+        <div class="form-help" style="margin-bottom: 0.5rem;">Select which days you intend to perform this habit:</div>
+
+        <div class="weekday-selector">
+          {% for value, text in form.weekdays.field.choices %}
+            <div class="weekday-item">
+              <input type="checkbox" name="weekdays" value="{{ value }}" id="weekday_{{ value }}"
+                     {% if value in form.initial.weekdays or value in form.data.weekdays %}checked{% endif %}>
+              <label for="weekday_{{ value }}">{{ text }}</label>
+            </div>
+          {% endfor %}
+        </div>
+        {% if form.weekdays.errors %}
+          <div class="form-error" style="margin-top: 0.5rem;">{{ form.weekdays.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Completion Validation Rule Section -->
+      <div style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>🛡️ Completion Validation Rule</span>
+        </h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+          Require strict criteria (time-lock, evidence upload, or numerical target) before marking this habit complete.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.validation_rule.id_for_label }}">Rule Strategy</label>
+          {{ form.validation_rule }}
+          {% if form.validation_rule.errors %}
+            <div class="form-error">{{ form.validation_rule.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Time Window Container -->
+        <div id="time-window-container" class="form-group" style="display: none; background-color: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-strong);">
+          <label class="form-label" style="margin-bottom: 0.25rem;">⏰ Allowed Time Window (Local Time)</label>
+          <div class="form-help" style="margin-bottom: 0.75rem;">Users can only mark completion between these hours:</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.8rem;" for="{{ form.window_start_time.id_for_label }}">Earliest Start Time <span style="color: var(--danger);">*</span></label>
+              {{ form.window_start_time }}
+              {% if form.window_start_time.errors %}
+                <div class="form-error">{{ form.window_start_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.8rem;" for="{{ form.window_end_time.id_for_label }}">Latest End Time <span style="color: var(--danger);">*</span></label>
+              {{ form.window_end_time }}
+              {% if form.window_end_time.errors %}
+                <div class="form-error">{{ form.window_end_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Numeric Target Container -->
+        <div id="numeric-target-container" class="form-group" style="display: none; background-color: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-strong);">
+          <label class="form-label" style="margin-bottom: 0.25rem;">🎯 Quantitative Metric Target</label>
+          <div class="form-help" style="margin-bottom: 0.75rem;">Users must log a metric at or above this threshold on completion:</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label class="form-label" style="font-size: 0.8rem;" for="{{ form.target_value.id_for_label }}">Minimum Target Value <span style="color: var(--danger);">*</span></label>
+              {{ form.target_value }}
+              {% if form.target_value.errors %}
+                <div class="form-error">{{ form.target_value.errors.0 }}</div>
+              {% endif %}
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 0.8rem;" for="{{ form.unit_label.id_for_label }}">Unit Label <span style="color: var(--danger);">*</span></label>
+              {{ form.unit_label }}
+              {% if form.unit_label.errors %}
+                <div class="form-error">{{ form.unit_label.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Evidence Hint Container -->
+        <div id="evidence-hint-container" class="form-group" style="display: none; background-color: var(--surface-raised); padding: 0.85rem 1rem; border-radius: var(--radius-sm); border: 1px dashed var(--primary); color: var(--text-main);">
+          <div style="font-weight: 600; font-size: 0.875rem; color: var(--primary); margin-bottom: 0.2rem;">📎 Proof of Work Verification</div>
+          <div style="font-size: 0.825rem; color: var(--text-muted);">
+            Each day, marking this habit complete will require uploading an evidence photo or document (PNG, JPG, WEBP, or PDF up to 5MB). Files are securely stored in your tenant workspace.
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 1.25rem;">
+        <div class="form-check">
+          {{ form.is_active }}
+          <label class="form-label" for="{{ form.is_active.id_for_label }}" style="margin-bottom: 0; cursor: pointer;">
+            Active Habit (tracked on your dashboard)
+          </label>
+        </div>
+        {% if form.is_active.errors %}
+          <div class="form-error">{{ form.is_active.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 2rem;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">{{ submit_label }}</button>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

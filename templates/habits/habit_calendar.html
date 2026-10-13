@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendar - {{ habit.name }} - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
+      <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">&larr; Dashboard</a>
+      <a href="{% url 'habit_stats' habit.pk %}" class="btn btn-outline btn-sm">📊 Stats</a>
+      {% if habit.category %}
+        <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
+      {% endif %}
+      {% if habit.has_time_window %}
+        <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">⏰ {{ habit.get_time_window_display }}</span>
+      {% endif %}
+      {% if habit.requires_numeric %}
+        <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);">🎯 Target: {{ habit.target_value }} {{ habit.unit_label }}</span>
+      {% endif %}
+      {% if habit.requires_evidence and not habit.has_time_window %}
+        <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">📎 Proof Required</span>
+      {% endif %}
+    </div>
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--gray-900);">{{ habit.name }}</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem;">
+      Schedule: {{ habit.get_weekday_display_names }} | Started: {{ habit.start_date }} | Rule: {{ habit.get_validation_rule_display }}
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 0.5rem;">
+    {% if stats.is_scheduled_today %}
+      {% if stats.is_completed_today %}
+        <form method="post" action="{% url 'habit_undo_complete' habit.pk %}" class="ajax-completion-form" style="display: inline;">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" class="btn btn-outline btn-sm">↺ Undo Today's Completion</button>
+        </form>
+      {% else %}
+        <a href="{% url 'dashboard' %}" class="btn btn-success btn-sm">✓ Verify on Dashboard</a>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<div class="calendar-card" style="margin-bottom: 2rem;">
+  <div class="calendar-header">
+    <div>
+      <h2 class="calendar-month-title">{{ cal.month_name }} {{ cal.year }}</h2>
+      <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">
+        {% if cal.month_rate is not None %}
+          Month Completion: <strong>{{ cal.month_rate }}%</strong> ({{ cal.month_completed_count }} / {{ cal.month_eligible_count }} scheduled days)
+        {% else %}
+          <span>No eligible scheduled days this month yet.</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="calendar-nav">
+      <a href="{% url 'habit_calendar' habit.pk %}?year={{ cal.prev_year }}&month={{ cal.prev_month }}" class="btn btn-secondary btn-sm" aria-label="Previous Month">&larr; Prev</a>
+      <a href="{% url 'habit_calendar' habit.pk %}?year={{ today.year }}&month={{ today.month }}" class="btn btn-outline btn-sm">Current Month</a>
+      <a href="{% url 'habit_calendar' habit.pk %}?year={{ cal.next_year }}&month={{ cal.next_month }}" class="btn btn-secondary btn-sm" aria-label="Next Month">Next &rarr;</a>
+    </div>
+  </div>
+
+  <div class="calendar-grid">
+    <div class="calendar-weekday">Mon</div>
+    <div class="calendar-weekday">Tue</div>
+    <div class="calendar-weekday">Wed</div>
+    <div class="calendar-weekday">Thu</div>
+    <div class="calendar-weekday">Fri</div>
+    <div class="calendar-weekday">Sat</div>
+    <div class="calendar-weekday">Sun</div>
+
+    {% for week in cal.weeks %}
+      {% for day in week %}
+        <div class="calendar-day state-{{ day.status }} {% if not day.in_current_month %}out-of-month{% endif %} {% if day.is_today %}is-today{% endif %}"
+             title="{{ day.date|date:'Y-m-d' }}: {{ day.status|capfirst }}{% if day.is_today %} (Today){% endif %}">
+          <span style="font-size: 0.85rem;">{{ day.day_number }}</span>
+        </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+
+  <!-- Legend -->
+  <div class="calendar-legend">
+    <div class="legend-item">
+      <div class="legend-swatch" style="background-color: #d1fae5; border-color: #6ee7b7;"></div>
+      <span>Completed</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background-color: #fee2e2; border-color: #fca5a5;"></div>
+      <span>Missed (Scheduled)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background-color: #fef3c7; border-color: #fcd34d;"></div>
+      <span>Today (Pending)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background-color: var(--gray-50); border-color: var(--gray-200);"></div>
+      <span>Unscheduled / Rest Day</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background-color: #f8fafc; border-color: var(--gray-200);"></div>
+      <span>Future Date</span>
+    </div>
+  </div>
+</div>
+
+<!-- Verified Completions & Evidence Log -->
+<div class="card" style="box-shadow: var(--shadow);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900);">📜 Verification & Completion History</h2>
+    <span style="font-size: 0.8rem; color: var(--text-muted);">Last 15 completions</span>
+  </div>
+
+  {% if recent_completions %}
+    <div class="admin-table-container">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Verified Time</th>
+            {% if habit.requires_numeric %}
+              <th>Logged Progress</th>
+            {% endif %}
+            <th>Evidence / Proof</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for comp in recent_completions %}
+            <tr>
+              <td><strong>{{ comp.completion_date|date:"M d, Y" }}</strong></td>
+              <td style="color: var(--text-muted); font-size: 0.8rem;">
+                {{ comp.completed_at|date:"h:i A" }}
+              </td>
+              {% if habit.requires_numeric %}
+                <td>
+                  {% if comp.logged_value %}
+                    <span class="badge" style="background-color: rgba(34, 197, 94, 0.15); color: #16a34a; font-weight: 700;">
+                      {{ comp.logged_value }} {{ habit.unit_label }}
+                    </span>
+                  {% else %}
+                    <span style="color: var(--text-muted);">&mdash;</span>
+                  {% endif %}
+                </td>
+              {% endif %}
+              <td>
+                {% if comp.evidence_file %}
+                  <a href="{{ comp.evidence_file.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
+                    📎 View Proof File
+                  </a>
+                {% else %}
+                  <span style="color: var(--text-muted); font-size: 0.8rem;">Honor check-in</span>
+                {% endif %}
+              </td>
+              <td style="color: var(--text-muted); font-size: 0.85rem;">
+                {{ comp.notes|default:"&mdash;" }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0; text-align: center; padding: 1.5rem;">
+      No completed days recorded yet for this habit.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

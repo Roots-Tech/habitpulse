@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>{% block title %}HabitPulse - Build Better Habits{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'images/habit_icon.png' %}">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <script>
+    (function() {
+      var savedTheme = localStorage.getItem('habitpulse_theme') || 'ice';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  {% include 'includes/navbar.html' %}
+
+  <main class="{% block container_class %}app-container{% endblock %}">
+    {% include 'includes/messages.html' %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div style="max-width: 1120px; margin: 0 auto; padding: 0 1.25rem;">
+      <p>&copy; {% now "Y" %} HabitPulse. Multi-tenant daily habit & progress tracker.</p>
+    </div>
+  </footer>
+
+  <script src="{% static 'js/app.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

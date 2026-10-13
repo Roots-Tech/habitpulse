@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit User {{ target_user.username }} - Admin Panel - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 1rem auto;">
+  <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">&larr; Back to Users</a>
+    {% if target_user != request.user %}
+      <form method="post" action="{% url 'admin_user_delete' target_user.pk %}"
+            onsubmit="return confirm('WARNING: Are you sure you want to permanently delete user &quot;{{ target_user.username }}&quot;? All their habits and workspaces will be deleted.');"
+            style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger-outline btn-sm">Delete User</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow);">
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--gray-200);">
+      <div class="user-avatar" style="width: 52px; height: 52px; font-size: 1.35rem;">
+        {{ target_user.username|slice:":1"|upper }}
+      </div>
+      <div>
+        <h1 style="font-size: 1.4rem; font-weight: 700; color: var(--gray-900); margin: 0;">
+          {{ target_user.get_full_name|default:target_user.username }}
+        </h1>
+        <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1rem; margin-top: 0.25rem;">
+          <span>Login: <strong>@{{ target_user.username }}</strong></span>
+          <span>Joined: {{ target_user.date_joined|date:"M d, Y" }}</span>
+          <span>Habits: {{ habits_count }}</span>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error" style="margin-bottom: 1rem;">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="{{ form.username.id_for_label }}">Username <span style="color: var(--danger);">*</span></label>
+          {{ form.username }}
+          {% for error in form.username.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.email.id_for_label }}">Email <span style="color: var(--danger);">*</span></label>
+          {{ form.email }}
+          {% for error in form.email.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name</label>
+          {{ form.first_name }}
+          {% for error in form.first_name.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name</label>
+          {{ form.last_name }}
+          {% for error in form.last_name.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.workspace_name.id_for_label }}">Primary Workspace Name</label>
+        {{ form.workspace_name }}
+        {% for error in form.workspace_name.errors %}
+          <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="form-group" style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--gray-200);">
+        <label class="form-label" for="{{ form.new_password.id_for_label }}">Reset Password (Optional)</label>
+        {{ form.new_password }}
+        {% if form.new_password.help_text %}
+          <div class="form-help">{{ form.new_password.help_text }}</div>
+        {% endif %}
+        {% for error in form.new_password.errors %}
+          <div class="form-error">{{ error }}</div>
+        {% endfor %}
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div class="form-group">
+          <div class="form-check">
+            {{ form.is_active }}
+            <label class="form-label" for="{{ form.is_active.id_for_label }}" style="margin-bottom: 0; cursor: pointer;">
+              Active User (Can log in)
+            </label>
+          </div>
+          {% for error in form.is_active.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="form-group">
+          <div class="form-check">
+            {{ form.is_staff }}
+            <label class="form-label" for="{{ form.is_staff.id_for_label }}" style="margin-bottom: 0; cursor: pointer;">
+              Staff / Admin Privileges
+            </label>
+          </div>
+          {% for error in form.is_staff.errors %}
+            <div class="form-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; margin-top: 2rem;">
+        <button type="submit" class="btn btn-primary" style="flex: 1;">Save Changes</button>
+        <a href="{% url 'admin_users_list' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
