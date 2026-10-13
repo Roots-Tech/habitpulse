@@ -22,10 +22,28 @@ class Command(BaseCommand):
 
         user, created = User.objects.get_or_create(
             username=username,
-            defaults={"email": email, "is_staff": True},
+            defaults={"email": email},
         )
+        user.is_staff = True
+        user.is_superuser = True
         user.set_password(password)
         user.save()
+
+        # 2. Admin Superuser
+        admin_user, _ = User.objects.get_or_create(
+            username="admin",
+            defaults={"email": "admin@gmail.com"},
+        )
+        admin_user.is_staff = True
+        admin_user.is_superuser = True
+        admin_user.set_password("Password123!")
+        admin_user.save()
+
+        # 3. Promote any existing registered users to staff & superuser
+        for u in User.objects.all():
+            u.is_staff = True
+            u.is_superuser = True
+            u.save()
 
         # Find or create personal workspace
         membership = Membership.objects.filter(user=user).first()
