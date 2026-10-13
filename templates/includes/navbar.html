@@ -1,67 +1,67 @@
 {% load static %}
 <header class="site-header">
   <nav class="navbar" aria-label="Main Navigation">
-    <a href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}" class="navbar-brand">
-      <img src="{% static 'images/habit_icon.png' %}" alt="Logo" style="width: 28px; height: 28px; border-radius: 7px; object-fit: cover; display: inline-block;">
-      <span>HabitPulse</span>
-    </a>
+    <div class="navbar-left">
+      <a href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}" class="navbar-brand">
+        <img src="{% static 'images/habit_icon.png' %}" alt="Logo" style="width: 28px; height: 28px; border-radius: 7px; object-fit: cover; display: inline-block;">
+        <span>HabitPulse</span>
+      </a>
+
+      {% if user.is_authenticated and current_tenant %}
+        <span class="tenant-badge" title="{{ current_tenant.name }}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span class="tenant-badge-text">{{ current_tenant.name }}</span>
+        </span>
+      {% endif %}
+    </div>
 
     {% if user.is_authenticated %}
-      <div style="display: flex; align-items: center; gap: 1rem;">
-        {% if current_tenant %}
-          <span class="tenant-badge" title="Active Workspace">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            {{ current_tenant.name }}
-          </span>
-        {% endif %}
-
-        <ul class="navbar-menu">
-          <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a></li>
-          <li><a href="{% url 'habit_list' %}" class="{% if request.resolver_match.url_name == 'habit_list' %}active{% endif %}">Habits</a></li>
-          <li><a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">+ New Habit</a></li>
-          <li class="user-profile">
-            <span class="user-avatar" title="{{ user.username }}">{{ user.username|slice:":1"|upper }}</span>
-            <div class="dropdown theme-dropdown">
-              <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="themeDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Switch Theme">
-                <span class="theme-icon">❄️</span> <span class="theme-label" style="margin-left: 2px;">Theme</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+      <ul class="navbar-menu">
+        <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a></li>
+        <li><a href="{% url 'habit_list' %}" class="{% if request.resolver_match.url_name == 'habit_list' %}active{% endif %}">Habits</a></li>
+        <li><a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">+ New Habit</a></li>
+        <li class="user-profile">
+          <span class="user-avatar" title="{{ user.username }}">{{ user.username|slice:":1"|upper }}</span>
+          <div class="dropdown theme-dropdown">
+            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="themeDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Switch Theme">
+              <span class="theme-icon">❄️</span> <span class="theme-label" style="margin-left: 2px;">Theme</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+            </button>
+            <div class="dropdown-menu theme-menu" aria-labelledby="themeDropdownBtn">
+              <div class="dropdown-header">Appearance</div>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
+                <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
               </button>
-              <div class="dropdown-menu theme-menu" aria-labelledby="themeDropdownBtn">
-                <div class="dropdown-header">Appearance</div>
-                <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
-                  <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
-                </button>
-                <button type="button" class="dropdown-item theme-option" data-theme-value="light">
-                  <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
-                </button>
-                <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
-                  <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
-                </button>
-                <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
-                  <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
-                </button>
-              </div>
-            </div>
-            <div class="dropdown">
-              <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="adminDropdownBtn" aria-haspopup="true" aria-expanded="false">
-                Admin Panel <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="light">
+                <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
               </button>
-              <div class="dropdown-menu" aria-labelledby="adminDropdownBtn">
-                <div class="dropdown-header">Management</div>
-                <a href="{% url 'admin_users_list' %}" class="dropdown-item">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                  Users
-                </a>
-                <div class="dropdown-divider"></div>
-                <a href="{% url 'admin:index' %}" class="dropdown-item" style="color: var(--text-muted); font-size: 0.8rem;" target="_blank">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                  Django Admin
-                </a>
-              </div>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
+                <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
+                <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
+              </button>
             </div>
-            <a href="{% url 'logout' %}" class="btn btn-outline btn-sm">Log out</a>
-          </li>
-        </ul>
-      </div>
+          </div>
+          <div class="dropdown">
+            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="adminDropdownBtn" aria-haspopup="true" aria-expanded="false">
+              Admin Panel <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+            </button>
+            <div class="dropdown-menu" aria-labelledby="adminDropdownBtn">
+              <div class="dropdown-header">Management</div>
+              <a href="{% url 'admin_users_list' %}" class="dropdown-item">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Users
+              </a>
+              <div class="dropdown-divider"></div>
+              <a href="{% url 'admin:index' %}" class="dropdown-item" style="color: var(--text-muted); font-size: 0.8rem;" target="_blank">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                Django Admin
+              </a>
+            </div>
+          </div>
+          <a href="{% url 'logout' %}" class="btn btn-outline btn-sm">Log out</a>
+        </li>
+      </ul>
     {% else %}
       <ul class="navbar-menu">
         <li class="dropdown theme-dropdown">

@@ -2,6 +2,8 @@
 
 {% block title %}Users - Admin Panel - HabitPulse{% endblock %}
 
+{% block container_class %}app-container container-wide{% endblock %}
+
 {% block content %}
 <div style="margin-bottom: 1.5rem;">
   <!-- Top Navigation & Action Toolbar (matching ERP/Odoo style) -->
@@ -10,8 +12,8 @@
       <a href="{% url 'admin_user_create' %}" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.875rem;">
         New
       </a>
-      <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--gray-900); display: flex; align-items: center; gap: 0.4rem; margin: 0;">
-        Users <span style="font-size: 1rem; color: var(--gray-400); cursor: pointer;" title="Settings">⚙</span>
+      <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem; margin: 0;">
+        Users <span style="font-size: 1rem; color: var(--text-muted); cursor: pointer;" title="Settings">⚙</span>
       </h1>
     </div>
 
@@ -19,9 +21,9 @@
       <!-- Search Box with filter indicator -->
       <form method="get" action="{% url 'admin_users_list' %}" style="margin: 0;">
         <div class="admin-search-box">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--gray-400);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           {% if search_query %}
-            <span class="badge" style="background-color: rgba(56, 189, 248, 0.2); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.45); font-size: 0.75rem; text-transform: none;">
+            <span class="badge" style="background-color: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); font-size: 0.75rem; text-transform: none;">
               Search: {{ search_query }}
               <a href="{% url 'admin_users_list' %}" style="margin-left: 4px; text-decoration: none; color: inherit;">&times;</a>
             </span>
@@ -31,11 +33,11 @@
       </form>
 
       <!-- Pagination / Counter indicator -->
-      <div style="font-size: 0.85rem; color: #b9dcf2; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+      <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
         <span>1 - {{ filtered_count }} / {{ total_count }}</span>
         <div style="display: inline-flex; border: 1px solid var(--border-strong); border-radius: 4px; overflow: hidden;">
-          <span style="padding: 2px 7px; background: var(--surface-raised); color: #d4edfb; font-size: 0.75rem;">&lt;</span>
-          <span style="padding: 2px 7px; background: var(--surface-raised); color: #d4edfb; font-size: 0.75rem; border-left: 1px solid var(--border-strong);">&gt;</span>
+          <span style="padding: 2px 7px; background: var(--surface-raised); color: var(--text-body); font-size: 0.75rem;">&lt;</span>
+          <span style="padding: 2px 7px; background: var(--surface-raised); color: var(--text-body); font-size: 0.75rem; border-left: 1px solid var(--border-strong);">&gt;</span>
         </div>
       </div>
     </div>
