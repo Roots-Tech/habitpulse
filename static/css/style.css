@@ -764,6 +764,10 @@ textarea {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
+input[type="password"] {
+  padding-right: 2.75rem;
+}
+
 .form-control:focus,
 .form-input:focus,
 .form-select:focus,
