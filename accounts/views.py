@@ -10,6 +10,7 @@ from .decorators import super_admin_required, technical_or_admin_required
 from .forms import AdminUserCreateForm, AdminUserEditForm, UserLoginForm, UserRegistrationForm
 
 User = get_user_model()
+from .models import RolePermission, UserPermissionOverride, PERMISSIONS_DEFINITIONS
 
 
 def register_view(request):
@@ -221,17 +222,17 @@ def admin_user_delete_view(request, user_id):
 
 
 # ==============================================================================
-# ADMIN PANEL: USER ROLES MANAGEMENT
+# ADMIN PANEL: USER ROLES MANAGEMENT & CUSTOMIZABLE PERMISSIONS
 # ==============================================================================
 
 @super_admin_required
 def admin_roles_list_view(request):
     """
     Admin panel view for User Roles Management.
-    Displays detailed role specifications, permissions matrix,
-    assigned users, and role management controls.
+    Displays detailed role specifications with customizable permission checkboxes,
+    assigned users directory, and individual user permission overrides.
     """
-    roles_config = [
+    roles_meta = [
         {
             "code": User.Role.SUPER_ADMIN,
             "name": "Super Admin",
@@ -244,14 +245,6 @@ def admin_roles_list_view(request):
                 "Complete unrestricted access across all layers of the application: "
                 "Frontend, Backend, Admin Panel, Database admin, user management, passwords, and sensitive settings."
             ),
-            "permissions": [
-                {"name": "Frontend Application & Dashboard", "allowed": True},
-                {"name": "Create, View & Track Personal Habits", "allowed": True},
-                {"name": "Master Data Management (Categories & Rule Strategies)", "allowed": True},
-                {"name": "Admin Panel (Users & Roles Management)", "allowed": True},
-                {"name": "User Passwords & Account Provisioning", "allowed": True},
-                {"name": "Django Admin & Database Operations (/admin/)", "allowed": True},
-            ],
             "users": User.objects.filter(Q(role=User.Role.SUPER_ADMIN) | Q(is_superuser=True)).order_by("username"),
         },
         {
@@ -265,16 +258,8 @@ def admin_roles_list_view(request):
             "description": (
                 "Technical team members and developers who configure and operate application features: "
                 "Full access to habits, master data (Categories & Rule Strategies), and features. "
-                "Strictly restricted from the Admin Panel, user credentials, and database admin."
+                "Can be granted or restricted from any page using the checkboxes below."
             ),
-            "permissions": [
-                {"name": "Frontend Application & Dashboard", "allowed": True},
-                {"name": "Create, View & Track Personal Habits", "allowed": True},
-                {"name": "Master Data Management (Categories & Rule Strategies)", "allowed": True},
-                {"name": "Admin Panel (Users & Roles Management)", "allowed": False},
-                {"name": "User Passwords & Account Provisioning", "allowed": False},
-                {"name": "Django Admin & Database Operations (/admin/)", "allowed": False},
-            ],
             "users": User.objects.filter(role=User.Role.TECHNICAL_USER, is_superuser=False).order_by("username"),
         },
         {
@@ -287,26 +272,106 @@ def admin_roles_list_view(request):
             "level": "Level 3 — Personal Workspace Only",
             "description": (
                 "Standard end users restricted strictly to their own personal dashboard and habits they have created. "
-                "They select from pre-configured categories and strategies, but cannot modify master data or access administrative panels."
+                "Super Admins can selectively check additional privileges to grant access to any page or menu."
             ),
-            "permissions": [
-                {"name": "Frontend Application & Dashboard (Personal)", "allowed": True},
-                {"name": "Create, View & Track Personal Habits", "allowed": True},
-                {"name": "Master Data Management (Categories & Rule Strategies)", "allowed": False},
-                {"name": "Admin Panel (Users & Roles Management)", "allowed": False},
-                {"name": "User Passwords & Account Provisioning", "allowed": False},
-                {"name": "Django Admin & Database Operations (/admin/)", "allowed": False},
-            ],
             "users": User.objects.filter(role=User.Role.REGULAR_USER, is_superuser=False).order_by("username"),
         },
     ]
 
-    all_users = User.objects.all().order_by("username")
+    roles_data = []
+    for r in roles_meta:
+        role_perm = RolePermission.get_for_role(r["code"])
+        perm_dict = role_perm.to_dict()
+        perms_list = []
+        for defn in PERMISSIONS_DEFINITIONS:
+            perms_list.append({
+                "key": defn["key"],
+                "label": defn["label"],
+                "description": defn["description"],
+                "menu": defn["menu"],
+                "is_enabled": perm_dict.get(defn["key"], False),
+            })
+        roles_data.append({
+            **r,
+            "permissions": perms_list,
+            "role_perm": role_perm,
+        })
+
+    all_users = User.objects.all().order_by("username").prefetch_related("permission_override", "memberships__tenant")
+    user_rows = []
+    for u in all_users:
+        override = getattr(u, "permission_override", None)
+        user_rows.append({
+            "user": u,
+            "override": override,
+            "has_custom": bool(override and override.enable_custom),
+            "user_perms": [
+                {
+                    "key": d["key"],
+                    "label": d["label"],
+                    "description": d["description"],
+                    "menu": d["menu"],
+                    "is_enabled": u.has_perm_access(d["key"]),
+                    "override_enabled": getattr(override, d["key"], False) if override else False,
+                }
+                for d in PERMISSIONS_DEFINITIONS
+            ]
+        })
+
     return render(request, "accounts/admin_roles_list.html", {
-        "roles": roles_config,
-        "all_users": all_users,
+        "roles": roles_data,
+        "user_rows": user_rows,
+        "permissions_definitions": PERMISSIONS_DEFINITIONS,
         "role_choices": User.Role.choices,
     })
+
+
+@super_admin_required
+@require_POST
+def admin_role_permissions_update_view(request, role_code):
+    """
+    Updates the permissions matrix checkboxes for a specific system role.
+    """
+    if role_code not in User.Role.values:
+        messages.error(request, "Invalid role selection.")
+        return redirect("admin_roles_list")
+
+    role_perm = RolePermission.get_for_role(role_code)
+    for defn in PERMISSIONS_DEFINITIONS:
+        key = defn["key"]
+        # Super admin safeguard: keep manage_roles True for Super Admin
+        if role_code == User.Role.SUPER_ADMIN and key == "manage_roles":
+            setattr(role_perm, key, True)
+        else:
+            setattr(role_perm, key, key in request.POST)
+
+    role_perm.save()
+    messages.success(request, f'Configurable permissions for "{role_perm.get_role_display()}" saved successfully!')
+    return redirect("admin_roles_list")
+
+
+@super_admin_required
+@require_POST
+def admin_user_permissions_update_view(request, user_id):
+    """
+    Updates custom permission overrides for an individual user.
+    Allows Super Admins to provide any specific user access to any page or menu.
+    """
+    target_user = get_object_or_404(User, pk=user_id)
+    override, _ = UserPermissionOverride.objects.get_or_create(user=target_user)
+
+    enable_custom = request.POST.get("enable_custom") in ["on", "true", "True", "1"]
+    override.enable_custom = enable_custom
+
+    for defn in PERMISSIONS_DEFINITIONS:
+        key = defn["key"]
+        setattr(override, key, key in request.POST)
+
+    override.save()
+
+    status_str = "Custom permissions applied" if enable_custom else "Reset to role default permissions"
+    messages.success(request, f'{status_str} for user "{target_user.username}" successfully!')
+    return redirect("admin_roles_list")
 
 
 @super_admin_required

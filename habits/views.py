@@ -9,7 +9,11 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from accounts.decorators import technical_or_admin_required
+from accounts.decorators import (
+    category_permission_required,
+    rule_strategy_permission_required,
+    technical_or_admin_required,
+)
 
 from .forms import (
     HabitCategoryForm,
@@ -346,7 +350,7 @@ def habit_stats_view(request, pk):
 # MASTER DATA: HABIT CATEGORIES CRUD
 # ==============================================================================
 
-@technical_or_admin_required
+@category_permission_required
 def category_list_view(request):
     """
     Master Data: Lists all Habit Categories in the user's active workspace.
@@ -376,7 +380,7 @@ def category_list_view(request):
     })
 
 
-@technical_or_admin_required
+@category_permission_required
 def category_create_view(request):
     """
     Master Data: Create a new Habit Category for the active tenant.
@@ -405,7 +409,7 @@ def category_create_view(request):
     })
 
 
-@technical_or_admin_required
+@category_permission_required
 def category_update_view(request, pk):
     """
     Master Data: Edit an existing Habit Category. Strictly tenant-scoped.
@@ -435,7 +439,7 @@ def category_update_view(request, pk):
     })
 
 
-@technical_or_admin_required
+@category_permission_required
 def category_delete_view(request, pk):
     """
     Master Data: Delete a Habit Category. Strictly tenant-scoped.
@@ -463,7 +467,7 @@ def category_delete_view(request, pk):
 # MASTER DATA: RULE STRATEGIES CRUD
 # ==============================================================================
 
-@technical_or_admin_required
+@rule_strategy_permission_required
 def rule_strategy_list_view(request):
     """
     Master Data: Lists all Rule Strategies in the user's active workspace.
@@ -493,7 +497,7 @@ def rule_strategy_list_view(request):
     })
 
 
-@technical_or_admin_required
+@rule_strategy_permission_required
 def rule_strategy_create_view(request):
     """
     Master Data: Create a new Rule Strategy for the active tenant.
@@ -522,7 +526,7 @@ def rule_strategy_create_view(request):
     })
 
 
-@technical_or_admin_required
+@rule_strategy_permission_required
 def rule_strategy_update_view(request, pk):
     """
     Master Data: Edit an existing Rule Strategy. Strictly tenant-scoped.
@@ -552,7 +556,7 @@ def rule_strategy_update_view(request, pk):
     })
 
 
-@technical_or_admin_required
+@rule_strategy_permission_required
 def rule_strategy_delete_view(request, pk):
     """
     Master Data: Delete a Rule Strategy. Strictly tenant-scoped.

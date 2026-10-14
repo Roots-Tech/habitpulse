@@ -1,29 +1,45 @@
 {% extends 'base.html' %}
 
-{% block title %}User Roles & Permissions - Admin Panel - HabitPulse{% endblock %}
+{% block title %}User Roles & Customizable Permissions - Admin Panel - HabitPulse{% endblock %}
 
 {% block container_class %}app-container container-wide{% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 2rem;">
+<div style="margin-bottom: 2.5rem;">
   <!-- Header Toolbar -->
   <div class="admin-toolbar" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
       <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">&larr; Back to Users</a>
       <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
         <span>🛡️</span> User Roles &amp; Access Control
       </h1>
-      <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--primary); font-size: 0.75rem;">RBAC</span>
+      <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--primary); font-size: 0.75rem;">Customizable RBAC</span>
     </div>
     <div style="display: flex; gap: 0.5rem;">
       <a href="{% url 'admin_user_create' %}" class="btn btn-primary btn-sm">+ Add New User</a>
     </div>
   </div>
 
-  <!-- Role Specification Cards (3 Access Tiers) -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+  <!-- Instruction Banner -->
+  <div class="card" style="margin-bottom: 1.75rem; background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); border: 1px solid var(--primary-border); padding: 1.15rem 1.35rem;">
+    <div style="display: flex; align-items: flex-start; gap: 0.85rem;">
+      <span style="font-size: 1.5rem; line-height: 1;">⚡</span>
+      <div>
+        <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem; margin-bottom: 0.25rem;">
+          Role &amp; User Permission Configurator
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-body); margin: 0; line-height: 1.5;">
+          Configure which role gets access to which page or menu using the checkboxes on each card below.
+          You can also configure <strong>individual user overrides</strong> in the table below to grant or restrict specific users independently.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Role Specification & Customizable Permissions Cards (3 Access Tiers) -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 1.35rem; margin-bottom: 2.25rem;">
     {% for role in roles %}
-      <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid {{ role.badge_color }}; box-shadow: var(--shadow);">
+      <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid {{ role.badge_color }}; box-shadow: var(--shadow); position: relative;">
         <div>
           <!-- Role Header -->
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
@@ -42,33 +58,59 @@
           </div>
 
           <!-- Description -->
-          <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 1.25rem;">
+          <p style="font-size: 0.835rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 1.15rem;">
             {{ role.description }}
           </p>
 
-          <!-- Permissions Breakdown -->
-          <div style="background-color: var(--surface-raised); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 0.85rem 1rem; margin-bottom: 1rem;">
-            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
-              Permissions Matrix
-            </div>
-            <div style="display: grid; gap: 0.35rem; font-size: 0.8rem;">
-              {% for perm in role.permissions %}
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  {% if perm.allowed %}
-                    <span style="color: #10b981; font-weight: bold;">✓</span>
-                    <span style="color: var(--text-main);">{{ perm.name }}</span>
-                  {% else %}
-                    <span style="color: #ef4444; font-weight: bold; opacity: 0.8;">✕</span>
-                    <span style="color: var(--text-muted); text-decoration: line-through; opacity: 0.75;">{{ perm.name }}</span>
-                  {% endif %}
+          <!-- Customizable Permissions Matrix Form -->
+          <form method="post" action="{% url 'admin_role_permissions_update' role.code %}" style="margin-bottom: 1rem;">
+            {% csrf_token %}
+            <div style="background-color: var(--surface-raised); border-radius: var(--radius-sm); border: 1px solid var(--border-strong); padding: 0.85rem 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.45rem;">
+                <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                  Configurable Permissions Checkboxes
                 </div>
-              {% endfor %}
+                <span style="font-size: 0.7rem; color: {{ role.badge_color }}; font-weight: 600;">Interactive</span>
+              </div>
+
+              <div style="display: grid; gap: 0.6rem;">
+                {% for perm in role.permissions %}
+                  <label class="form-checkbox-label" style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; padding: 0.25rem 0.35rem; border-radius: 4px; transition: background 0.15s ease;">
+                    <input type="checkbox"
+                           name="{{ perm.key }}"
+                           class="form-checkbox"
+                           {% if perm.is_enabled %}checked{% endif %}
+                           {% if role.code == 'SUPER_ADMIN' and perm.key == 'manage_roles' %}onclick="return false;" onkeydown="return false;" title="Role management is locked for Super Admin to prevent accidental lockout"{% endif %}
+                           style="margin-top: 0.2rem; cursor: pointer;">
+                    <div style="flex: 1;">
+                      <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; flex-wrap: wrap;">
+                        <span style="font-weight: 600; color: var(--text-main); font-size: 0.825rem;">
+                          {{ perm.label }}
+                        </span>
+                        <span class="badge" style="font-size: 0.65rem; padding: 0.15rem 0.4rem; background: var(--surface); border: 1px solid var(--border-subtle); color: var(--text-muted);">
+                          {{ perm.menu }}
+                        </span>
+                      </div>
+                      <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; margin-top: 0.1rem;">
+                        {{ perm.description }}
+                      </div>
+                    </div>
+                  </label>
+                {% endfor %}
+              </div>
+
+              <!-- Save Role Permissions Button -->
+              <div style="margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid var(--border-subtle);">
+                <button type="submit" class="btn btn-primary btn-sm btn-block" style="justify-content: center; font-weight: 700; padding: 0.45rem;">
+                  Save {{ role.name }} Permissions
+                </button>
+              </div>
             </div>
-          </div>
+          </form>
         </div>
 
         <!-- Assigned Users Preview -->
-        <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.5rem;">
+        <div style="border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; margin-top: 0.5rem;">
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Assigned Users:</div>
           <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
             {% for u in role.users %}
@@ -85,12 +127,14 @@
     {% endfor %}
   </div>
 
-  <!-- User Role Assignment & Quick Modification Table -->
+  <!-- User Role Assignments & Custom User Overrides Table -->
   <div class="card" style="box-shadow: var(--shadow); padding: 0; overflow: hidden;">
     <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-strong); background-color: var(--surface-raised); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin: 0 0 0.25rem 0;">User Role Assignments</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Quickly modify any user's role to adjust system privileges immediately.</p>
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin: 0 0 0.25rem 0;">User Role Assignments &amp; Custom Permissions</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+          Modify roles or click <strong>⚙️ Custom Access</strong> to configure user-specific permission checkboxes.
+        </p>
       </div>
     </div>
 
@@ -102,61 +146,212 @@
             <th>Email</th>
             <th>Primary Workspace</th>
             <th>Current Role</th>
-            <th style="text-align: right; width: 280px;">Change Role</th>
+            <th>Custom Access</th>
+            <th style="text-align: right; width: 320px;">Role Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for u in all_users %}
+          {% for row in user_rows %}
             <tr>
               <td>
                 <div style="display: flex; align-items: center; gap: 0.65rem;">
-                  <span class="user-avatar" style="width: 30px; height: 30px; font-size: 0.8rem;">
-                    {{ u.username|slice:":1"|upper }}
+                  <span class="user-avatar" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                    {{ row.user.username|slice:":1"|upper }}
                   </span>
                   <div>
-                    <span style="font-weight: 700; color: var(--gray-900);">{{ u.get_full_name|default:u.username }}</span>
-                    {% if u.get_full_name %}
-                      <div style="font-size: 0.75rem; color: var(--text-muted);">@{{ u.username }}</div>
-                    {% endif %}
+                    <span style="font-weight: 700; color: var(--gray-900);">{{ row.user.get_full_name|default:row.user.username }}</span>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">@{{ row.user.username }}</div>
                   </div>
                 </div>
               </td>
-              <td style="color: var(--text-muted);">{{ u.email }}</td>
+              <td style="color: var(--text-muted);">{{ row.user.email }}</td>
               <td>
-                {% with mem=u.memberships.first %}
+                {% with mem=row.user.memberships.first %}
                   <span style="color: var(--text-main); font-size: 0.875rem;">{{ mem.tenant.name|default:"Personal Workspace" }}</span>
                 {% endwith %}
               </td>
               <td>
-                {% with badge=u.get_role_badge %}
+                {% with badge=row.user.get_role_badge %}
                   <span class="badge {{ badge.class }}" style="background-color: {{ badge.bg }}; color: {{ badge.color }}; border: 1px solid {{ badge.border }}; font-weight: 700;">
                     {{ badge.icon }} {{ badge.label }}
                   </span>
                 {% endwith %}
               </td>
+              <td>
+                {% if row.has_custom %}
+                  <span class="badge" style="background-color: rgba(56, 189, 248, 0.16); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.72rem; font-weight: 700;">
+                    ✨ Custom Overrides Active
+                  </span>
+                {% else %}
+                  <span class="badge" style="background-color: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border-strong); font-size: 0.72rem;">
+                    Inherited from Role
+                  </span>
+                {% endif %}
+              </td>
               <td style="text-align: right;">
-                <form method="post" action="{% url 'admin_user_role_change' u.id %}" style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;">
-                  {% csrf_token %}
-                  <select name="role" class="form-control" style="font-size: 0.825rem; padding: 0.3rem 0.6rem; width: auto; min-width: 150px; height: auto;">
-                    {% for code, label in role_choices %}
-                      <option value="{{ code }}" {% if u.role == code %}selected{% endif %}>
-                        {{ label }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                  <button type="submit" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">
-                    Save
+                <div style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                  <!-- Quick Role Change Dropdown -->
+                  <form method="post" action="{% url 'admin_user_role_change' row.user.id %}" style="display: inline-flex; align-items: center; gap: 0.35rem; margin: 0;">
+                    {% csrf_token %}
+                    <select name="role" class="form-control" style="font-size: 0.8rem; padding: 0.3rem 0.5rem; width: auto; min-width: 135px; height: auto;">
+                      {% for code, label in role_choices %}
+                        <option value="{{ code }}" {% if row.user.role == code %}selected{% endif %}>
+                          {{ label }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.65rem; font-size: 0.8rem;">
+                      Save
+                    </button>
+                  </form>
+
+                  <!-- Open Custom User Permissions Modal -->
+                  <button type="button"
+                          class="btn btn-outline btn-sm open-user-modal-btn"
+                          data-modal-target="user-perm-modal-{{ row.user.id }}"
+                          style="padding: 0.3rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.3rem;"
+                          title="Configure custom page and menu checkboxes for this user">
+                    <span>⚙️</span> Permissions
                   </button>
-                  <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-outline btn-sm" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" title="Edit Full Profile">
-                    ⚙
-                  </a>
-                </form>
+                </div>
               </td>
             </tr>
+
+            <!-- User Permission Modal for this user -->
+            <div id="user-perm-modal-{{ row.user.id }}" class="modal-backdrop user-perm-modal" style="display: none;">
+              <div class="modal-dialog" style="max-width: 560px;">
+                <form method="post" action="{% url 'admin_user_permissions_update' row.user.id %}">
+                  {% csrf_token %}
+                  <div class="modal-header">
+                    <div>
+                      <h4 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.45rem;">
+                        <span>⚙️</span> Custom Permissions: @{{ row.user.username }}
+                      </h4>
+                      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+                        Base Role: <strong>{{ row.user.get_role_display }}</strong> | Email: {{ row.user.email }}
+                      </div>
+                    </div>
+                    <button type="button" class="modal-close-btn close-user-modal-btn" data-modal-target="user-perm-modal-{{ row.user.id }}" aria-label="Close">&times;</button>
+                  </div>
+
+                  <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <!-- Override Activation Toggle -->
+                    <div style="background-color: var(--surface-raised); border: 1.5px solid var(--primary-border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+                      <label class="form-checkbox-label" style="cursor: pointer; display: flex; align-items: flex-start; gap: 0.65rem; margin: 0;">
+                        <input type="checkbox"
+                               name="enable_custom"
+                               value="on"
+                               class="form-checkbox"
+                               {% if row.has_custom %}checked{% endif %}
+                               style="margin-top: 0.15rem;">
+                        <div>
+                          <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">
+                            Enable Custom Permissions for this User
+                          </div>
+                          <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; margin-top: 0.2rem;">
+                            When checked, the individual checkboxes below will explicitly grant or deny access, overriding their <em>{{ row.user.get_role_display }}</em> defaults. Uncheck to revert back to role inheritance.
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+
+                    <!-- Individual Permission Checkboxes -->
+                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.65rem;">
+                      Granular Page &amp; Menu Privileges
+                    </div>
+
+                    <div style="display: grid; gap: 0.65rem;">
+                      {% for perm in row.user_perms %}
+                        <div style="background-color: var(--surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem;">
+                          <label class="form-checkbox-label" style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; margin: 0;">
+                            <input type="checkbox"
+                                   name="{{ perm.key }}"
+                                   value="on"
+                                   class="form-checkbox"
+                                   {% if row.has_custom and perm.override_enabled %}checked{% elif not row.has_custom and perm.is_enabled %}checked{% endif %}
+                                   style="margin-top: 0.15rem;">
+                            <div style="flex: 1;">
+                              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-weight: 600; color: var(--text-main); font-size: 0.85rem;">
+                                  {{ perm.label }}
+                                </span>
+                                <span class="badge" style="font-size: 0.68rem; padding: 0.15rem 0.45rem; background: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--text-muted);">
+                                  {{ perm.menu }}
+                                </span>
+                              </div>
+                              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.35;">
+                                {{ perm.description }}
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+
+                  <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.65rem;">
+                    <button type="button" class="btn btn-outline btn-sm close-user-modal-btn" data-modal-target="user-perm-modal-{{ row.user.id }}">
+                      Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                      💾 Save User Permissions
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 </div>
+
+<!-- Modal Control Scripts -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Open modal buttons
+    document.querySelectorAll('.open-user-modal-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('data-modal-target');
+        var modal = document.getElementById(targetId);
+        if (modal) {
+          modal.style.display = 'flex';
+          setTimeout(function() {
+            modal.classList.add('open');
+          }, 10);
+        }
+      });
+    });
+
+    // Close modal buttons
+    document.querySelectorAll('.close-user-modal-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('data-modal-target');
+        var modal = document.getElementById(targetId);
+        if (modal) {
+          modal.classList.remove('open');
+          setTimeout(function() {
+            modal.style.display = 'none';
+          }, 200);
+        }
+      });
+    });
+
+    // Close on backdrop click
+    document.querySelectorAll('.user-perm-modal').forEach(function(modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+          this.classList.remove('open');
+          var m = this;
+          setTimeout(function() {
+            m.style.display = 'none';
+          }, 200);
+        }
+      });
+    });
+  });
+</script>
 {% endblock %}

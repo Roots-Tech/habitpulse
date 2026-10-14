@@ -262,3 +262,98 @@ class UserRolesAndPermissionsTestCase(TestCase):
         # In navbar menu, Categories and Rule Strategies links shouldn't appear
         self.assertNotContains(resp_ru, reverse("category_list"))
         self.assertNotContains(resp_ru, reverse("rule_strategy_list"))
+
+    # -------------------------------------------------------------
+    # 7. Customizable Role Permission Checkboxes Tests
+    # -------------------------------------------------------------
+    def test_super_admin_can_customize_role_permissions(self):
+        """
+        Super Admin can toggle checkboxes for any role.
+        When manage_categories is granted to Regular User, regular users immediately gain access.
+        """
+        self.client.force_login(self.super_admin)
+        role_perm_url = reverse("admin_role_permissions_update", kwargs={"role_code": User.Role.REGULAR_USER})
+
+        # Initially, regular user gets 403 on categories
+        self.client.force_login(self.regular_user)
+        self.assertEqual(self.client.get(self.categories_list_url).status_code, 403)
+
+        # Super Admin checks 'manage_categories' and 'view_dashboard' for Regular User
+        self.client.force_login(self.super_admin)
+        resp = self.client.post(role_perm_url, {
+            "view_dashboard": "on",
+            "manage_habits": "on",
+            "manage_categories": "on",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self.roles_list_url)
+
+        # Regular user now has permission and can access category list!
+        self.client.force_login(self.regular_user)
+        self.assertEqual(self.client.get(self.categories_list_url).status_code, 200)
+
+        # Navbar for regular user now shows Categories
+        resp_ru = self.client.get(self.dashboard_url)
+        self.assertContains(resp_ru, "Categories")
+
+        # Super Admin revokes 'manage_categories' from Regular User
+        self.client.force_login(self.super_admin)
+        self.client.post(role_perm_url, {
+            "view_dashboard": "on",
+            "manage_habits": "on",
+        })
+
+        # Regular user immediately receives 403 again
+        self.client.force_login(self.regular_user)
+        self.assertEqual(self.client.get(self.categories_list_url).status_code, 403)
+
+    # -------------------------------------------------------------
+    # 8. User-Level Custom Permission Overrides Tests
+    # -------------------------------------------------------------
+    def test_super_admin_can_set_individual_user_permission_override(self):
+        """
+        Super Admin can configure custom checkboxes for an individual user,
+        granting them specific menu/page privileges independently of their role.
+        """
+        self.client.force_login(self.super_admin)
+        user_perm_url = reverse("admin_user_permissions_update", kwargs={"user_id": self.regular_user.id})
+
+        # Enable custom override granting categories CRUD specifically to regular_user
+        resp = self.client.post(user_perm_url, {
+            "enable_custom": "on",
+            "view_dashboard": "on",
+            "manage_habits": "on",
+            "manage_categories": "on",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertRedirects(resp, self.roles_list_url)
+
+        # regular_user now has custom access
+        self.client.force_login(self.regular_user)
+        self.assertTrue(self.regular_user.can_manage_categories)
+        self.assertEqual(self.client.get(self.categories_list_url).status_code, 200)
+
+        # Another regular user without overrides is still blocked
+        other_user = User.objects.create_user(
+            username="OtherRegular",
+            email="other@example.com",
+            password="Password123!",
+            role=User.Role.REGULAR_USER,
+        )
+        Membership.objects.create(user=other_user, tenant=self.tenant, role=Membership.Role.MEMBER, status=Membership.Status.ACTIVE)
+        self.client.force_login(other_user)
+        self.assertFalse(other_user.can_manage_categories)
+        self.assertEqual(self.client.get(self.categories_list_url).status_code, 403)
+
+        # Super Admin disables custom override for regular_user
+        self.client.force_login(self.super_admin)
+        self.client.post(user_perm_url, {
+            # enable_custom omitted -> reverts to role inheritance
+            "view_dashboard": "on",
+            "manage_habits": "on",
+        })
+
+        # regular_user reverts to role inheritance (no categories)
+        self.client.force_login(self.regular_user)
+        self.assertFalse(self.regular_user.can_manage_categories)
+        self.assertEqual(self.client.get(self.categories_list_url).status_code, 403)
