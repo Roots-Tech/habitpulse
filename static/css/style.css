@@ -1004,6 +1004,42 @@ select.form-control option {
   border: 1px solid var(--primary-border);
 }
 
+.badge-super-admin {
+  background-color: rgba(168, 85, 247, 0.16);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.badge-technical-user {
+  background-color: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.badge-regular-user {
+  background-color: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+[data-theme="light"] .badge-super-admin {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+  border-color: #d8b4fe;
+}
+
+[data-theme="light"] .badge-technical-user {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+}
+
+[data-theme="light"] .badge-regular-user {
+  background-color: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
 /* Alert Notifications */
 .alert {
   padding: 0.85rem 1.25rem;

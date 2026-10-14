@@ -10,11 +10,12 @@ User = get_user_model()
 
 class MasterDataCRUDTestCase(TestCase):
     def setUp(self):
-        # Tenant A setup
+        # Tenant A setup (Technical User with access to master data)
         self.user_a = User.objects.create_user(
             username="Alice",
             email="alice@example.com",
             password="password123",
+            role=User.Role.TECHNICAL_USER,
         )
         self.tenant_a = Tenant.objects.create(name="Tenant A Workspace", slug="tenant-a")
         Membership.objects.create(
@@ -24,11 +25,12 @@ class MasterDataCRUDTestCase(TestCase):
             status=Membership.Status.ACTIVE,
         )
 
-        # Tenant B setup
+        # Tenant B setup (Technical User with access to master data)
         self.user_b = User.objects.create_user(
             username="Bob",
             email="bob@example.com",
             password="password123",
+            role=User.Role.TECHNICAL_USER,
         )
         self.tenant_b = Tenant.objects.create(name="Tenant B Workspace", slug="tenant-b")
         Membership.objects.create(
@@ -208,3 +210,30 @@ class MasterDataCRUDTestCase(TestCase):
         self.assertEqual(habit.rule_strategy_ref, strat)
         self.assertEqual(habit.validation_rule, Habit.ValidationRule.NUMERIC_TARGET)
         self.assertEqual(habit.target_value, 2.0)
+
+    def test_regular_user_cannot_access_master_data(self):
+        """
+        Regular users are restricted to their own dashboard and habits,
+        and receive 403 Forbidden when attempting to access Category or Rule Strategy master data CRUD.
+        """
+        reg_user = User.objects.create_user(
+            username="RegularRyan",
+            email="ryan@example.com",
+            password="password123",
+            role=User.Role.REGULAR_USER,
+        )
+        Membership.objects.create(
+            user=reg_user,
+            tenant=self.tenant_a,
+            role=Membership.Role.MEMBER,
+            status=Membership.Status.ACTIVE,
+        )
+        self.client.login(username="RegularRyan", password="password123")
+
+        # Category views return 403 Forbidden
+        self.assertEqual(self.client.get(reverse("category_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("category_create")).status_code, 403)
+
+        # Rule strategy views return 403 Forbidden
+        self.assertEqual(self.client.get(reverse("rule_strategy_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("rule_strategy_create")).status_code, 403)

@@ -116,6 +116,12 @@ class AdminUserCreateForm(forms.ModelForm):
             "placeholder": "Enter user password",
         }),
     )
+    role = forms.ChoiceField(
+        choices=User.Role.choices,
+        required=False,
+        initial=User.Role.REGULAR_USER,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
     workspace_name = forms.CharField(
         label="Workspace / Organization Name",
         required=False,
@@ -128,18 +134,32 @@ class AdminUserCreateForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ["username", "email", "first_name", "last_name", "is_staff"]
+        fields = ["username", "email", "first_name", "last_name", "role"]
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control", "placeholder": "username"}),
             "email": forms.EmailInput(attrs={"class": "form-control", "placeholder": "user@example.com"}),
             "first_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "First name"}),
             "last_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last name"}),
-            "is_staff": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def clean_role(self):
+        role = self.cleaned_data.get("role")
+        if not role:
+            if self.data.get("is_staff") in ["on", True, "true", "1"]:
+                return User.Role.SUPER_ADMIN
+            return User.Role.REGULAR_USER
+        return role
 
     @transaction.atomic
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.role = self.cleaned_data.get("role") or User.Role.REGULAR_USER
+        if user.role == User.Role.SUPER_ADMIN:
+            user.is_superuser = True
+            user.is_staff = True
+        else:
+            user.is_superuser = False
+            user.is_staff = False
         user.set_password(self.cleaned_data["password"])
         if commit:
             user.save()
@@ -150,9 +170,19 @@ class AdminUserCreateForm(forms.ModelForm):
 
 class AdminUserEditForm(forms.ModelForm):
     """
-    Form for administrators to edit an existing user's profile, permissions,
+    Form for administrators to edit an existing user's profile, role,
     workspace name, and optionally reset their password.
     """
+    role = forms.ChoiceField(
+        choices=User.Role.choices,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+    is_staff = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        label="Staff Status (Legacy)",
+    )
     new_password = forms.CharField(
         label="Reset Password",
         required=False,
@@ -174,13 +204,12 @@ class AdminUserEditForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ["username", "email", "first_name", "last_name", "is_staff", "is_active"]
+        fields = ["username", "email", "first_name", "last_name", "role", "is_active"]
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "first_name": forms.TextInput(attrs={"class": "form-control"}),
             "last_name": forms.TextInput(attrs={"class": "form-control"}),
-            "is_staff": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
@@ -190,6 +219,7 @@ class AdminUserEditForm(forms.ModelForm):
             membership = self.instance.memberships.select_related("tenant").filter(status="ACTIVE").first()
             if membership and membership.tenant:
                 self.initial["workspace_name"] = membership.tenant.name
+            self.initial["role"] = self.instance.role
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").strip().lower()
@@ -197,9 +227,30 @@ class AdminUserEditForm(forms.ModelForm):
             raise forms.ValidationError("Another account with this email address already exists.")
         return email
 
+    def clean(self):
+        cleaned_data = super().clean()
+        role = cleaned_data.get("role")
+        is_staff = self.data.get("is_staff") in ["on", True, "true", "1"]
+        if not role:
+            if is_staff:
+                cleaned_data["role"] = User.Role.SUPER_ADMIN
+            else:
+                cleaned_data["role"] = getattr(self.instance, "role", User.Role.REGULAR_USER)
+        elif is_staff and "role" not in self.data:
+            cleaned_data["role"] = User.Role.SUPER_ADMIN
+        return cleaned_data
+
     @transaction.atomic
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.role = self.cleaned_data.get("role") or user.role
+        if user.role == User.Role.SUPER_ADMIN:
+            user.is_superuser = True
+            user.is_staff = True
+        else:
+            user.is_superuser = False
+            user.is_staff = False
+
         new_password = self.cleaned_data.get("new_password")
         if new_password:
             user.set_password(new_password)

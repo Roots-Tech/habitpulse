@@ -17,6 +17,7 @@ ADMIN_ACCOUNTS = [
         "last_name": "Jayakumar",
         "workspace_name": "Shrinath's Workspace",
         "password": "admin@123",
+        "role": User.Role.SUPER_ADMIN,
     },
     {
         "username": "Akash_ps",
@@ -25,6 +26,7 @@ ADMIN_ACCOUNTS = [
         "last_name": "P S",
         "workspace_name": "Akash's Workspace",
         "password": "admin@123",
+        "role": User.Role.TECHNICAL_USER,
     },
     {
         "username": "Romy_fred",
@@ -33,16 +35,17 @@ ADMIN_ACCOUNTS = [
         "last_name": "Fred",
         "workspace_name": "Romy's Workspace",
         "password": "admin@123",
+        "role": User.Role.REGULAR_USER,
     },
 ]
 
 
 class Command(BaseCommand):
-    help = "Configures exactly 3 superuser admin accounts (Shrinath_jayakumar, Akash_ps, Romy_fred) with password admin@123 and prunes all other users."
+    help = "Configures access-based user accounts with designated roles and passwords."
 
     @transaction.atomic
     def handle(self, *args, **options):
-        self.stdout.write(self.style.NOTICE("Setting up exact 3 admin superuser accounts..."))
+        self.stdout.write(self.style.NOTICE("Setting up access-based user roles..."))
         target_usernames = [acc["username"] for acc in ADMIN_ACCOUNTS]
 
         # 1. Provision or update each of the 3 specified admin users
@@ -51,6 +54,7 @@ class Command(BaseCommand):
             email = acc["email"]
             password = acc["password"]
             workspace_name = acc["workspace_name"]
+            role = acc.get("role", User.Role.REGULAR_USER)
 
             user = User.objects.filter(
                 Q(username__iexact=username) | Q(email__iexact=email)
@@ -61,25 +65,23 @@ class Command(BaseCommand):
                 user.email = email
                 user.first_name = acc["first_name"]
                 user.last_name = acc["last_name"]
-                user.is_staff = True
-                user.is_superuser = True
+                user.role = role
                 user.is_active = True
                 user.set_password(password)
                 user.save()
-                self.stdout.write(self.style.SUCCESS(f"Updated admin user '{username}' (Superuser)"))
+                self.stdout.write(self.style.SUCCESS(f"Updated user '{username}' (Role: {user.get_role_display()})"))
             else:
                 user = User.objects.create(
                     username=username,
                     email=email,
                     first_name=acc["first_name"],
                     last_name=acc["last_name"],
-                    is_staff=True,
-                    is_superuser=True,
+                    role=role,
                     is_active=True,
                 )
                 user.set_password(password)
                 user.save()
-                self.stdout.write(self.style.SUCCESS(f"Created admin user '{username}' (Superuser)"))
+                self.stdout.write(self.style.SUCCESS(f"Created user '{username}' (Role: {user.get_role_display()})"))
 
             # Ensure workspace exists
             tenant = get_active_tenant_for_user(user)

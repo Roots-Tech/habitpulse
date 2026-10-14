@@ -19,11 +19,13 @@
       <ul class="navbar-menu">
         <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a></li>
         <li><a href="{% url 'habit_list' %}" class="{% if 'habit' in request.resolver_match.url_name and request.resolver_match.url_name != 'habit_create' %}active{% endif %}">Habits</a></li>
+        {% if user.is_super_admin or user.is_technical_user %}
         <li><a href="{% url 'category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}">Categories</a></li>
         <li><a href="{% url 'rule_strategy_list' %}" class="{% if 'rule_strategy' in request.resolver_match.url_name %}active{% endif %}">Rule Strategies</a></li>
+        {% endif %}
         <li><a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">+ New Habit</a></li>
         <li class="user-profile">
-          <span class="user-avatar" title="{{ user.username }}">{{ user.username|slice:":1"|upper }}</span>
+          <span class="user-avatar" title="{{ user.username }} ({{ user.get_role_display }})">{{ user.username|slice:":1"|upper }}</span>
           <div class="dropdown theme-dropdown">
             <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="themeDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Switch Theme">
               <span class="theme-icon">❄️</span> <span class="theme-label" style="margin-left: 2px;">Theme</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
@@ -44,25 +46,30 @@
               </button>
             </div>
           </div>
+          {% if user.is_super_admin %}
           <div class="dropdown">
             <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="adminDropdownBtn" aria-haspopup="true" aria-expanded="false">
               Admin Panel <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
             </button>
             <div class="dropdown-menu" aria-labelledby="adminDropdownBtn">
+              <div class="dropdown-header">Access & Roles</div>
+              <a href="{% url 'admin_roles_list' %}" class="dropdown-item">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                User Roles
+              </a>
+              <a href="{% url 'admin_users_list' %}" class="dropdown-item">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Users
+              </a>
+              <div class="dropdown-divider"></div>
               <div class="dropdown-header">Master Data</div>
               <a href="{% url 'category_list' %}" class="dropdown-item">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 Habit Categories
               </a>
               <a href="{% url 'rule_strategy_list' %}" class="dropdown-item">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 Rule Strategies
-              </a>
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-header">Management</div>
-              <a href="{% url 'admin_users_list' %}" class="dropdown-item">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                Users
               </a>
               <div class="dropdown-divider"></div>
               <a href="{% url 'admin:index' %}" class="dropdown-item" style="color: var(--text-muted); font-size: 0.8rem;" target="_blank">
@@ -71,6 +78,7 @@
               </a>
             </div>
           </div>
+          {% endif %}
           <a href="{% url 'logout' %}" class="btn btn-outline btn-sm">Log out</a>
         </li>
       </ul>

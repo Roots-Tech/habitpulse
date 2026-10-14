@@ -8,9 +8,12 @@
 <div style="margin-bottom: 1.5rem;">
   <!-- Top Navigation & Action Toolbar (matching ERP/Odoo style) -->
   <div class="admin-toolbar">
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
       <a href="{% url 'admin_user_create' %}" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.875rem;">
-        New
+        + New User
+      </a>
+      <a href="{% url 'admin_roles_list' %}" class="btn btn-outline" style="padding: 0.45rem 1rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+        <span>🛡️</span> Manage Roles
       </a>
       <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem; margin: 0;">
         Users <span style="font-size: 1rem; color: var(--text-muted); cursor: pointer;" title="Settings">⚙</span>
@@ -28,6 +31,9 @@
               <a href="{% url 'admin_users_list' %}" style="margin-left: 4px; text-decoration: none; color: inherit;">&times;</a>
             </span>
           {% endif %}
+          {% if role_filter %}
+            <input type="hidden" name="role" value="{{ role_filter }}">
+          {% endif %}
           <input type="text" name="q" value="{{ search_query }}" placeholder="Search users by name, login, email..." aria-label="Search users">
         </div>
       </form>
@@ -43,7 +49,23 @@
     </div>
   </div>
 
-  <!-- Users Data Table (Matching Image 2) -->
+  <!-- Role Filter Tabs -->
+  <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
+    <a href="{% url 'admin_users_list' %}" class="btn btn-sm {% if not role_filter %}btn-secondary{% else %}btn-outline{% endif %}">
+      All Users ({{ total_count }})
+    </a>
+    <a href="{% url 'admin_users_list' %}?role=SUPER_ADMIN" class="btn btn-sm {% if role_filter == 'SUPER_ADMIN' %}btn-secondary{% else %}btn-outline{% endif %}">
+      👑 Super Admins
+    </a>
+    <a href="{% url 'admin_users_list' %}?role=TECHNICAL_USER" class="btn btn-sm {% if role_filter == 'TECHNICAL_USER' %}btn-secondary{% else %}btn-outline{% endif %}">
+      🛠️ Technical Users
+    </a>
+    <a href="{% url 'admin_users_list' %}?role=REGULAR_USER" class="btn btn-sm {% if role_filter == 'REGULAR_USER' %}btn-secondary{% else %}btn-outline{% endif %}">
+      👤 Regular Users
+    </a>
+  </div>
+
+  <!-- Users Data Table (Matching ERP style) -->
   <div class="admin-table-container">
     <table class="admin-table">
       <thead>
@@ -52,11 +74,11 @@
             <input type="checkbox" aria-label="Select all users" style="cursor: pointer;">
           </th>
           <th>Name</th>
-          <th>Login</th>
-          <th>Language / Role</th>
+          <th>Login / Email</th>
+          <th>Workspace Role</th>
           <th>Latest Authentication</th>
-          <th>Company / Workspace</th>
-          <th style="text-align: center;">Status</th>
+          <th>Primary Workspace</th>
+          <th style="text-align: center;">System Access Role</th>
           <th style="text-align: center; width: 140px;">Actions</th>
         </tr>
       </thead>
@@ -102,13 +124,13 @@
               <div style="font-size: 0.75rem; color: var(--gray-500);">{{ u.habits_count }} habit{{ u.habits_count|pluralize }}</div>
             </td>
             <td style="text-align: center;">
-              <span class="badge {{ u.status_class }}" style="padding: 0.3rem 0.75rem; border-radius: 9999px; font-size: 0.72rem; letter-spacing: 0.02em;">
-                {{ u.status_label }}
+              <span class="badge {{ u.role_badge.class }}" style="background-color: {{ u.role_badge.bg }}; color: {{ u.role_badge.color }}; border: 1px solid {{ u.role_badge.border }}; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em;">
+                {{ u.role_badge.icon }} {{ u.role_badge.label }}
               </span>
             </td>
             <td style="text-align: center; white-space: nowrap;">
               <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
-                <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Edit User">
+                <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Edit User & Permissions">
                   Edit
                 </a>
                 {% if u.id != request.user.id %}
@@ -130,8 +152,8 @@
           <tr>
             <td colspan="8" style="text-align: center; padding: 3rem 1rem; color: var(--gray-500);">
               <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">No users found matching your search.</div>
-              {% if search_query %}
-                <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">Clear Search</a>
+              {% if search_query or role_filter %}
+                <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">Clear Filters</a>
               {% endif %}
             </td>
           </tr>
