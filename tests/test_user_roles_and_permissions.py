@@ -357,3 +357,143 @@ class UserRolesAndPermissionsTestCase(TestCase):
         self.client.force_login(self.regular_user)
         self.assertFalse(self.regular_user.can_manage_categories)
         self.assertEqual(self.client.get(self.categories_list_url).status_code, 403)
+
+    # -------------------------------------------------------------
+    # 9. User Form Views Permissions Matrix & Read-Only Tests
+    # -------------------------------------------------------------
+    def test_super_admin_can_view_and_edit_permissions_in_user_form(self):
+        """
+        Super Admin viewing a user form sees the permissions section with editable checkboxes
+        and can customize access directly from the user edit form.
+        """
+        self.client.force_login(self.super_admin)
+        resp = self.client.get(self.user_edit_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "System Permissions &amp; Granted Capabilities")
+        self.assertContains(resp, "Super Admin Editable")
+        self.assertContains(resp, "enable_custom_permissions")
+        self.assertContains(resp, "perm_manage_categories")
+
+        # Super Admin grants category management via the user edit form
+        post_data = {
+            "username": self.regular_user.username,
+            "email": self.regular_user.email,
+            "first_name": "Romy",
+            "last_name": "Fred",
+            "role": User.Role.REGULAR_USER,
+            "workspace_name": "Romy Personal",
+            "is_active": "on",
+            "enable_custom_permissions": "on",
+            "perm_view_dashboard": "on",
+            "perm_manage_habits": "on",
+            "perm_manage_categories": "on",
+        }
+        resp_post = self.client.post(self.user_edit_url, post_data)
+        self.assertEqual(resp_post.status_code, 302)
+
+        # Refresh regular user
+        self.regular_user.refresh_from_db()
+        self.assertTrue(self.regular_user.can_manage_categories)
+
+        # Regular user can now access categories list
+        self.client.force_login(self.regular_user)
+        self.assertEqual(self.client.get(self.categories_list_url).status_code, 200)
+
+    def test_regular_user_views_permissions_as_read_only(self):
+        """
+        Regular users viewing their profile see all granted and restricted permissions
+        with descriptions of what they can do, but cannot edit them (read-only/disabled).
+        """
+        profile_url = reverse("profile")
+        self.client.force_login(self.regular_user)
+        resp = self.client.get(profile_url)
+        self.assertEqual(resp.status_code, 200)
+
+        # Permissions section is present with clear explanation
+        self.assertContains(resp, "System Permissions &amp; Granted Capabilities")
+        self.assertContains(resp, "Read-Only Overview")
+        self.assertContains(resp, "Assigned Permissions &amp; Capabilities")
+        self.assertContains(resp, "Access permissions and roles are managed by System Super Administrators")
+
+        # Standard users see Granted badges for Dashboard and Habits
+        self.assertContains(resp, "Frontend Application &amp; Dashboard")
+        self.assertContains(resp, "Create, View &amp; Track Personal Habits")
+
+        # Standard users see Restricted badges for master data and admin panel
+        self.assertContains(resp, "Master Data Management (Habit Categories)")
+        self.assertContains(resp, "Master Data Management (Rule Strategies)")
+        self.assertContains(resp, "Admin Panel (Users Management)")
+        self.assertContains(resp, "Admin Panel (User Roles &amp; Access Control)")
+
+        # Permission checkboxes and role input have disabled attribute
+        self.assertContains(resp, "disabled")
+
+    def test_regular_user_cannot_alter_role_or_permissions_via_post(self):
+        """
+        Regular users attempting to modify their role or permissions via POST are blocked;
+        their role and permissions remain strictly immutable.
+        """
+        profile_url = reverse("profile")
+        self.client.force_login(self.regular_user)
+
+        # Attempt to escalate privileges to SUPER_ADMIN with all perms
+        malicious_data = {
+            "username": "hacked_name",
+            "email": self.regular_user.email,
+            "first_name": "Romy",
+            "last_name": "Hacker",
+            "workspace_name": "Hacked Workspace",
+            "role": User.Role.SUPER_ADMIN,
+            "enable_custom_permissions": "on",
+            "perm_manage_roles": "on",
+            "perm_manage_users": "on",
+            "perm_access_django_admin": "on",
+        }
+        resp = self.client.post(profile_url, malicious_data)
+        self.assertEqual(resp.status_code, 302)
+
+        # Verify user role is UNCHANGED
+        self.regular_user.refresh_from_db()
+        self.assertEqual(self.regular_user.role, User.Role.REGULAR_USER)
+        self.assertFalse(self.regular_user.is_superuser)
+        self.assertFalse(self.regular_user.is_staff)
+        self.assertFalse(self.regular_user.can_manage_roles)
+        self.assertFalse(self.regular_user.can_access_admin_panel)
+        # Username remains unchanged
+        self.assertEqual(self.regular_user.username, "Romy_reg")
+        # Safe field like last_name was updated
+        self.assertEqual(self.regular_user.last_name, "Hacker")
+
+    def test_regular_user_cannot_access_other_users_form(self):
+        """
+        Regular users attempting to access another user's form view receive a 403 Forbidden.
+        """
+        self.client.force_login(self.regular_user)
+        other_user_edit_url = reverse("admin_user_edit", kwargs={"user_id": self.super_admin.id})
+
+        # GET request returns 403
+        resp_get = self.client.get(other_user_edit_url)
+        self.assertEqual(resp_get.status_code, 403)
+
+        # POST request returns 403
+        resp_post = self.client.post(other_user_edit_url, {"first_name": "Sneak"})
+        self.assertEqual(resp_post.status_code, 403)
+
+    def test_technical_user_profile_shows_master_data_granted(self):
+        """
+        Technical users viewing their profile see Categories and Rule Strategies as Granted,
+        while Admin Panel and Database access are marked as Restricted.
+        """
+        profile_url = reverse("profile")
+        self.client.force_login(self.tech_user)
+        resp = self.client.get(profile_url)
+        self.assertEqual(resp.status_code, 200)
+
+        # Shows Technical User badge
+        self.assertContains(resp, "Technical User")
+        # Shows Categories and Rule Strategies granted
+        self.assertTrue(self.tech_user.can_manage_categories)
+        self.assertTrue(self.tech_user.can_manage_rule_strategies)
+        # Cannot access admin panel
+        self.assertFalse(self.tech_user.can_access_admin_panel)
+

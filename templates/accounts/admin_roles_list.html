@@ -213,6 +213,14 @@
                           title="Configure custom page and menu checkboxes for this user">
                     <span>⚙️</span> Permissions
                   </button>
+
+                  <!-- Open Edit User Form -->
+                  <a href="{% url 'admin_user_edit' row.user.id %}"
+                     class="btn btn-secondary btn-sm"
+                     style="padding: 0.3rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.3rem;"
+                     title="View and edit user details & permissions form">
+                    <span>✏️</span> User Form
+                  </a>
                 </div>
               </td>
             </tr>

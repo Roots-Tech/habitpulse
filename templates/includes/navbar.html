@@ -33,7 +33,12 @@
         <li><a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">+ New Habit</a></li>
         {% endif %}
         <li class="user-profile">
-          <span class="user-avatar" title="{{ user.username }} ({{ user.get_role_display }})">{{ user.username|slice:":1"|upper }}</span>
+          <a href="{% url 'profile' %}" style="display: flex; align-items: center; text-decoration: none;" title="My Profile & Permissions: {{ user.username }} ({{ user.get_role_display }})">
+            <span class="user-avatar">{{ user.username|slice:":1"|upper }}</span>
+          </a>
+          <a href="{% url 'profile' %}" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="View My Profile & Permissions">
+            <span>👤</span> My Access
+          </a>
           <div class="dropdown theme-dropdown">
             <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="themeDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Switch Theme">
               <span class="theme-icon">❄️</span> <span class="theme-label" style="margin-left: 2px;">Theme</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>

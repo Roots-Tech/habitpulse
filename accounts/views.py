@@ -172,34 +172,90 @@ def admin_user_create_view(request):
     return render(request, "accounts/admin_user_form.html", {"form": form})
 
 
-@super_admin_required
-def admin_user_edit_view(request, user_id):
+def _handle_user_edit(request, target_user, is_super_admin, redirect_url):
     """
-    Allows Super Admins to edit a user's details, role, workspace name, or reset password.
+    Shared handler for user form views:
+    - Super Admins can view and edit any user's profile, role, and system permissions.
+    - Standard users can view their own profile and granted permissions/capabilities
+      in read-only mode, but cannot make changes to roles or permissions.
     """
-    target_user = get_object_or_404(User, pk=user_id)
+    is_self = (request.user.id == target_user.id)
 
     if request.method == "POST":
-        form = AdminUserEditForm(request.POST, instance=target_user)
+        form = AdminUserEditForm(request.POST, instance=target_user, is_super_admin=is_super_admin)
         if form.is_valid():
             updated_user = form.save()
-            messages.success(request, f'User "{updated_user.username}" updated successfully (Role: {updated_user.get_role_display()})!')
-            return redirect("admin_users_list")
+            if is_super_admin:
+                messages.success(request, f'User "{updated_user.username}" updated successfully (Role: {updated_user.get_role_display()})!')
+            else:
+                messages.success(request, "Your profile details have been saved successfully!")
+            return redirect(redirect_url)
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-        form = AdminUserEditForm(instance=target_user)
+        form = AdminUserEditForm(instance=target_user, is_super_admin=is_super_admin)
 
     membership = target_user.memberships.select_related("tenant").filter(status="ACTIVE").first()
     tenant = membership.tenant if membership else None
     habits_count = target_user.created_habits.count()
+
+    override = getattr(target_user, "permission_override", None)
+    has_custom = bool(override and override.enable_custom)
+
+    user_permissions_data = []
+    for defn in PERMISSIONS_DEFINITIONS:
+        key = defn["key"]
+        field_name = f"perm_{key}"
+        user_permissions_data.append({
+            "key": key,
+            "label": defn["label"],
+            "description": defn["description"],
+            "menu": defn["menu"],
+            "is_granted": target_user.has_perm_access(key),
+            "field": form[field_name] if field_name in form.fields else None,
+        })
 
     return render(request, "accounts/admin_user_edit.html", {
         "form": form,
         "target_user": target_user,
         "tenant": tenant,
         "habits_count": habits_count,
+        "is_super_admin": is_super_admin,
+        "is_self": is_self,
+        "user_permissions_data": user_permissions_data,
+        "has_custom_override": has_custom,
     })
+
+
+@super_admin_required
+def admin_user_edit_view(request, user_id):
+    """
+    Allows Super Admins to view and edit a user's details, role, workspace name,
+    reset password, and customize system access permissions.
+    """
+    target_user = get_object_or_404(User, pk=user_id)
+    return _handle_user_edit(
+        request,
+        target_user=target_user,
+        is_super_admin=True,
+        redirect_url="admin_users_list",
+    )
+
+
+def profile_view(request):
+    """
+    Profile and Access Capabilities view for the currently logged-in user.
+    Standard users see what access they are provided and what they can do (read-only).
+    Super Admins can view and edit their own profile and permissions.
+    """
+    if not request.user.is_authenticated:
+        return redirect(f"{reverse('login')}?next={request.path}")
+    return _handle_user_edit(
+        request,
+        target_user=request.user,
+        is_super_admin=bool(request.user.is_super_admin),
+        redirect_url="profile",
+    )
 
 
 @super_admin_required
