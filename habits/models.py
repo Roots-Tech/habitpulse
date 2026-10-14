@@ -108,6 +108,18 @@ class RuleStrategy(models.Model):
     def habits_count(self):
         return self.habits.count()
 
+    @property
+    def has_time_window_active(self):
+        return bool(self.has_time_window or self.engine_type in [self.EngineType.TIME_WINDOW, self.EngineType.TIME_AND_EVIDENCE])
+
+    @property
+    def requires_numeric_active(self):
+        return bool(self.requires_numeric or self.engine_type == self.EngineType.NUMERIC_TARGET)
+
+    @property
+    def requires_evidence_active(self):
+        return bool(self.requires_evidence or self.engine_type in [self.EngineType.EVIDENCE_FILE, self.EngineType.TIME_AND_EVIDENCE])
+
 
 class Habit(models.Model):
     """

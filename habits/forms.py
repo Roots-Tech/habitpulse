@@ -227,6 +227,18 @@ class HabitForm(forms.ModelForm):
         self.fields["unit_label"].required = False
         self.fields["habit_type"].required = False
         self.fields["is_template"].required = False
+        self.fields["name"].label = "Habit Name"
+        self.fields["category_ref"].label = "Category"
+        self.fields["rule_strategy_ref"].label = "Rule Strategy"
+        self.fields["target_value"].label = "Minimum Target Value"
+        self.fields["unit_label"].label = "Unit Label"
+        self.fields["window_start_time"].label = "Earliest Start Time"
+        self.fields["window_end_time"].label = "Latest End Time"
+        self.fields["habit_type"].label = "Habit Classification"
+        self.fields["is_template"].label = "Publish to System Catalog"
+        self.fields["frequency"].label = "Frequency"
+        self.fields["start_date"].label = "Start Date"
+        self.fields["is_active"].label = "Active Habit"
 
         is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
         if not is_admin_or_tech:

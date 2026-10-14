@@ -46,9 +46,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (strategySelect && strategySelect.value && strategiesMeta[strategySelect.value]) {
       const meta = strategiesMeta[strategySelect.value];
-      hasTime = !!meta.has_time_window;
-      hasNumeric = !!meta.requires_numeric;
-      hasEvidence = !!meta.requires_evidence;
+      const engine = meta.engine || "";
+      hasTime = !!meta.has_time_window || engine === "TIME_WINDOW" || engine === "TIME_AND_EVIDENCE";
+      hasNumeric = !!meta.requires_numeric || engine === "NUMERIC_TARGET";
+      hasEvidence = !!meta.requires_evidence || engine === "EVIDENCE_FILE" || engine === "TIME_AND_EVIDENCE";
       if (meta.default_unit && unitInput && !unitInput.value.trim()) {
         unitInput.value = meta.default_unit;
       }
@@ -59,8 +60,14 @@ document.addEventListener("DOMContentLoaded", () => {
       hasEvidence = (val === "EVIDENCE_FILE" || val === "TIME_AND_EVIDENCE");
     }
 
-    if (timeContainer) timeContainer.style.display = hasTime ? "block" : "none";
-    if (numericContainer) numericContainer.style.display = hasNumeric ? "block" : "none";
+    if (timeContainer) {
+      const hasTimeErrors = timeContainer.querySelector(".form-error");
+      timeContainer.style.display = (hasTime || hasTimeErrors) ? "block" : "none";
+    }
+    if (numericContainer) {
+      const hasNumericErrors = numericContainer.querySelector(".form-error");
+      numericContainer.style.display = (hasNumeric || hasNumericErrors) ? "block" : "none";
+    }
     if (evidenceContainer) evidenceContainer.style.display = hasEvidence ? "block" : "none";
   };
 

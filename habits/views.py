@@ -146,7 +146,16 @@ def habit_create_view(request):
                 messages.success(request, f'Habit "{habit.name}" created successfully!')
                 return redirect("dashboard")
         else:
-            messages.error(request, "Please fix the errors in the habit form.")
+            err_list = []
+            for f_name, f_errs in form.errors.items():
+                field_obj = form.fields.get(f_name)
+                label = getattr(field_obj, "label", None) or f_name.replace("_", " ").title()
+                for err in f_errs:
+                    err_list.append(f"{label}: {err}")
+            if err_list:
+                messages.error(request, f"Please fix the following error(s): {'; '.join(err_list)}")
+            else:
+                messages.error(request, "Please fix the errors in the habit form.")
     else:
         form = HabitForm(
             tenant=tenant,
@@ -205,7 +214,16 @@ def habit_update_view(request, pk):
                 return redirect("habit_list")
             return redirect("dashboard")
         else:
-            messages.error(request, "Please fix the errors below.")
+            err_list = []
+            for f_name, f_errs in form.errors.items():
+                field_obj = form.fields.get(f_name)
+                label = getattr(field_obj, "label", None) or f_name.replace("_", " ").title()
+                for err in f_errs:
+                    err_list.append(f"{label}: {err}")
+            if err_list:
+                messages.error(request, f"Please fix the following error(s): {'; '.join(err_list)}")
+            else:
+                messages.error(request, "Please fix the errors below.")
     else:
         form = HabitForm(instance=habit, tenant=tenant, user=request.user)
 
