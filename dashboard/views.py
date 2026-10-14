@@ -17,12 +17,12 @@ def dashboard_view(request):
     if not tenant:
         raise Http404("Workspace not found.")
 
-    all_habits_count = Habit.objects.filter(tenant=tenant).count()
+    all_habits_count = Habit.objects.filter(tenant=tenant, is_template=False).count()
     if all_habits_count == 0:
         return redirect("onboarding")
 
     today = timezone.localdate()
-    active_habits = Habit.objects.filter(tenant=tenant, is_active=True).order_by("name")
+    active_habits = Habit.objects.filter(tenant=tenant, is_active=True, is_template=False).order_by("name")
 
     today_habit_cards = []
     scheduled_today_count = 0

@@ -1,72 +1,372 @@
 {% extends 'base.html' %}
 
-{% block title %}Manage Habits - HabitPulse{% endblock %}
+{% block title %}Habits Directory & Catalog - HabitPulse{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-  <div>
-    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--gray-900);">All Habits</h1>
-    <p style="color: var(--text-muted); font-size: 0.925rem;">Manage, edit, or adjust the schedule of your habits</p>
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+    <div>
+      <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--gray-900); margin-bottom: 0.25rem;">Habits Directory</h1>
+      <p style="color: var(--text-muted); font-size: 0.925rem;">
+        Track personal routines, explore curated purpose habits, or follow expert prescribed protocols
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+        <span>+</span> Create Personal Habit
+      </a>
+      {% if can_manage_templates %}
+        <a href="{% url 'habit_create' %}?type=PREDEFINED_PURPOSE&template=1" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span>🎯</span> Publish Predefined Habit
+        </a>
+        <a href="{% url 'habit_create' %}?type=EXPERT_PRESCRIBED&template=1" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span>🩺</span> Publish Expert Habit
+        </a>
+      {% endif %}
+    </div>
   </div>
-  <a href="{% url 'habit_create' %}" class="btn btn-primary">+ Create New Habit</a>
+
+  <!-- Quick Section Jump Navigation Pills -->
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; padding: 0.75rem 1rem; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 2rem;">
+    <a href="#my-habits" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.825rem; font-weight: 700;">
+      <span>👤</span> My Habit List ({{ my_habits.count }})
+    </a>
+    <a href="#predefined-habits" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.825rem; font-weight: 700;">
+      <span>🎯</span> Predefined Purpose Habits ({{ predefined_habits.count }})
+    </a>
+    <a href="#expert-habits" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(168, 85, 247, 0.15); color: #c084fc; font-size: 0.825rem; font-weight: 700;">
+      <span>🩺</span> Expert Prescribed Habits ({{ expert_habits.count }})
+    </a>
+  </div>
 </div>
 
-{% if habits %}
-  <div style="display: grid; gap: 1rem;">
-    {% for habit in habits %}
-      <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; {% if not habit.is_active %}opacity: 0.65; background-color: var(--gray-50);{% endif %}">
-        <div>
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem; flex-wrap: wrap;">
-            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900);">{{ habit.name }}</h3>
-            {% if habit.category %}
-              <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
+<!-- ========================================================================= -->
+<!-- SECTION 1: MY HABIT LIST                                                 -->
+<!-- ========================================================================= -->
+<section id="my-habits" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong);">
+    <div>
+      <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <span>👤 My Habit List</span>
+        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.8rem;">{{ my_habits.count }} Active</span>
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
+        Personal routines and adopted templates you are actively tracking in your workspace
+      </p>
+    </div>
+    <a href="{% url 'habit_create' %}" class="btn btn-outline btn-sm">+ New Personal Habit</a>
+  </div>
+
+  {% if my_habits %}
+    <div style="display: grid; gap: 1rem;">
+      {% for habit in my_habits %}
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; {% if not habit.is_active %}opacity: 0.65; background-color: var(--gray-50);{% endif %}">
+          <div style="flex: 1; min-width: 280px;">
+            <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; flex-wrap: wrap;">
+              <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin: 0;">{{ habit.name }}</h3>
+
+              <!-- Habit Type Badge -->
+              {% with t_badge=habit.get_habit_type_badge %}
+                <span class="badge {{ t_badge.class }}" style="background-color: {{ t_badge.bg }}; color: {{ t_badge.color }}; border: 1px solid {{ t_badge.border }}; font-weight: 700; font-size: 0.72rem;">
+                  {{ t_badge.icon }} {{ t_badge.label }}
+                </span>
+              {% endwith %}
+
+              <!-- Category Badge -->
+              {% if habit.category %}
+                <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
+              {% endif %}
+
+              <!-- Parameter Requirement Badges -->
+              {% if habit.has_time_window %}
+                <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">
+                  ⏰ {{ habit.get_time_window_display }}
+                </span>
+              {% endif %}
+              {% if habit.requires_numeric %}
+                <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);">
+                  🎯 {{ habit.target_value }} {{ habit.unit_label }}
+                </span>
+              {% endif %}
+              {% if habit.requires_evidence and not habit.has_time_window %}
+                <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">
+                  📎 Proof Required
+                </span>
+              {% endif %}
+              {% if not habit.is_active %}
+                <span class="badge" style="background-color: var(--surface-raised); color: var(--text-dim); border: 1px solid var(--border-strong);">
+                  Inactive
+                </span>
+              {% endif %}
+            </div>
+
+            {% if habit.description %}
+              <p style="color: var(--text-body); font-size: 0.875rem; margin-bottom: 0.5rem; line-height: 1.4;">{{ habit.description }}</p>
             {% endif %}
-            {% if habit.has_time_window %}
-              <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">⏰ {{ habit.get_time_window_display }}</span>
-            {% endif %}
-            {% if habit.requires_numeric %}
-              <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);">🎯 {{ habit.target_value }} {{ habit.unit_label }}</span>
-            {% endif %}
-            {% if habit.requires_evidence and not habit.has_time_window %}
-              <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">📎 Proof Required</span>
-            {% endif %}
-            {% if not habit.is_active %}
-              <span class="badge" style="background-color: var(--surface-raised); color: #cbd5e1; border: 1px solid var(--border-strong);">Inactive</span>
-            {% endif %}
+
+            <div style="display: flex; gap: 1.25rem; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap;">
+              <span><strong>Schedule:</strong> {{ habit.get_weekday_display_names }}</span>
+              <span><strong>Start Date:</strong> {{ habit.start_date }}</span>
+              <span><strong>Verification:</strong> {{ habit.get_validation_rule_display }}</span>
+            </div>
           </div>
 
-          {% if habit.description %}
-            <p style="color: #cbd5e1; font-size: 0.875rem; margin-bottom: 0.4rem;">{{ habit.description }}</p>
-          {% endif %}
+          <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <a href="{% url 'habit_calendar' habit.pk %}" class="btn btn-outline btn-sm" title="View monthly calendar">📅 Calendar</a>
+            <a href="{% url 'habit_stats' habit.pk %}" class="btn btn-outline btn-sm" title="View detailed statistics">📊 Stats</a>
+            <a href="{% url 'habit_edit' habit.pk %}" class="btn btn-secondary btn-sm">Edit</a>
 
-          <div style="display: flex; gap: 1.5rem; font-size: 0.8rem; color: #94a3b8; flex-wrap: wrap;">
-            <span><strong>Schedule:</strong> {{ habit.get_weekday_display_names }}</span>
-            <span><strong>Started:</strong> {{ habit.start_date }}</span>
-            <span><strong>Rule:</strong> {{ habit.get_validation_rule_display }}</span>
+            <form method="post" action="{% url 'habit_toggle_active' habit.pk %}" style="display: inline; margin: 0;">
+              {% csrf_token %}
+              {% if habit.is_active %}
+                <button type="submit" class="btn btn-outline btn-sm" style="color: #fbbf24; border-color: rgba(251, 191, 36, 0.45);" title="Deactivate habit">Deactivate</button>
+              {% else %}
+                <button type="submit" class="btn btn-success btn-sm" title="Reactivate habit">Reactivate</button>
+              {% endif %}
+            </form>
+
+            <form method="post" action="{% url 'habit_delete' habit.pk %}"
+                  onsubmit="return confirm('Are you sure you want to delete habit &quot;{{ habit.name }}&quot;? All completions will be removed.');"
+                  style="display: inline; margin: 0;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger-outline btn-sm" title="Delete habit">Delete</button>
+            </form>
           </div>
         </div>
-
-        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-          <a href="{% url 'habit_calendar' habit.pk %}" class="btn btn-outline btn-sm">📅 Calendar</a>
-          <a href="{% url 'habit_stats' habit.pk %}" class="btn btn-outline btn-sm">📊 Stats</a>
-          <a href="{% url 'habit_edit' habit.pk %}" class="btn btn-secondary btn-sm">Edit</a>
-
-          <form method="post" action="{% url 'habit_toggle_active' habit.pk %}" style="display: inline;">
-            {% csrf_token %}
-            {% if habit.is_active %}
-              <button type="submit" class="btn btn-outline btn-sm" style="color: #fbbf24; border-color: rgba(251, 191, 36, 0.45);">Deactivate</button>
-            {% else %}
-              <button type="submit" class="btn btn-success btn-sm">Reactivate</button>
-            {% endif %}
-          </form>
-        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 2.5rem 1rem; border: 1.5px dashed var(--border-strong);">
+      <div style="font-size: 2rem; margin-bottom: 0.5rem;">🌱</div>
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">No habits in your active tracking list</h3>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem; max-width: 480px; margin-left: auto; margin-right: auto;">
+        Create your own personal habit routine, or add curated habits directly from the Predefined Purposeful Habits and Expert Prescribed Habits catalog below.
+      </p>
+      <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+        <a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">+ Create Personal Habit</a>
+        <a href="#predefined-habits" class="btn btn-outline btn-sm">Browse Predefined Habits ↓</a>
       </div>
-    {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+<!-- ========================================================================= -->
+<!-- SECTION 2: PREDEFINED PURPOSEFUL HABITS                                   -->
+<!-- ========================================================================= -->
+<section id="predefined-habits" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong);">
+    <div>
+      <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <span>🎯 Predefined Purposeful Habits</span>
+        <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.8rem;">{{ predefined_habits.count }} Available</span>
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
+        Outcome-driven habits curated by administrators and technical specialists. Built with verification parameters that ensure measurable progress.
+      </p>
+    </div>
+    {% if can_manage_templates %}
+      <a href="{% url 'habit_create' %}?type=PREDEFINED_PURPOSE&template=1" class="btn btn-secondary btn-sm">+ Add Predefined Template</a>
+    {% endif %}
   </div>
-{% else %}
-  <div class="card" style="text-align: center; padding: 3rem 1rem;">
-    <p style="color: var(--text-muted); margin-bottom: 1rem;">No habits found in this workspace.</p>
-    <a href="{% url 'habit_create' %}" class="btn btn-primary">Create Your First Habit</a>
+
+  {% if predefined_habits %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+      {% for habit in predefined_habits %}
+        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid #38bdf8; box-shadow: var(--shadow-sm); padding: 1.25rem;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.72rem; font-weight: 700;">
+                🎯 Predefined Purposeful
+              </span>
+              {% if habit.category %}
+                <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
+              {% endif %}
+            </div>
+
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem;">{{ habit.name }}</h3>
+
+            <!-- Parameter Verification Requirement Badge -->
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+              {% if habit.has_time_window %}
+                <span class="badge" style="background-color: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); font-size: 0.75rem;">
+                  ⏰ Window: {{ habit.get_time_window_display }}
+                </span>
+              {% endif %}
+              {% if habit.requires_numeric %}
+                <span class="badge" style="background-color: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.75rem;">
+                  🎯 Target: {{ habit.target_value }} {{ habit.unit_label }}
+                </span>
+              {% endif %}
+              {% if habit.requires_evidence and not habit.has_time_window %}
+                <span class="badge" style="background-color: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); font-size: 0.75rem;">
+                  📎 Proof Required
+                </span>
+              {% endif %}
+              {% if habit.validation_rule == "STANDARD" %}
+                <span class="badge" style="background-color: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.75rem;">
+                  🟢 Honor System
+                </span>
+              {% endif %}
+            </div>
+
+            <!-- Predefined Validation Notice -->
+            <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; font-size: 0.78rem; color: var(--text-body); margin-bottom: 0.75rem; line-height: 1.4;">
+              <strong style="color: #38bdf8;">Parameter Validation:</strong>
+              Must fulfill <strong>{{ habit.get_validation_rule_display }}</strong> criteria before marking complete.
+            </div>
+
+            {% if habit.description %}
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.45;">{{ habit.description }}</p>
+            {% endif %}
+
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem;">
+              <span>🗓️ <strong>Recommended Schedule:</strong> {{ habit.get_weekday_display_names }}</span>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap;">
+            {% if habit.id in adopted_template_ids %}
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.35rem 0.65rem; font-weight: 700; font-size: 0.8rem;">
+                ✓ Added to My Habits
+              </span>
+            {% else %}
+              <form method="post" action="{% url 'habit_adopt' habit.pk %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                  <span>+</span> Add to My Habits
+                </button>
+              </form>
+            {% endif %}
+
+            {% if can_manage_templates %}
+              <div style="display: flex; gap: 0.35rem;">
+                <a href="{% url 'habit_edit' habit.pk %}" class="btn btn-outline btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Edit template">Edit</a>
+                <form method="post" action="{% url 'habit_delete' habit.pk %}"
+                      onsubmit="return confirm('Remove template &quot;{{ habit.name }}&quot; from catalog?');"
+                      style="display: inline; margin: 0;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger-outline btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Delete template">&times;</button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 2rem 1rem;">
+      <p style="color: var(--text-muted); font-size: 0.875rem;">No Predefined Purposeful Habits published in the catalog yet.</p>
+    </div>
+  {% endif %}
+</section>
+
+<!-- ========================================================================= -->
+<!-- SECTION 3: EXPERT PRESCRIBED HABITS                                       -->
+<!-- ========================================================================= -->
+<section id="expert-habits" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong);">
+    <div>
+      <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <span>🩺 Expert Prescribed Habits</span>
+        <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; font-size: 0.8rem;">{{ expert_habits.count }} Available</span>
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
+        Scientifically designed routines formulated by clinicians and performance specialists. Strict parameters ensure proper execution and lasting benefits.
+      </p>
+    </div>
+    {% if can_manage_templates %}
+      <a href="{% url 'habit_create' %}?type=EXPERT_PRESCRIBED&template=1" class="btn btn-outline btn-sm">+ Add Expert Template</a>
+    {% endif %}
   </div>
-{% endif %}
+
+  {% if expert_habits %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+      {% for habit in expert_habits %}
+        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid #c084fc; box-shadow: var(--shadow-sm); padding: 1.25rem;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 0.72rem; font-weight: 700;">
+                🩺 Expert Prescribed
+              </span>
+              {% if habit.category %}
+                <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
+              {% endif %}
+            </div>
+
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem;">{{ habit.name }}</h3>
+
+            <!-- Parameter Verification Requirement Badge -->
+            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+              {% if habit.has_time_window %}
+                <span class="badge" style="background-color: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); font-size: 0.75rem;">
+                  ⏰ Window: {{ habit.get_time_window_display }}
+                </span>
+              {% endif %}
+              {% if habit.requires_numeric %}
+                <span class="badge" style="background-color: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.75rem;">
+                  🎯 Target: {{ habit.target_value }} {{ habit.unit_label }}
+                </span>
+              {% endif %}
+              {% if habit.requires_evidence and not habit.has_time_window %}
+                <span class="badge" style="background-color: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); font-size: 0.75rem;">
+                  📎 Proof Required
+                </span>
+              {% endif %}
+              {% if habit.validation_rule == "STANDARD" %}
+                <span class="badge" style="background-color: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.75rem;">
+                  🟢 Honor System
+                </span>
+              {% endif %}
+            </div>
+
+            <!-- Expert Validation Notice -->
+            <div style="background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; font-size: 0.78rem; color: var(--text-body); margin-bottom: 0.75rem; line-height: 1.4;">
+              <strong style="color: #c084fc;">Clinical Verification:</strong>
+              Must fulfill <strong>{{ habit.get_validation_rule_display }}</strong> parameters before marking complete.
+            </div>
+
+            {% if habit.description %}
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.45;">{{ habit.description }}</p>
+            {% endif %}
+
+            <div style="font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem;">
+              <span>🗓️ <strong>Prescribed Schedule:</strong> {{ habit.get_weekday_display_names }}</span>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap;">
+            {% if habit.id in adopted_template_ids %}
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.35rem 0.65rem; font-weight: 700; font-size: 0.8rem;">
+                ✓ Added to My Habits
+              </span>
+            {% else %}
+              <form method="post" action="{% url 'habit_adopt' habit.pk %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem; background: #8b5cf6; border-color: #7c3aed;">
+                  <span>+</span> Add to My Habits
+                </button>
+              </form>
+            {% endif %}
+
+            {% if can_manage_templates %}
+              <div style="display: flex; gap: 0.35rem;">
+                <a href="{% url 'habit_edit' habit.pk %}" class="btn btn-outline btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Edit template">Edit</a>
+                <form method="post" action="{% url 'habit_delete' habit.pk %}"
+                      onsubmit="return confirm('Remove template &quot;{{ habit.name }}&quot; from catalog?');"
+                      style="display: inline; margin: 0;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger-outline btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Delete template">&times;</button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 2rem 1rem;">
+      <p style="color: var(--text-muted); font-size: 0.875rem;">No Expert Prescribed Habits published in the catalog yet.</p>
+    </div>
+  {% endif %}
+</section>
 {% endblock %}

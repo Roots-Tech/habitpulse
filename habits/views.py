@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
@@ -26,6 +26,7 @@ from .models import (
     HabitCategory,
     HabitCompletion,
     RuleStrategy,
+    seed_default_catalog_habits,
     seed_default_master_data_for_tenant,
 )
 from .services import (
@@ -46,7 +47,7 @@ def onboarding_view(request):
     if not tenant:
         raise Http404("Workspace not found.")
 
-    if Habit.objects.filter(tenant=tenant).exists():
+    if Habit.objects.filter(tenant=tenant, is_template=False).exists():
         return redirect("dashboard")
 
     return render(request, "habits/onboarding.html")
@@ -55,80 +56,248 @@ def onboarding_view(request):
 @login_required
 def habit_list_view(request):
     """
-    Lists all habits within the user's current tenant workspace.
+    Displays the Habits Hub with 3 separate sections:
+    1. My Habit List: Active habits tracked by the user in their workspace.
+    2. Predefined Purposeful Habits: Curated goal-oriented habits created by super admin or technical users.
+    3. Expert Prescribed Habits: Scientifically designed routines created by super admin or technical users.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    habits = Habit.objects.filter(tenant=tenant).order_by("-is_active", "name")
-    return render(request, "habits/habit_list.html", {"habits": habits})
+    # Ensure default catalog templates exist
+    if not Habit.objects.filter(is_template=True).exists():
+        seed_default_catalog_habits(creator=request.user, tenant=tenant)
+
+    # 1. My Habit List (non-template habits tracked in user's workspace)
+    my_habits = Habit.objects.filter(tenant=tenant, is_template=False).order_by("-is_active", "name")
+
+    # Track which catalog templates this user has already added
+    adopted_template_ids = set(
+        Habit.objects.filter(tenant=tenant, is_template=False, template_source__isnull=False)
+        .values_list("template_source_id", flat=True)
+    )
+
+    # 2. Predefined Purposeful Habits (catalog templates)
+    predefined_habits = Habit.objects.filter(
+        is_template=True,
+        habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
+        is_active=True,
+    ).order_by("name")
+
+    # 3. Expert Prescribed Habits (catalog templates)
+    expert_habits = Habit.objects.filter(
+        is_template=True,
+        habit_type=Habit.HabitType.EXPERT_PRESCRIBED,
+        is_active=True,
+    ).order_by("name")
+
+    can_manage_templates = bool(
+        request.user.is_authenticated and (request.user.is_super_admin or request.user.is_technical_user)
+    )
+
+    return render(request, "habits/habit_list.html", {
+        "my_habits": my_habits,
+        "predefined_habits": predefined_habits,
+        "expert_habits": expert_habits,
+        "adopted_template_ids": adopted_template_ids,
+        "can_manage_templates": can_manage_templates,
+    })
 
 
 @login_required
 def habit_create_view(request):
     """
-    Creates a new habit in the active tenant.
+    Creates a new habit in the active tenant workspace or publishes a catalog template.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
+    requested_type = request.GET.get("type") or Habit.HabitType.GENERAL
+    is_template_req = request.GET.get("template") in ["1", "true", "True"]
+    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
+
+    if not is_admin_or_tech:
+        requested_type = Habit.HabitType.GENERAL
+        is_template_req = False
+
     if request.method == "POST":
-        form = HabitForm(request.POST, tenant=tenant)
+        form = HabitForm(
+            request.POST,
+            tenant=tenant,
+            user=request.user,
+            habit_type_initial=requested_type,
+            is_template_initial=is_template_req,
+        )
         if form.is_valid():
             habit = form.save(commit=False)
             habit.tenant = tenant
             habit.created_by = request.user
+            if not is_admin_or_tech:
+                habit.habit_type = Habit.HabitType.GENERAL
+                habit.is_template = False
             habit.save()
-            messages.success(request, f'Habit "{habit.name}" created successfully!')
-            return redirect("dashboard")
+
+            if habit.is_template:
+                messages.success(request, f'Catalog template "{habit.name}" published successfully! Users can now add it to their habit list.')
+                return redirect("habit_list")
+            else:
+                messages.success(request, f'Habit "{habit.name}" created successfully!')
+                return redirect("dashboard")
         else:
             messages.error(request, "Please fix the errors in the habit form.")
     else:
-        form = HabitForm(tenant=tenant)
+        form = HabitForm(
+            tenant=tenant,
+            user=request.user,
+            habit_type_initial=requested_type,
+            is_template_initial=is_template_req,
+        )
 
     available_rule_strategies = RuleStrategy.objects.filter(tenant=tenant, is_active=True)
+
+    action_title = "Create a New Habit"
+    submit_label = "Create Habit"
+    if is_admin_or_tech and is_template_req:
+        if requested_type == Habit.HabitType.PREDEFINED_PURPOSE:
+            action_title = "Publish a Predefined Purposeful Habit Template"
+            submit_label = "Publish Predefined Habit"
+        elif requested_type == Habit.HabitType.EXPERT_PRESCRIBED:
+            action_title = "Publish an Expert Prescribed Habit Template"
+            submit_label = "Publish Expert Habit"
 
     return render(request, "habits/habit_form.html", {
         "form": form,
         "available_rule_strategies": available_rule_strategies,
-        "action_title": "Create a New Habit",
-        "submit_label": "Create Habit",
+        "action_title": action_title,
+        "submit_label": submit_label,
+        "is_admin_or_tech": is_admin_or_tech,
     })
 
 
 @login_required
 def habit_update_view(request, pk):
     """
-    Updates an existing habit. Strictly tenant-scoped.
+    Updates an existing habit or catalog template.
+    Templates can only be updated by Super Admins and Technical Users.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    habit = get_object_or_404(Habit, pk=pk)
+    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
+
+    if habit.is_template:
+        if not is_admin_or_tech:
+            raise PermissionDenied("Only Super Admins and Technical Users can edit catalog templates.")
+    else:
+        if habit.tenant != tenant:
+            raise Http404("Habit not found in workspace.")
 
     if request.method == "POST":
-        form = HabitForm(request.POST, instance=habit, tenant=tenant)
+        form = HabitForm(request.POST, instance=habit, tenant=tenant, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, f'Habit "{habit.name}" updated successfully!')
+            if habit.is_template:
+                return redirect("habit_list")
             return redirect("dashboard")
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitForm(instance=habit, tenant=tenant)
+        form = HabitForm(instance=habit, tenant=tenant, user=request.user)
 
     available_rule_strategies = RuleStrategy.objects.filter(tenant=tenant, is_active=True)
 
+    action_title = f'Edit Template "{habit.name}"' if habit.is_template else f'Edit "{habit.name}"'
     return render(request, "habits/habit_form.html", {
         "form": form,
         "habit": habit,
         "available_rule_strategies": available_rule_strategies,
-        "action_title": f'Edit "{habit.name}"',
+        "action_title": action_title,
         "submit_label": "Save Changes",
+        "is_admin_or_tech": is_admin_or_tech,
     })
+
+
+@login_required
+@require_POST
+def habit_adopt_view(request, pk):
+    """
+    Adopts a Predefined Purposeful or Expert Prescribed habit template from the catalog
+    and adds it to the user's active habit list within their workspace.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    template_habit = get_object_or_404(Habit, pk=pk, is_template=True)
+
+    # Check if already added in this workspace
+    existing = Habit.objects.filter(
+        tenant=tenant,
+        template_source=template_habit,
+        is_active=True,
+    ).first()
+
+    if existing:
+        messages.info(request, f'You are already tracking "{existing.name}" in your habit list.')
+        return redirect("habit_list")
+
+    # Clone template habit into user's workspace
+    with transaction.atomic():
+        adopted_habit = Habit.objects.create(
+            tenant=tenant,
+            created_by=request.user,
+            name=template_habit.name,
+            description=template_habit.description,
+            habit_type=template_habit.habit_type,
+            is_template=False,
+            template_source=template_habit,
+            category=template_habit.category,
+            category_ref=template_habit.category_ref,
+            rule_strategy_ref=template_habit.rule_strategy_ref,
+            validation_rule=template_habit.validation_rule,
+            window_start_time=template_habit.window_start_time,
+            window_end_time=template_habit.window_end_time,
+            target_value=template_habit.target_value,
+            unit_label=template_habit.unit_label,
+            frequency=template_habit.frequency,
+            selected_weekdays=template_habit.selected_weekdays,
+            start_date=timezone.localdate(),
+            is_active=True,
+        )
+
+    messages.success(request, f'Habit "{adopted_habit.name}" has been added to your habit list!')
+    return redirect("habit_list")
+
+
+@login_required
+@require_POST
+def habit_delete_view(request, pk):
+    """
+    Deletes a habit from the user's workspace or removes a template if admin/tech.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        raise Http404("Workspace not found.")
+
+    habit = get_object_or_404(Habit, pk=pk)
+    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
+
+    if habit.is_template:
+        if not is_admin_or_tech:
+            raise PermissionDenied("Only Super Admins and Technical Users can delete catalog templates.")
+    else:
+        if habit.tenant != tenant:
+            raise Http404("Habit not found in workspace.")
+
+    name = habit.name
+    habit.delete()
+    messages.success(request, f'Habit "{name}" was deleted successfully.')
+    return redirect("habit_list")
 
 
 @login_required
@@ -141,7 +310,16 @@ def habit_toggle_active_view(request, pk):
     if not tenant:
         raise Http404("Workspace not found.")
 
-    habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    habit = get_object_or_404(Habit, pk=pk)
+    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
+
+    if habit.is_template:
+        if not is_admin_or_tech:
+            raise PermissionDenied("Only Super Admins and Technical Users can toggle catalog templates.")
+    else:
+        if habit.tenant != tenant:
+            raise Http404("Habit not found in workspace.")
+
     habit.is_active = not habit.is_active
     habit.save(update_fields=["is_active", "updated_at"])
 

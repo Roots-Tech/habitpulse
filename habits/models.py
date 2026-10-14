@@ -133,6 +133,11 @@ class Habit(models.Model):
         NUMERIC_TARGET = "NUMERIC_TARGET", "Quantitative Goal"
         TIME_AND_EVIDENCE = "TIME_AND_EVIDENCE", "Time Window + Proof Required"
 
+    class HabitType(models.TextChoices):
+        GENERAL = "GENERAL", "General Habit (Honor System)"
+        PREDEFINED_PURPOSE = "PREDEFINED_PURPOSE", "Predefined Purposeful Habit"
+        EXPERT_PRESCRIBED = "EXPERT_PRESCRIBED", "Expert Prescribed Habit"
+
     WEEKDAY_CHOICES = [
         (0, "Monday"),
         (1, "Tuesday"),
@@ -147,6 +152,8 @@ class Habit(models.Model):
         Tenant,
         on_delete=models.CASCADE,
         related_name="habits",
+        null=True,
+        blank=True,
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -155,6 +162,24 @@ class Habit(models.Model):
     )
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True, default="")
+    habit_type = models.CharField(
+        max_length=30,
+        choices=HabitType.choices,
+        default=HabitType.GENERAL,
+        help_text="Designation of habit type (General, Predefined Purposeful, or Expert Prescribed)",
+    )
+    is_template = models.BooleanField(
+        default=False,
+        help_text="Designates this habit as a catalog template available for any user to add.",
+    )
+    template_source = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="adopted_habits",
+        help_text="Reference to the catalog template this habit was adopted from.",
+    )
     category_ref = models.ForeignKey(
         HabitCategory,
         on_delete=models.SET_NULL,
@@ -227,7 +252,48 @@ class Habit(models.Model):
         indexes = [
             models.Index(fields=["tenant", "is_active"]),
             models.Index(fields=["tenant", "start_date"]),
+            models.Index(fields=["is_template", "habit_type"]),
         ]
+
+    @property
+    def is_general(self):
+        return self.habit_type == self.HabitType.GENERAL
+
+    @property
+    def is_predefined_purpose(self):
+        return self.habit_type == self.HabitType.PREDEFINED_PURPOSE
+
+    @property
+    def is_expert_prescribed(self):
+        return self.habit_type == self.HabitType.EXPERT_PRESCRIBED
+
+    def get_habit_type_badge(self):
+        if self.habit_type == self.HabitType.PREDEFINED_PURPOSE:
+            return {
+                "label": "Predefined Purposeful",
+                "class": "badge-purposeful",
+                "icon": "🎯",
+                "color": "#38bdf8",
+                "bg": "rgba(56, 189, 248, 0.15)",
+                "border": "rgba(56, 189, 248, 0.4)",
+            }
+        elif self.habit_type == self.HabitType.EXPERT_PRESCRIBED:
+            return {
+                "label": "Expert Prescribed",
+                "class": "badge-expert",
+                "icon": "🩺",
+                "color": "#c084fc",
+                "bg": "rgba(168, 85, 247, 0.15)",
+                "border": "rgba(168, 85, 247, 0.4)",
+            }
+        return {
+            "label": "General (Honor System)",
+            "class": "badge-general",
+            "icon": "👤",
+            "color": "#34d399",
+            "bg": "rgba(16, 185, 129, 0.15)",
+            "border": "rgba(16, 185, 129, 0.4)",
+        }
 
     def clean(self):
         super().clean()
@@ -541,4 +607,110 @@ def seed_default_master_data_for_tenant(tenant):
                 "is_active": True,
             },
         )
+
+
+def seed_default_catalog_habits(creator=None, tenant=None):
+    """
+    Seeds curated catalog template habits for:
+    1. Predefined Purposeful Habits
+    2. Expert Prescribed Habits
+    Available for all users to add to their personal habit tracking lists.
+    """
+    if Habit.objects.filter(is_template=True).exists():
+        return
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    if creator is None:
+        creator = User.objects.filter(is_superuser=True).first() or User.objects.first()
+
+    if not creator:
+        return
+
+    predefined_templates = [
+        {
+            "name": "Daily Deep Hydration",
+            "category": "Health",
+            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
+            "description": "Maintain optimal physical hydration and cognitive performance by consuming at least 2 liters of pure water daily.",
+            "frequency": Habit.Frequency.DAILY,
+            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
+            "target_value": 2.0,
+            "unit_label": "Liters",
+        },
+        {
+            "name": "Deep Work Sprint (45 Mins)",
+            "category": "Productivity",
+            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
+            "description": "Dedicated 45-minute distraction-free focus block on highest priority project or technical coding problem.",
+            "frequency": Habit.Frequency.DAILY,
+            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
+            "target_value": 45,
+            "unit_label": "Mins",
+        },
+        {
+            "name": "Morning Mobility & Core Routine",
+            "category": "Fitness",
+            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
+            "description": "Complete morning stretching, joint mobility, and spine activation between 5:30 AM and 9:00 AM.",
+            "frequency": Habit.Frequency.DAILY,
+            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
+            "window_start_time": "05:30:00",
+            "window_end_time": "09:00:00",
+        },
+    ]
+
+    expert_templates = [
+        {
+            "name": "Cardiologist-Approved Zone 2 Cardio",
+            "category": "Fitness",
+            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
+            "description": "Clinical aerobic base protocol: 30 minutes of Zone 2 steady-state exercise to improve cardiac output and mitochondrial health.",
+            "frequency": Habit.Frequency.WEEKDAYS,
+            "selected_weekdays": [0, 2, 4],  # Mon, Wed, Fri
+            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
+            "target_value": 30,
+            "unit_label": "Mins",
+        },
+        {
+            "name": "Circadian Light Exposure Protocol",
+            "category": "Health",
+            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
+            "description": "Neurobiology circadian reset: View natural sunlight outdoors within 60 minutes of waking (6:00 AM - 8:30 AM) to optimize cortisol and sleep cycles.",
+            "frequency": Habit.Frequency.DAILY,
+            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
+            "window_start_time": "06:00:00",
+            "window_end_time": "08:30:00",
+        },
+        {
+            "name": "Deliberate Non-Fiction Reading",
+            "category": "Learning",
+            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
+            "description": "Cognitive development protocol: Complete 20 pages of technical, philosophical, or educational reading daily.",
+            "frequency": Habit.Frequency.DAILY,
+            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
+            "target_value": 20,
+            "unit_label": "Pages",
+        },
+    ]
+
+    for item in predefined_templates + expert_templates:
+        Habit.objects.create(
+            tenant=tenant,
+            created_by=creator,
+            name=item["name"],
+            category=item["category"],
+            habit_type=item["habit_type"],
+            description=item["description"],
+            frequency=item["frequency"],
+            selected_weekdays=item.get("selected_weekdays", []),
+            validation_rule=item["validation_rule"],
+            target_value=item.get("target_value"),
+            unit_label=item.get("unit_label", ""),
+            window_start_time=item.get("window_start_time"),
+            window_end_time=item.get("window_end_time"),
+            is_template=True,
+            is_active=True,
+        )
+
 

@@ -131,6 +131,8 @@ class HabitForm(forms.ModelForm):
         model = Habit
         fields = [
             "name",
+            "habit_type",
+            "is_template",
             "description",
             "category_ref",
             "category",
@@ -151,10 +153,18 @@ class HabitForm(forms.ModelForm):
                 "placeholder": "e.g., Read 20 mins, Run 5km, Morning Meditation",
                 "autofocus": True,
             }),
+            "habit_type": forms.Select(attrs={
+                "class": "form-control",
+                "id": "id_habit_type",
+            }),
+            "is_template": forms.CheckboxInput(attrs={
+                "class": "form-check-input",
+                "id": "id_is_template",
+            }),
             "description": forms.Textarea(attrs={
                 "class": "form-control",
                 "rows": 3,
-                "placeholder": "Optional details or motivation...",
+                "placeholder": "Optional details, guidelines, or motivation...",
             }),
             "category_ref": forms.Select(attrs={
                 "class": "form-control",
@@ -199,9 +209,10 @@ class HabitForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, tenant=None, **kwargs):
+    def __init__(self, *args, tenant=None, user=None, habit_type_initial=None, is_template_initial=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.tenant = tenant
+        self.user = user
         if not self.tenant and self.instance and self.instance.pk and hasattr(self.instance, "tenant"):
             self.tenant = self.instance.tenant
 
@@ -214,6 +225,25 @@ class HabitForm(forms.ModelForm):
         self.fields["window_end_time"].required = False
         self.fields["target_value"].required = False
         self.fields["unit_label"].required = False
+        self.fields["habit_type"].required = False
+        self.fields["is_template"].required = False
+
+        is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
+        if not is_admin_or_tech:
+            # Standard users can only create General habits
+            self.fields["habit_type"].choices = [
+                (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
+            ]
+            self.fields["habit_type"].initial = Habit.HabitType.GENERAL
+            self.fields["is_template"].initial = False
+            self.fields["is_template"].widget = forms.HiddenInput()
+        else:
+            if habit_type_initial:
+                self.initial["habit_type"] = habit_type_initial
+            if is_template_initial is not None:
+                self.initial["is_template"] = is_template_initial
+            elif habit_type_initial in [Habit.HabitType.PREDEFINED_PURPOSE, Habit.HabitType.EXPERT_PRESCRIBED]:
+                self.initial["is_template"] = True
 
         if self.tenant:
             self.fields["category_ref"].queryset = HabitCategory.objects.filter(
@@ -262,6 +292,15 @@ class HabitForm(forms.ModelForm):
 
         # 2. Resolve Rule Strategy
         rule_strategy_ref = cleaned_data.get("rule_strategy_ref")
+        habit_type = cleaned_data.get("habit_type") or Habit.HabitType.GENERAL
+        is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
+        if not is_admin_or_tech:
+            cleaned_data["habit_type"] = Habit.HabitType.GENERAL
+            cleaned_data["is_template"] = False
+        else:
+            cleaned_data["habit_type"] = habit_type
+            cleaned_data["is_template"] = bool(cleaned_data.get("is_template", False))
+
         if rule_strategy_ref:
             rule = rule_strategy_ref.engine_type
             cleaned_data["validation_rule"] = rule
@@ -313,6 +352,8 @@ class HabitForm(forms.ModelForm):
 
     def save(self, commit=True):
         habit = super().save(commit=False)
+        habit.habit_type = self.cleaned_data.get("habit_type") or habit.habit_type or Habit.HabitType.GENERAL
+        habit.is_template = bool(self.cleaned_data.get("is_template", False))
         habit.selected_weekdays = self.cleaned_data.get("selected_weekdays", [])
         if self.cleaned_data.get("category_ref"):
             habit.category_ref = self.cleaned_data["category_ref"]
