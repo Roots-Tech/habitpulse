@@ -2,7 +2,8 @@ import datetime
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
-from habits.models import HabitCategory, RuleStrategy
+from django.utils import timezone
+from habits.models import Habit, HabitCategory, HabitCompletion, RuleStrategy
 from tenants.models import Membership, Tenant
 
 User = get_user_model()
@@ -500,4 +501,89 @@ class UserRolesAndPermissionsTestCase(TestCase):
         self.assertTrue(self.tech_user.can_manage_rule_strategies)
         # Cannot access admin panel
         self.assertFalse(self.tech_user.can_access_admin_panel)
+
+    def test_super_admin_has_unrestricted_visibility_and_control_over_all_users_habits(self):
+        """
+        Super Admin has ZERO privilege barriers and can view, edit, toggle,
+        complete, view calendar, view stats, and delete any habit created by any user.
+        """
+        # Create a habit owned by Regular User in Regular User's separate tenant
+        user_tenant = Tenant.objects.create(name="Regular User Workspace", slug="regular-user-workspace")
+        Membership.objects.create(
+            user=self.regular_user,
+            tenant=user_tenant,
+            role=Membership.Role.OWNER,
+            status=Membership.Status.ACTIVE,
+        )
+        user_habit = Habit.objects.create(
+            tenant=user_tenant,
+            created_by=self.regular_user,
+            name="Regular User Coding Practice",
+            category="Learning",
+            frequency=Habit.Frequency.DAILY,
+            start_date=timezone.localdate(),
+            is_active=True,
+        )
+
+        # 1. Super Admin views Habits list -> Sees regular user's habit and username
+        self.client.force_login(self.super_admin)
+        resp_list = self.client.get(reverse("habit_list"))
+        self.assertEqual(resp_list.status_code, 200)
+        self.assertContains(resp_list, "Regular User Coding Practice")
+        self.assertContains(resp_list, self.regular_user.username)
+
+        # 2. Super Admin views Dashboard -> Sees regular user's habit
+        resp_dash = self.client.get(reverse("dashboard"))
+        self.assertEqual(resp_dash.status_code, 200)
+        self.assertContains(resp_dash, "Regular User Coding Practice")
+
+        # 3. Super Admin views calendar and stats for regular user's habit -> 200 OK
+        resp_cal = self.client.get(reverse("habit_calendar", kwargs={"pk": user_habit.pk}))
+        self.assertEqual(resp_cal.status_code, 200)
+        resp_stats = self.client.get(reverse("habit_stats", kwargs={"pk": user_habit.pk}))
+        self.assertEqual(resp_stats.status_code, 200)
+
+        # 4. Super Admin edits regular user's habit -> Successfully updates
+        edit_url = reverse("habit_edit", kwargs={"pk": user_habit.pk})
+        resp_edit_get = self.client.get(edit_url)
+        self.assertEqual(resp_edit_get.status_code, 200)
+        resp_edit_post = self.client.post(edit_url, {
+            "name": "Regular User Coding Practice (Admin Reviewed)",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": timezone.localdate(),
+            "is_active": True,
+        })
+        self.assertEqual(resp_edit_post.status_code, 302)
+        user_habit.refresh_from_db()
+        self.assertEqual(user_habit.name, "Regular User Coding Practice (Admin Reviewed)")
+
+        # 5. Super Admin toggles active status -> Successfully toggles
+        toggle_url = reverse("habit_toggle_active", kwargs={"pk": user_habit.pk})
+        resp_toggle = self.client.post(toggle_url)
+        self.assertEqual(resp_toggle.status_code, 302)
+        user_habit.refresh_from_db()
+        self.assertFalse(user_habit.is_active)
+
+        # Reactivate
+        self.client.post(toggle_url)
+        user_habit.refresh_from_db()
+        self.assertTrue(user_habit.is_active)
+
+        # 6. Super Admin completes regular user's habit -> Success
+        complete_url = reverse("habit_complete", kwargs={"pk": user_habit.pk})
+        resp_complete = self.client.post(complete_url)
+        self.assertEqual(resp_complete.status_code, 302)
+        self.assertTrue(HabitCompletion.objects.filter(habit=user_habit, completion_date=timezone.localdate()).exists())
+
+        # Super Admin undoes completion -> Success
+        undo_url = reverse("habit_undo_complete", kwargs={"pk": user_habit.pk})
+        resp_undo = self.client.post(undo_url)
+        self.assertEqual(resp_undo.status_code, 302)
+        self.assertFalse(HabitCompletion.objects.filter(habit=user_habit, completion_date=timezone.localdate()).exists())
+
+        # 7. Super Admin deletes regular user's habit -> Successfully deleted
+        delete_url = reverse("habit_delete", kwargs={"pk": user_habit.pk})
+        resp_del = self.client.post(delete_url)
+        self.assertEqual(resp_del.status_code, 302)
+        self.assertFalse(Habit.objects.filter(pk=user_habit.pk).exists())
 

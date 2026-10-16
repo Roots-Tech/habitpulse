@@ -47,8 +47,12 @@ def onboarding_view(request):
     if not tenant:
         raise Http404("Workspace not found.")
 
-    if Habit.objects.filter(tenant=tenant, is_template=False).exists():
-        return redirect("dashboard")
+    if request.user.is_super_admin:
+        if Habit.objects.filter(is_template=False).exists():
+            return redirect("dashboard")
+    else:
+        if Habit.objects.filter(tenant=tenant, is_template=False).exists():
+            return redirect("dashboard")
 
     return render(request, "habits/onboarding.html")
 
@@ -57,7 +61,7 @@ def onboarding_view(request):
 def habit_list_view(request):
     """
     Displays the Habits Hub with 3 separate sections:
-    1. My Habit List: Active habits tracked by the user in their workspace.
+    1. My Habit List: Active habits tracked by the user in their workspace (Super Admin sees all habits across all users).
     2. Predefined Purposeful Habits: Curated goal-oriented habits created by super admin or technical users.
     3. Expert Prescribed Habits: Scientifically designed routines created by super admin or technical users.
     """
@@ -69,8 +73,15 @@ def habit_list_view(request):
     if not Habit.objects.filter(is_template=True).exists():
         seed_default_catalog_habits(creator=request.user, tenant=tenant)
 
-    # 1. My Habit List (non-template habits tracked in user's workspace)
-    my_habits = Habit.objects.filter(tenant=tenant, is_template=False).order_by("-is_active", "name")
+    scope = request.GET.get("scope", "all" if request.user.is_super_admin else "my")
+    all_habits_count = Habit.objects.filter(is_template=False).count()
+    my_personal_habits_count = Habit.objects.filter(tenant=tenant, is_template=False).count()
+
+    # 1. My Habit List (non-template habits tracked in user's workspace or system-wide for admin)
+    if request.user.is_super_admin and scope != "my":
+        my_habits = Habit.objects.filter(is_template=False).select_related("created_by", "tenant").order_by("-is_active", "name")
+    else:
+        my_habits = Habit.objects.filter(tenant=tenant, is_template=False).order_by("-is_active", "name")
 
     # Track which catalog templates this user has already added
     adopted_template_ids = set(
@@ -102,6 +113,9 @@ def habit_list_view(request):
         "expert_habits": expert_habits,
         "adopted_template_ids": adopted_template_ids,
         "can_manage_templates": can_manage_templates,
+        "scope": scope,
+        "all_habits_count": all_habits_count,
+        "my_personal_habits_count": my_personal_habits_count,
     })
 
 
@@ -189,7 +203,7 @@ def habit_create_view(request):
 def habit_update_view(request, pk):
     """
     Updates an existing habit or catalog template.
-    Templates can only be updated by Super Admins and Technical Users.
+    Super Admins have full access to edit any habit across the system.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
@@ -202,11 +216,13 @@ def habit_update_view(request, pk):
         if not is_admin_or_tech:
             raise PermissionDenied("Only Super Admins and Technical Users can edit catalog templates.")
     else:
-        if habit.tenant != tenant:
+        if habit.tenant != tenant and not request.user.is_super_admin:
             raise Http404("Habit not found in workspace.")
 
+    target_tenant = habit.tenant if habit.tenant else tenant
+
     if request.method == "POST":
-        form = HabitForm(request.POST, instance=habit, tenant=tenant, user=request.user)
+        form = HabitForm(request.POST, instance=habit, tenant=target_tenant, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, f'Habit "{habit.name}" updated successfully!')
@@ -225,9 +241,9 @@ def habit_update_view(request, pk):
             else:
                 messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitForm(instance=habit, tenant=tenant, user=request.user)
+        form = HabitForm(instance=habit, tenant=target_tenant, user=request.user)
 
-    available_rule_strategies = RuleStrategy.objects.filter(tenant=tenant, is_active=True)
+    available_rule_strategies = RuleStrategy.objects.filter(tenant=target_tenant, is_active=True)
 
     action_title = f'Edit Template "{habit.name}"' if habit.is_template else f'Edit "{habit.name}"'
     return render(request, "habits/habit_form.html", {
@@ -296,7 +312,8 @@ def habit_adopt_view(request, pk):
 @require_POST
 def habit_delete_view(request, pk):
     """
-    Deletes a habit from the user's workspace or removes a template if admin/tech.
+    Deletes a habit from workspace or removes a template.
+    Super Admins can delete any habit across the entire system.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
@@ -309,7 +326,7 @@ def habit_delete_view(request, pk):
         if not is_admin_or_tech:
             raise PermissionDenied("Only Super Admins and Technical Users can delete catalog templates.")
     else:
-        if habit.tenant != tenant:
+        if habit.tenant != tenant and not request.user.is_super_admin:
             raise Http404("Habit not found in workspace.")
 
     name = habit.name
@@ -322,7 +339,8 @@ def habit_delete_view(request, pk):
 @require_POST
 def habit_toggle_active_view(request, pk):
     """
-    Toggles the active status of a habit. Strictly tenant-scoped.
+    Toggles the active status of a habit.
+    Super Admins can toggle active status of any habit across the system.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
@@ -335,7 +353,7 @@ def habit_toggle_active_view(request, pk):
         if not is_admin_or_tech:
             raise PermissionDenied("Only Super Admins and Technical Users can toggle catalog templates.")
     else:
-        if habit.tenant != tenant:
+        if habit.tenant != tenant and not request.user.is_super_admin:
             raise Http404("Habit not found in workspace.")
 
     habit.is_active = not habit.is_active
@@ -351,14 +369,17 @@ def habit_toggle_active_view(request, pk):
 def habit_complete_view(request, pk):
     """
     Marks a habit completed for today (or specified date).
-    Enforces tenant match, schedule rules, and prevents duplicates.
+    Super Admins can complete any habit across the platform.
     Supports both HTMX/JSON and standard form submission.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    if request.user.is_super_admin:
+        habit = get_object_or_404(Habit, pk=pk)
+    else:
+        habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
     today = timezone.localdate()
 
     date_str = request.POST.get("date")
@@ -417,7 +438,7 @@ def habit_complete_view(request, pk):
     try:
         with transaction.atomic():
             HabitCompletion.objects.create(
-                tenant=tenant,
+                tenant=habit.tenant,
                 habit=habit,
                 completion_date=target_date,
                 evidence_file=evidence_file,
@@ -445,13 +466,17 @@ def habit_complete_view(request, pk):
 @require_POST
 def habit_undo_complete_view(request, pk):
     """
-    Undoes completion for today (or specified date). Strictly tenant-scoped.
+    Undoes completion for today (or specified date).
+    Super Admins can undo completion for any habit across the platform.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    if request.user.is_super_admin:
+        habit = get_object_or_404(Habit, pk=pk)
+    else:
+        habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
     today = timezone.localdate()
 
     date_str = request.POST.get("date")
@@ -465,7 +490,6 @@ def habit_undo_complete_view(request, pk):
 
     with transaction.atomic():
         deleted_count, _ = HabitCompletion.objects.filter(
-            tenant=tenant,
             habit=habit,
             completion_date=target_date,
         ).delete()
@@ -489,13 +513,16 @@ def habit_undo_complete_view(request, pk):
 def habit_calendar_view(request, pk):
     """
     Monthly calendar view for a single habit.
-    Supports month/year navigation and displays visual states.
+    Super Admins can view calendar for any habit across the platform.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    if request.user.is_super_admin:
+        habit = get_object_or_404(Habit, pk=pk)
+    else:
+        habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
     today = timezone.localdate()
 
     try:
@@ -509,7 +536,6 @@ def habit_calendar_view(request, pk):
     calendar_data = generate_monthly_calendar_data(habit, year, month, today)
     stats = get_habit_statistics(habit, today)
     recent_completions = HabitCompletion.objects.filter(
-        tenant=tenant,
         habit=habit,
     ).order_by("-completion_date")[:15]
 
@@ -526,12 +552,16 @@ def habit_calendar_view(request, pk):
 def habit_stats_view(request, pk):
     """
     In-depth statistics page for a single habit.
+    Super Admins can view stats for any habit across the platform.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    if request.user.is_super_admin:
+        habit = get_object_or_404(Habit, pk=pk)
+    else:
+        habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
     today = timezone.localdate()
     stats = get_habit_statistics(habit, today)
 
@@ -549,7 +579,7 @@ def habit_stats_view(request, pk):
 @category_permission_required
 def category_list_view(request):
     """
-    Master Data: Lists all Habit Categories in the user's active workspace.
+    Master Data: Lists all Habit Categories in the user's active workspace (or all for Super Admin).
     Supports search query (?q=).
     """
     tenant = getattr(request, "tenant", None)
@@ -560,9 +590,14 @@ def category_list_view(request):
         seed_default_master_data_for_tenant(tenant)
 
     q = request.GET.get("q", "").strip()
-    categories = HabitCategory.objects.filter(tenant=tenant).annotate(
-        total_habits=Count("habits")
-    )
+    if request.user.is_super_admin:
+        categories = HabitCategory.objects.all().annotate(
+            total_habits=Count("habits")
+        )
+    else:
+        categories = HabitCategory.objects.filter(tenant=tenant).annotate(
+            total_habits=Count("habits")
+        )
     if q:
         categories = categories.filter(
             Q(name__icontains=q) | Q(description__icontains=q)
@@ -608,16 +643,18 @@ def category_create_view(request):
 @category_permission_required
 def category_update_view(request, pk):
     """
-    Master Data: Edit an existing Habit Category. Strictly tenant-scoped.
+    Master Data: Edit an existing Habit Category.
+    Super Admins can edit any category.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    category = get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
+    category = get_object_or_404(HabitCategory, pk=pk) if request.user.is_super_admin else get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
+    target_tenant = category.tenant if category.tenant else tenant
 
     if request.method == "POST":
-        form = HabitCategoryForm(request.POST, instance=category, tenant=tenant)
+        form = HabitCategoryForm(request.POST, instance=category, tenant=target_tenant)
         if form.is_valid():
             form.save()
             messages.success(request, f'Category "{category.name}" updated successfully!')
@@ -625,7 +662,7 @@ def category_update_view(request, pk):
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitCategoryForm(instance=category, tenant=tenant)
+        form = HabitCategoryForm(instance=category, tenant=target_tenant)
 
     return render(request, "habits/category_form.html", {
         "form": form,
@@ -638,13 +675,14 @@ def category_update_view(request, pk):
 @category_permission_required
 def category_delete_view(request, pk):
     """
-    Master Data: Delete a Habit Category. Strictly tenant-scoped.
+    Master Data: Delete a Habit Category.
+    Super Admins can delete any category.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    category = get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
+    category = get_object_or_404(HabitCategory, pk=pk) if request.user.is_super_admin else get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
     habits_count = category.habits.count()
 
     if request.method == "POST":
@@ -666,7 +704,7 @@ def category_delete_view(request, pk):
 @rule_strategy_permission_required
 def rule_strategy_list_view(request):
     """
-    Master Data: Lists all Rule Strategies in the user's active workspace.
+    Master Data: Lists all Rule Strategies in the user's active workspace (or all for Super Admin).
     Supports search query (?q=).
     """
     tenant = getattr(request, "tenant", None)
@@ -677,9 +715,14 @@ def rule_strategy_list_view(request):
         seed_default_master_data_for_tenant(tenant)
 
     q = request.GET.get("q", "").strip()
-    strategies = RuleStrategy.objects.filter(tenant=tenant).annotate(
-        total_habits=Count("habits")
-    )
+    if request.user.is_super_admin:
+        strategies = RuleStrategy.objects.all().annotate(
+            total_habits=Count("habits")
+        )
+    else:
+        strategies = RuleStrategy.objects.filter(tenant=tenant).annotate(
+            total_habits=Count("habits")
+        )
     if q:
         strategies = strategies.filter(
             Q(name__icontains=q) | Q(description__icontains=q) | Q(engine_type__icontains=q)
@@ -725,16 +768,18 @@ def rule_strategy_create_view(request):
 @rule_strategy_permission_required
 def rule_strategy_update_view(request, pk):
     """
-    Master Data: Edit an existing Rule Strategy. Strictly tenant-scoped.
+    Master Data: Edit an existing Rule Strategy.
+    Super Admins can edit any rule strategy across the platform.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    strategy = get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
+    strategy = get_object_or_404(RuleStrategy, pk=pk) if request.user.is_super_admin else get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
+    target_tenant = strategy.tenant if strategy.tenant else tenant
 
     if request.method == "POST":
-        form = RuleStrategyForm(request.POST, instance=strategy, tenant=tenant)
+        form = RuleStrategyForm(request.POST, instance=strategy, tenant=target_tenant)
         if form.is_valid():
             form.save()
             messages.success(request, f'Rule Strategy "{strategy.name}" updated successfully!')
@@ -742,7 +787,7 @@ def rule_strategy_update_view(request, pk):
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = RuleStrategyForm(instance=strategy, tenant=tenant)
+        form = RuleStrategyForm(instance=strategy, tenant=target_tenant)
 
     return render(request, "habits/rule_strategy_form.html", {
         "form": form,
@@ -755,13 +800,14 @@ def rule_strategy_update_view(request, pk):
 @rule_strategy_permission_required
 def rule_strategy_delete_view(request, pk):
     """
-    Master Data: Delete a Rule Strategy. Strictly tenant-scoped.
+    Master Data: Delete a Rule Strategy.
+    Super Admins can delete any rule strategy across the platform.
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
         raise Http404("Workspace not found.")
 
-    strategy = get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
+    strategy = get_object_or_404(RuleStrategy, pk=pk) if request.user.is_super_admin else get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
     habits_count = strategy.habits.count()
 
     if request.method == "POST":
