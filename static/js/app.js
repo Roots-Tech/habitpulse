@@ -265,17 +265,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 4. Admin Panel Dropdown Toggle
+  // 4. Admin Panel & Navigation Dropdown Toggle
+  const closeAllSubmenus = () => {
+    document.querySelectorAll(".submenu-menu.show").forEach((m) => m.classList.remove("show"));
+    document.querySelectorAll(".dropdown-submenu.open").forEach((s) => s.classList.remove("open"));
+  };
+
+  const closeAllDropdowns = () => {
+    document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
+    closeAllSubmenus();
+  };
+
   const dropdownToggles = document.querySelectorAll(".dropdown-toggle");
   dropdownToggles.forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const parentDropdown = btn.closest(".dropdown");
-      const menu = parentDropdown.querySelector(".dropdown-menu");
+      const menu = parentDropdown ? parentDropdown.querySelector(".dropdown-menu") : null;
       if (menu) {
         const isOpen = menu.classList.contains("show");
         // Close all open dropdowns first
-        document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
+        closeAllDropdowns();
         if (!isOpen) {
           menu.classList.add("show");
         }
@@ -283,14 +293,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // 4b. Dropdown Submenu Toggle (e.g. Theme submenu in Admin Panel / Master Data)
+  const submenuToggles = document.querySelectorAll(".submenu-toggle");
+  submenuToggles.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const parentSubmenu = btn.closest(".dropdown-submenu");
+      if (!parentSubmenu) return;
+      const subMenu = parentSubmenu.querySelector(".submenu-menu");
+      if (subMenu) {
+        const isOpen = subMenu.classList.contains("show");
+        closeAllSubmenus();
+        if (!isOpen) {
+          subMenu.classList.add("show");
+          parentSubmenu.classList.add("open");
+        }
+      }
+    });
+  });
+
   // Close dropdowns on outside click or Escape key
   document.addEventListener("click", () => {
-    document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
+    closeAllDropdowns();
   });
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
+      closeAllDropdowns();
     }
   });
 
@@ -335,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (selectedTheme) {
         applyTheme(selectedTheme);
       }
-      document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
+      closeAllDropdowns();
     });
   });
 

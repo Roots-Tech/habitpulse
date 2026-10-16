@@ -529,6 +529,69 @@ a:hover {
   color: var(--primary) !important;
 }
 
+/* Dropdown Submenu (e.g. nested Theme in Admin Panel) */
+.dropdown-submenu {
+  position: relative;
+}
+
+.dropdown-submenu .submenu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.submenu-arrow {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.dropdown-submenu.open > .submenu-toggle .submenu-arrow {
+  transform: rotate(90deg);
+}
+
+.submenu-menu {
+  display: none;
+  position: absolute;
+  right: 100%;
+  top: -0.25rem;
+  min-width: 200px;
+  margin-right: 0.35rem;
+  background-color: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 0.5rem 0;
+  z-index: 110;
+}
+
+.submenu-menu.show {
+  display: block;
+}
+
+@media (hover: hover) and (min-width: 768px) {
+  .dropdown-submenu:hover > .submenu-menu {
+    display: block;
+  }
+}
+
+@media (max-width: 767px) {
+  .submenu-menu {
+    position: static;
+    margin: 0.25rem 0.5rem;
+    box-shadow: none;
+    border: none;
+    border-left: 2px solid var(--primary);
+    border-radius: 0;
+    background-color: rgba(255, 255, 255, 0.03);
+    padding: 0.25rem 0;
+  }
+}
+
 /* Card Component */
 .card {
   background-color: var(--surface);
