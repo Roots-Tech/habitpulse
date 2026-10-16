@@ -265,15 +265,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 4. Admin Panel & Navigation Dropdown Toggle
-  const closeAllSubmenus = () => {
-    document.querySelectorAll(".submenu-menu.show").forEach((m) => m.classList.remove("show"));
-    document.querySelectorAll(".dropdown-submenu.open").forEach((s) => s.classList.remove("open"));
-  };
-
+  // 4. Navigation & Dropdown Toggle
   const closeAllDropdowns = () => {
     document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));
-    closeAllSubmenus();
   };
 
   const dropdownToggles = document.querySelectorAll(".dropdown-toggle");
@@ -288,26 +282,6 @@ document.addEventListener("DOMContentLoaded", () => {
         closeAllDropdowns();
         if (!isOpen) {
           menu.classList.add("show");
-        }
-      }
-    });
-  });
-
-  // 4b. Dropdown Submenu Toggle (e.g. Theme submenu in Admin Panel / Master Data)
-  const submenuToggles = document.querySelectorAll(".submenu-toggle");
-  submenuToggles.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const parentSubmenu = btn.closest(".dropdown-submenu");
-      if (!parentSubmenu) return;
-      const subMenu = parentSubmenu.querySelector(".submenu-menu");
-      if (subMenu) {
-        const isOpen = subMenu.classList.contains("show");
-        closeAllSubmenus();
-        if (!isOpen) {
-          subMenu.classList.add("show");
-          parentSubmenu.classList.add("open");
         }
       }
     });
@@ -336,7 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.documentElement.setAttribute("data-theme", themeName);
     localStorage.setItem("habitpulse_theme", themeName);
 
-    // Update active checkmarks
+    // Update active checkmarks for button options
     document.querySelectorAll(".theme-option").forEach((opt) => {
       if (opt.getAttribute("data-theme-value") === themeName) {
         opt.classList.add("active");
@@ -345,7 +319,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Update icons on toggle buttons
+    // Update theme select inputs if present
+    document.querySelectorAll(".theme-select-control").forEach((sel) => {
+      sel.value = themeName;
+    });
+
+    // Update icons on toggle buttons and labels
     document.querySelectorAll(".theme-icon").forEach((el) => {
       if (themeIcons[themeName]) {
         el.textContent = themeIcons[themeName];
@@ -357,11 +336,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const activeSavedTheme = localStorage.getItem("habitpulse_theme") || "ice";
   applyTheme(activeSavedTheme);
 
-  // Bind click handlers
+  // Bind click handlers for button-based theme options
   document.querySelectorAll(".theme-option").forEach((opt) => {
     opt.addEventListener("click", (e) => {
       e.preventDefault();
       const selectedTheme = opt.getAttribute("data-theme-value");
+      if (selectedTheme) {
+        applyTheme(selectedTheme);
+      }
+      closeAllDropdowns();
+    });
+  });
+
+  // Bind change handlers for select-based theme dropdown
+  document.querySelectorAll(".theme-select-control").forEach((sel) => {
+    sel.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    sel.addEventListener("change", (e) => {
+      const selectedTheme = e.target.value;
       if (selectedTheme) {
         applyTheme(selectedTheme);
       }

@@ -67,31 +67,19 @@
               {% endif %}
               {% endif %}
 
-              <!-- Theme Submenu -->
+              <!-- Theme Dropdown Select -->
               <div class="dropdown-divider"></div>
-              <div class="dropdown-submenu">
-                <button type="button" class="dropdown-item submenu-toggle" id="adminThemeSubmenuBtn" aria-haspopup="true" aria-expanded="false">
-                  <span style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span class="theme-icon">❄️</span>
-                    <span>Theme</span>
-                  </span>
-                  <span class="submenu-arrow">▸</span>
-                </button>
-                <div class="submenu-menu" aria-labelledby="adminThemeSubmenuBtn">
-                  <div class="dropdown-header">Select Theme</div>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
-                    <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
-                  </button>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="light">
-                    <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
-                  </button>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
-                    <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
-                  </button>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
-                    <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
-                  </button>
-                </div>
+              <div class="theme-select-row">
+                <span class="theme-select-label">
+                  <span class="theme-icon">❄️</span>
+                  <span>Theme</span>
+                </span>
+                <select class="theme-select-control" aria-label="Theme Selection">
+                  <option value="ice">❄️ Cool Ice</option>
+                  <option value="light">☀️ Clean Light</option>
+                  <option value="rose">🌸 Pale Rose</option>
+                  <option value="dark">🌙 Obsidian Dark</option>
+                </select>
               </div>
 
               {% if user.can_access_django_admin %}
@@ -123,31 +111,19 @@
               </a>
               {% endif %}
 
-              <!-- Theme Submenu -->
+              <!-- Theme Dropdown Select -->
               <div class="dropdown-divider"></div>
-              <div class="dropdown-submenu">
-                <button type="button" class="dropdown-item submenu-toggle" id="mdThemeSubmenuBtn" aria-haspopup="true" aria-expanded="false">
-                  <span style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span class="theme-icon">❄️</span>
-                    <span>Theme</span>
-                  </span>
-                  <span class="submenu-arrow">▸</span>
-                </button>
-                <div class="submenu-menu" aria-labelledby="mdThemeSubmenuBtn">
-                  <div class="dropdown-header">Select Theme</div>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
-                    <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
-                  </button>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="light">
-                    <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
-                  </button>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
-                    <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
-                  </button>
-                  <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
-                    <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
-                  </button>
-                </div>
+              <div class="theme-select-row">
+                <span class="theme-select-label">
+                  <span class="theme-icon">❄️</span>
+                  <span>Theme</span>
+                </span>
+                <select class="theme-select-control" aria-label="Theme Selection">
+                  <option value="ice">❄️ Cool Ice</option>
+                  <option value="light">☀️ Clean Light</option>
+                  <option value="rose">🌸 Pale Rose</option>
+                  <option value="dark">🌙 Obsidian Dark</option>
+                </select>
               </div>
             </div>
           </div>
