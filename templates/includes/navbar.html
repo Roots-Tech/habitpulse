@@ -24,11 +24,9 @@
         <li><a href="{% url 'habit_list' %}" class="{% if 'habit' in request.resolver_match.url_name and request.resolver_match.url_name != 'habit_create' %}active{% endif %}">Habits</a></li>
         {% endif %}
         <li class="user-profile">
-          <a href="{% url 'profile' %}" style="display: flex; align-items: center; text-decoration: none;" title="My Profile & Permissions: {{ user.username }} ({{ user.get_role_display }})">
-            <span class="user-avatar">{{ user.username|slice:":1"|upper }}</span>
-          </a>
-          <a href="{% url 'profile' %}" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="View My Profile & Permissions">
-            <span>👤</span> My Access
+          <a href="{% url 'profile' %}" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.2rem 0.65rem 0.2rem 0.35rem; font-size: 0.825rem; font-weight: 600;" title="View My Profile & Permissions: {{ user.username }} ({{ user.get_role_display }})">
+            <span class="user-avatar" style="width: 24px; height: 24px; font-size: 0.75rem; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">{{ user.username|slice:":1"|upper }}</span>
+            <span>My Access</span>
           </a>
           {% if user.can_access_admin_panel %}
           <div class="dropdown">
