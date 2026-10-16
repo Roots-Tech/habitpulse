@@ -246,12 +246,15 @@ class UserRolesAndPermissionsTestCase(TestCase):
         self.assertContains(resp_sa, "Categories")
         self.assertContains(resp_sa, "Rule Strategies")
 
-        # Technical User sees Categories & Rule Strategies, but NOT Admin Panel
+        # Technical User sees Categories & Rule Strategies under Master Data dropdown, but NOT Admin Panel
         self.client.force_login(self.tech_user)
         resp_tu = self.client.get(self.dashboard_url)
+        self.assertContains(resp_tu, "Master Data")
         self.assertContains(resp_tu, "Categories")
         self.assertContains(resp_tu, "Rule Strategies")
         self.assertNotContains(resp_tu, "Admin Panel")
+        self.assertNotContains(resp_tu, "User Roles")
+        self.assertNotContains(resp_tu, "Django Admin")
 
         # Regular User sees Dashboard & Habits, but NOT Categories, Rule Strategies, or Admin Panel
         self.client.force_login(self.regular_user)
@@ -259,6 +262,7 @@ class UserRolesAndPermissionsTestCase(TestCase):
         self.assertContains(resp_ru, "Dashboard")
         self.assertContains(resp_ru, "Habits")
         self.assertNotContains(resp_ru, "Admin Panel")
+        self.assertNotContains(resp_ru, "Master Data")
         # In navbar menu, Categories and Rule Strategies links shouldn't appear
         self.assertNotContains(resp_ru, reverse("category_list"))
         self.assertNotContains(resp_ru, reverse("rule_strategy_list"))

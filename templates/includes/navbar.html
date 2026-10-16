@@ -23,15 +23,6 @@
         {% if user.can_manage_habits %}
         <li><a href="{% url 'habit_list' %}" class="{% if 'habit' in request.resolver_match.url_name and request.resolver_match.url_name != 'habit_create' %}active{% endif %}">Habits</a></li>
         {% endif %}
-        {% if user.can_manage_categories %}
-        <li><a href="{% url 'category_list' %}" class="{% if 'category' in request.resolver_match.url_name %}active{% endif %}">Categories</a></li>
-        {% endif %}
-        {% if user.can_manage_rule_strategies %}
-        <li><a href="{% url 'rule_strategy_list' %}" class="{% if 'rule_strategy' in request.resolver_match.url_name %}active{% endif %}">Rule Strategies</a></li>
-        {% endif %}
-        {% if user.can_manage_habits %}
-        <li><a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">+ New Habit</a></li>
-        {% endif %}
         <li class="user-profile">
           <a href="{% url 'profile' %}" style="display: flex; align-items: center; text-decoration: none;" title="My Profile & Permissions: {{ user.username }} ({{ user.get_role_display }})">
             <span class="user-avatar">{{ user.username|slice:":1"|upper }}</span>
@@ -39,32 +30,12 @@
           <a href="{% url 'profile' %}" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="View My Profile & Permissions">
             <span>👤</span> My Access
           </a>
-          <div class="dropdown theme-dropdown">
-            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="themeDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Switch Theme">
-              <span class="theme-icon">❄️</span> <span class="theme-label" style="margin-left: 2px;">Theme</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
-            </button>
-            <div class="dropdown-menu theme-menu" aria-labelledby="themeDropdownBtn">
-              <div class="dropdown-header">Appearance</div>
-              <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
-                <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
-              </button>
-              <button type="button" class="dropdown-item theme-option" data-theme-value="light">
-                <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
-              </button>
-              <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
-                <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
-              </button>
-              <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
-                <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
-              </button>
-            </div>
-          </div>
           {% if user.can_access_admin_panel %}
           <div class="dropdown">
             <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="adminDropdownBtn" aria-haspopup="true" aria-expanded="false">
               Admin Panel <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
             </button>
-            <div class="dropdown-menu" aria-labelledby="adminDropdownBtn">
+            <div class="dropdown-menu" aria-labelledby="adminDropdownBtn" style="min-width: 220px;">
               {% if user.can_manage_roles or user.can_manage_users %}
               <div class="dropdown-header">Access & Roles</div>
               {% if user.can_manage_roles %}
@@ -98,6 +69,22 @@
               {% endif %}
               {% endif %}
 
+              <!-- Theme / Appearance -->
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-header">Theme / Appearance</div>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
+                <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="light">
+                <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
+                <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
+                <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
+              </button>
+
               {% if user.can_access_django_admin %}
               <div class="dropdown-divider"></div>
               <a href="{% url 'admin:index' %}" class="dropdown-item" style="color: var(--text-muted); font-size: 0.8rem;" target="_blank">
@@ -105,6 +92,64 @@
                 Django Admin
               </a>
               {% endif %}
+            </div>
+          </div>
+          {% elif user.can_manage_categories or user.can_manage_rule_strategies %}
+          <div class="dropdown">
+            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="masterDataDropdownBtn" aria-haspopup="true" aria-expanded="false">
+              Master Data <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+            </button>
+            <div class="dropdown-menu" aria-labelledby="masterDataDropdownBtn" style="min-width: 220px;">
+              <div class="dropdown-header">Master Data</div>
+              {% if user.can_manage_categories %}
+              <a href="{% url 'category_list' %}" class="dropdown-item">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                Habit Categories
+              </a>
+              {% endif %}
+              {% if user.can_manage_rule_strategies %}
+              <a href="{% url 'rule_strategy_list' %}" class="dropdown-item">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                Rule Strategies
+              </a>
+              {% endif %}
+
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-header">Theme / Appearance</div>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
+                <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="light">
+                <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
+                <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
+                <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
+              </button>
+            </div>
+          </div>
+          {% else %}
+          {# For users without elevated access, provide compact Theme toggle #}
+          <div class="dropdown theme-dropdown">
+            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="themeDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Switch Theme">
+              <span class="theme-icon">❄️</span> <span class="theme-label" style="margin-left: 2px;">Theme</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+            </button>
+            <div class="dropdown-menu theme-menu" aria-labelledby="themeDropdownBtn">
+              <div class="dropdown-header">Appearance</div>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
+                <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="light">
+                <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
+                <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
+              </button>
+              <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
+                <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
+              </button>
             </div>
           </div>
           {% endif %}

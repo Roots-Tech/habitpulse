@@ -287,7 +287,7 @@ class HabitTypesAndCatalogTestCase(TestCase):
         complete_url = reverse("habit_complete", args=[adopted.pk])
 
         # Case A: User attempts completion at 14:30 (outside window) -> rejected
-        outside_window_dt = timezone.make_aware(timezone.datetime(2026, 10, 14, 14, 30, 0))
+        outside_window_dt = timezone.make_aware(timezone.datetime(self.today.year, self.today.month, self.today.day, 14, 30, 0))
         with patch("habits.validators.timezone.now", return_value=outside_window_dt):
             with patch("habits.validators.timezone.localtime", return_value=outside_window_dt):
                 resp = self.client_regular.post(complete_url, {})
@@ -295,7 +295,7 @@ class HabitTypesAndCatalogTestCase(TestCase):
                 self.assertFalse(HabitCompletion.objects.filter(habit=adopted, completion_date=self.today).exists())
 
         # Case B: User attempts completion at 07:30 (inside window) -> accepted
-        inside_window_dt = timezone.make_aware(timezone.datetime(2026, 10, 14, 7, 30, 0))
+        inside_window_dt = timezone.make_aware(timezone.datetime(self.today.year, self.today.month, self.today.day, 7, 30, 0))
         with patch("habits.validators.timezone.now", return_value=inside_window_dt):
             with patch("habits.validators.timezone.localtime", return_value=inside_window_dt):
                 resp = self.client_regular.post(complete_url, {})
