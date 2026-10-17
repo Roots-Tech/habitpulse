@@ -133,6 +133,7 @@ class HabitForm(forms.ModelForm):
             "name",
             "habit_type",
             "is_template",
+            "pixel_score",
             "description",
             "category_ref",
             "category",
@@ -160,6 +161,13 @@ class HabitForm(forms.ModelForm):
             "is_template": forms.CheckboxInput(attrs={
                 "class": "form-check-input",
                 "id": "id_is_template",
+            }),
+            "pixel_score": forms.NumberInput(attrs={
+                "class": "form-control",
+                "id": "id_pixel_score",
+                "min": "1",
+                "placeholder": "e.g., 2, 5, 10",
+                "style": "max-width: 140px; font-weight: 700;",
             }),
             "description": forms.Textarea(attrs={
                 "class": "form-control",
@@ -236,19 +244,43 @@ class HabitForm(forms.ModelForm):
         self.fields["window_end_time"].label = "Latest End Time"
         self.fields["habit_type"].label = "Habit Classification"
         self.fields["is_template"].label = "Publish to System Catalog"
+        self.fields["pixel_score"].label = "Allotted Pixel Score"
+        self.fields["pixel_score"].required = False
         self.fields["frequency"].label = "Frequency"
         self.fields["start_date"].label = "Start Date"
         self.fields["is_active"].label = "Active Habit"
 
         is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
+
+        # Determine effective habit type for defaults
+        current_type = (
+            habit_type_initial
+            or (self.instance.habit_type if self.instance and self.instance.pk else None)
+            or self.initial.get("habit_type")
+            or Habit.HabitType.GENERAL
+        )
+
+        # Set initial pixel_score
+        if self.instance and self.instance.pk and self.instance.pixel_score:
+            self.initial["pixel_score"] = self.instance.pixel_score
+        elif "pixel_score" not in self.initial:
+            if current_type == Habit.HabitType.EXPERT_PRESCRIBED:
+                self.initial["pixel_score"] = 10
+            elif current_type == Habit.HabitType.PREDEFINED_PURPOSE:
+                self.initial["pixel_score"] = 5
+            else:
+                self.initial["pixel_score"] = 2
+
         if not is_admin_or_tech:
-            # Standard users can only create General habits
+            # Standard users can only create General habits with fixed 2 pixels
             self.fields["habit_type"].choices = [
                 (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
             ]
             self.fields["habit_type"].initial = Habit.HabitType.GENERAL
             self.fields["is_template"].initial = False
             self.fields["is_template"].widget = forms.HiddenInput()
+            self.fields["pixel_score"].initial = 2
+            self.fields["pixel_score"].widget = forms.HiddenInput()
         else:
             if habit_type_initial:
                 self.initial["habit_type"] = habit_type_initial
@@ -360,12 +392,34 @@ class HabitForm(forms.ModelForm):
             if not unit_label or not unit_label.strip():
                 self.add_error("unit_label", "Please specify a unit label (e.g. mins, km, pages).")
 
+        # 3. Pixel Score Validation & Enforcement
+        if habit_type == Habit.HabitType.GENERAL or not is_admin_or_tech:
+            cleaned_data["pixel_score"] = 2
+            self.instance.pixel_score = 2
+        else:
+            score = cleaned_data.get("pixel_score")
+            if score is None or score == "":
+                default_score = 10 if habit_type == Habit.HabitType.EXPERT_PRESCRIBED else 5
+                cleaned_data["pixel_score"] = default_score
+                self.instance.pixel_score = default_score
+            else:
+                try:
+                    int_score = int(score)
+                    if int_score < 1:
+                        self.add_error("pixel_score", "Pixel score must be at least 1.")
+                    else:
+                        cleaned_data["pixel_score"] = int_score
+                        self.instance.pixel_score = int_score
+                except (ValueError, TypeError):
+                    self.add_error("pixel_score", "Invalid pixel score value.")
+
         return cleaned_data
 
     def save(self, commit=True):
         habit = super().save(commit=False)
         habit.habit_type = self.cleaned_data.get("habit_type") or habit.habit_type or Habit.HabitType.GENERAL
         habit.is_template = bool(self.cleaned_data.get("is_template", False))
+        habit.pixel_score = self.cleaned_data.get("pixel_score", 2)
         habit.selected_weekdays = self.cleaned_data.get("selected_weekdays", [])
         if self.cleaned_data.get("category_ref"):
             habit.category_ref = self.cleaned_data["category_ref"]

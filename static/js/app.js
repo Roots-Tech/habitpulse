@@ -80,6 +80,58 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!strategySelect) updateStrategyVisibility();
   }
 
+  // 1c. Pixel Score Dynamic Allotment in Habit Form
+  const habitTypeSelect = document.getElementById("id_habit_type");
+  const pixelScoreInput = document.getElementById("id_pixel_score");
+  const pixelScoreBadgeVal = document.getElementById("pixel-score-badge-val");
+
+  if (pixelScoreInput && pixelScoreBadgeVal) {
+    const updatePixelScoreBadge = () => {
+      const val = parseInt(pixelScoreInput.value, 10);
+      pixelScoreBadgeVal.textContent = isNaN(val) || val < 1 ? "2" : val;
+    };
+
+    pixelScoreInput.addEventListener("input", updatePixelScoreBadge);
+
+    if (habitTypeSelect) {
+      let previousType = habitTypeSelect.value;
+      const onHabitTypeChange = () => {
+        const currentType = habitTypeSelect.value;
+        if (currentType === "GENERAL") {
+          pixelScoreInput.value = "2";
+          pixelScoreInput.readOnly = true;
+          pixelScoreInput.style.backgroundColor = "var(--surface-raised)";
+          pixelScoreInput.style.cursor = "not-allowed";
+        } else if (currentType === "PREDEFINED_PURPOSE") {
+          pixelScoreInput.readOnly = false;
+          pixelScoreInput.style.backgroundColor = "";
+          pixelScoreInput.style.cursor = "text";
+          if (previousType === "GENERAL" || pixelScoreInput.value === "2" || pixelScoreInput.value === "10" || !pixelScoreInput.value) {
+            pixelScoreInput.value = "5";
+          }
+        } else if (currentType === "EXPERT_PRESCRIBED") {
+          pixelScoreInput.readOnly = false;
+          pixelScoreInput.style.backgroundColor = "";
+          pixelScoreInput.style.cursor = "text";
+          if (previousType === "GENERAL" || pixelScoreInput.value === "2" || pixelScoreInput.value === "5" || !pixelScoreInput.value) {
+            pixelScoreInput.value = "10";
+          }
+        }
+        previousType = currentType;
+        updatePixelScoreBadge();
+      };
+
+      habitTypeSelect.addEventListener("change", onHabitTypeChange);
+      if (habitTypeSelect.value === "GENERAL") {
+        pixelScoreInput.value = "2";
+        pixelScoreInput.readOnly = true;
+        pixelScoreInput.style.backgroundColor = "var(--surface-raised)";
+        pixelScoreInput.style.cursor = "not-allowed";
+      }
+      updatePixelScoreBadge();
+    }
+  }
+
   // 2. Alert Dismissal
   const alerts = document.querySelectorAll(".alert");
   alerts.forEach((alert) => {

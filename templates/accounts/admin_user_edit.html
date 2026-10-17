@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}{% if is_self and not is_super_admin %}My Profile & Access Permissions{% else %}Edit User {{ target_user.username }}{% endif %} - HabitPulse{% endblock %}
+{% block title %}{% if is_self %}Workspace & Access Profile - HabitPulse{% else %}Edit User {{ target_user.username }} - HabitPulse{% endif %}{% endblock %}
 
 {% block content %}
-<div style="max-width: 740px; margin: 1.25rem auto;">
+<div style="max-width: 960px; margin: 1.25rem auto;">
+  <!-- Top Navigation & Actions Bar -->
   <div style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-    {% if is_super_admin %}
+    {% if is_super_admin and not is_self %}
       <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">&larr; Back to Users Directory</a>
       {% if target_user != request.user %}
         <form method="post" action="{% url 'admin_user_delete' target_user.pk %}"
@@ -20,146 +22,543 @@
     {% endif %}
   </div>
 
-  <div class="card" style="box-shadow: var(--shadow); border: 1px solid var(--border);">
-    <!-- User Profile Header Card -->
-    <div style="display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap;">
-      <div class="user-avatar" style="width: 56px; height: 56px; font-size: 1.5rem;">
-        {{ target_user.username|slice:":1"|upper }}
-      </div>
-      <div style="flex: 1; min-width: 240px;">
-        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-          <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--gray-900); margin: 0;">
-            {{ target_user.get_full_name|default:target_user.username }}
-          </h1>
-          {% with badge=target_user.get_role_badge %}
-            <span class="badge {{ badge.class }}" style="background-color: {{ badge.bg }}; color: {{ badge.color }}; border: 1px solid {{ badge.border }}; font-weight: 700; font-size: 0.78rem;">
-              {{ badge.icon }} {{ badge.label }}
-            </span>
-          {% endwith %}
-          {% if has_custom_override %}
-            <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.72rem; font-weight: 700;">
-              ⚡ Custom Overrides Active
-            </span>
-          {% endif %}
-        </div>
-        <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1.25rem; margin-top: 0.35rem; flex-wrap: wrap;">
-          <span>Username: <strong>@{{ target_user.username }}</strong></span>
-          <span>Joined: {{ target_user.date_joined|date:"M d, Y" }}</span>
-          <span>Personal Habits: {{ habits_count }}</span>
-        </div>
-      </div>
-    </div>
-
-    {% if not is_super_admin %}
-      <!-- Standard User Information Banner -->
-      <div class="alert" style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 1.5rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.28); border-radius: var(--radius-sm); padding: 0.9rem 1.1rem;">
-        <span style="font-size: 1.25rem; line-height: 1;">ℹ️</span>
-        <div style="font-size: 0.85rem; color: var(--text-body); line-height: 1.45;">
-          <strong style="color: var(--text-main);">Assigned Permissions &amp; Capabilities:</strong><br>
-          Below is the complete list of system capabilities, pages, and menus provisioned for your account.
-          Access permissions and roles are managed by System Super Administrators. You can view what you are permitted to do below, but cannot alter permissions or roles.
-        </div>
-      </div>
-    {% endif %}
-
-    <form method="post" novalidate>
+  <!-- ERP Record Sheet Container -->
+  <div class="erp-sheet">
+    <form method="post" novalidate id="erpUserForm">
       {% csrf_token %}
 
-      {% if form.non_field_errors %}
-        <div class="alert alert-error" style="margin-bottom: 1rem;">
-          {% for error in form.non_field_errors %}
-            <div>{{ error }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-
-      <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.75rem;">
-        Account Information
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label" for="{{ form.username.id_for_label }}">
-            Username {% if is_super_admin %}<span style="color: var(--danger);">*</span>{% endif %}
-          </label>
-          {{ form.username }}
-          {% if not is_super_admin %}
-            <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Username cannot be changed.</div>
-          {% endif %}
-          {% for error in form.username.errors %}
-            <div class="form-error">{{ error }}</div>
-          {% endfor %}
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="{{ form.email.id_for_label }}">
-            Email Address {% if is_super_admin %}<span style="color: var(--danger);">*</span>{% endif %}
-          </label>
-          {{ form.email }}
-          {% for error in form.email.errors %}
-            <div class="form-error">{{ error }}</div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-        <div class="form-group">
-          <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name</label>
-          {{ form.first_name }}
-          {% for error in form.first_name.errors %}
-            <div class="form-error">{{ error }}</div>
-          {% endfor %}
+      <!-- Top Header Row: User Identity (Left) & Smart Stat Buttons (Right) -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1.25rem; flex-wrap: wrap; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border);">
+        <!-- Identity Summary -->
+        <div style="display: flex; align-items: center; gap: 1.15rem; flex: 1; min-width: 280px;">
+          <div class="user-avatar" style="width: 58px; height: 58px; font-size: 1.6rem; flex-shrink: 0; box-shadow: var(--shadow-sm);">
+            {{ target_user.username|slice:":1"|upper }}
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+              <h1 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin: 0; line-height: 1.2;">
+                {{ target_user.get_full_name|default:target_user.username }}
+              </h1>
+              {% with badge=target_user.get_role_badge %}
+                <span class="badge {{ badge.class }}" style="background-color: {{ badge.bg }}; color: {{ badge.color }}; border: 1px solid {{ badge.border }}; font-weight: 700; font-size: 0.78rem;">
+                  {{ badge.icon }} {{ badge.label }}
+                </span>
+              {% endwith %}
+              {% if has_custom_override %}
+                <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.72rem; font-weight: 700;">
+                  ⚡ Custom Overrides Active
+                </span>
+              {% endif %}
+            </div>
+            <div style="font-size: 0.825rem; color: var(--text-muted); display: flex; gap: 1rem; margin-top: 0.4rem; flex-wrap: wrap; align-items: center;">
+              <span>🏢 Workspace: <strong>{{ tenant.name|default:"Personal Workspace" }}</strong></span>
+              <span>👤 Username: <strong>@{{ target_user.username }}</strong></span>
+              <span>📅 Joined: {{ target_user.date_joined|date:"M d, Y" }}</span>
+              <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: var(--primary); border: 1px solid var(--primary-border); font-size: 0.8rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 0.35rem;">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> Total Pixels: {{ total_pixels }}
+              </span>
+              {% if wallet_data %}
+                <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.8rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 0.35rem;" title="Current Pixel Wallet balance for this month">
+                  👛 Wallet: {{ wallet_data.current_balance }} Px ({{ wallet_data.health_percent }}%)
+                </span>
+              {% endif %}
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name</label>
-          {{ form.last_name }}
-          {% for error in form.last_name.errors %}
-            <div class="form-error">{{ error }}</div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 1.5rem;">
-        <label class="form-label" for="{{ form.workspace_name.id_for_label }}">Primary Workspace Name</label>
-        {{ form.workspace_name }}
-        {% for error in form.workspace_name.errors %}
-          <div class="form-error">{{ error }}</div>
-        {% endfor %}
-      </div>
-
-      <!-- System Access Role Section -->
-      <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
-        <div class="form-group">
-          <label class="form-label" for="{{ form.role.id_for_label }}" style="font-weight: 700; display: flex; align-items: center; justify-content: space-between;">
-            <span style="display: flex; align-items: center; gap: 0.4rem;">
-              <span>🛡️ System Access Role</span>
-              {% if is_super_admin %}<span style="color: var(--danger);">*</span>{% endif %}
+        <!-- Odoo-Style Smart Stat Buttons -->
+        <div class="smart-buttons-bar" style="margin-bottom: 0;">
+          <button type="button" class="smart-stat-btn" data-switch-tab="pixels" title="View Pixel Wallet and active score">
+            <span class="smart-stat-val" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+              <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels">
+              {% if wallet_data %}{{ wallet_data.current_balance }}{% else %}{{ total_pixels }}{% endif %}
             </span>
+            <span class="smart-stat-lbl">Pixel Wallet ({% if wallet_data %}{{ wallet_data.allocated_pixels }} Alloc{% else %}{{ total_pixels }} Total{% endif %})</span>
+          </button>
+          <button type="button" class="smart-stat-btn" data-switch-tab="pixels" title="View active habits and tasks">
+            <span class="smart-stat-val">📋 {{ habits_count }}</span>
+            <span class="smart-stat-lbl">Tracked Tasks</span>
+          </button>
+          <button type="button" class="smart-stat-btn" data-switch-tab="permissions" title="View & edit system access role and permissions">
+            <span class="smart-stat-val" style="font-size: 0.95rem; font-weight: 700;">🛡️ {{ target_user.get_role_display }}</span>
+            <span class="smart-stat-lbl">Access Role</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Notebook Tabs Navigation Bar -->
+      <div class="erp-tabs-nav" role="tablist">
+        <button type="button" class="erp-tab-btn {% if active_tab == 'account' or not active_tab %}active{% endif %}" data-tab="account" role="tab" aria-selected="{% if active_tab == 'account' or not active_tab %}true{% else %}false{% endif %}">
+          <span>👤</span> Account Details
+        </button>
+        <button type="button" class="erp-tab-btn {% if active_tab == 'pixels' %}active{% endif %}" data-tab="pixels" role="tab" aria-selected="{% if active_tab == 'pixels' %}true{% else %}false{% endif %}">
+          <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> Pixel Wallet &amp; Tasks
+          <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: var(--radius-pill); font-weight: 800;">
+            {% if wallet_data %}{{ wallet_data.current_balance }} Px{% else %}{{ total_pixels }}{% endif %}
+          </span>
+        </button>
+        <button type="button" class="erp-tab-btn {% if active_tab == 'permissions' %}active{% endif %}" data-tab="permissions" role="tab" aria-selected="{% if active_tab == 'permissions' %}true{% else %}false{% endif %}">
+          <span>🔐</span> Access &amp; Permissions
+        </button>
+        <button type="button" class="erp-tab-btn {% if active_tab == 'security' %}active{% endif %}" data-tab="security" role="tab" aria-selected="{% if active_tab == 'security' %}true{% else %}false{% endif %}">
+          <span>⚙️</span> Security &amp; Preferences
+        </button>
+      </div>
+
+      <!-- ============================================================== -->
+      <!-- TAB 1: Account Details                                         -->
+      <!-- ============================================================== -->
+      <div class="erp-tab-pane {% if active_tab == 'account' or not active_tab %}active{% endif %}" id="tab-account" role="tabpanel">
+        {% if form.non_field_errors %}
+          <div class="alert alert-error" style="margin-bottom: 1rem;">
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 1rem;">
+          General Profile Information
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label" for="{{ form.username.id_for_label }}">
+              Username {% if is_super_admin %}<span style="color: var(--danger);">*</span>{% endif %}
+            </label>
+            {{ form.username }}
             {% if not is_super_admin %}
-              <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: normal;">(Locked by Super Admin)</span>
+              <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Username cannot be changed.</div>
             {% endif %}
-          </label>
-          {{ form.role }}
-          {% for error in form.role.errors %}
+            {% for error in form.username.errors %}
+              <div class="form-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.email.id_for_label }}">
+              Email Address {% if is_super_admin %}<span style="color: var(--danger);">*</span>{% endif %}
+            </label>
+            {{ form.email }}
+            {% for error in form.email.errors %}
+              <div class="form-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label" for="{{ form.first_name.id_for_label }}">First Name</label>
+            {{ form.first_name }}
+            {% for error in form.first_name.errors %}
+              <div class="form-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="{{ form.last_name.id_for_label }}">Last Name</label>
+            {{ form.last_name }}
+            {% for error in form.last_name.errors %}
+              <div class="form-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="{{ form.workspace_name.id_for_label }}">Primary Workspace Name</label>
+          {{ form.workspace_name }}
+          {% for error in form.workspace_name.errors %}
             <div class="form-error">{{ error }}</div>
           {% endfor %}
         </div>
 
-        <div style="background-color: var(--surface-raised); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 0.85rem 1rem; font-size: 0.825rem; color: var(--text-muted); display: grid; gap: 0.4rem; margin-bottom: 1.5rem;">
-          <div>👑 <strong>Super Admin:</strong> Unrestricted access across frontend, backend, Admin Panel, database, and user credentials.</div>
-          <div>🛠️ <strong>Technical User:</strong> Developer access to application features, habits, and master data (Categories & Rules); no database or admin panel.</div>
-          <div>👤 <strong>Regular User:</strong> Standard access restricted strictly to their personal dashboard and habits.</div>
+        <!-- Role Summary Reference in Account Details -->
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.1rem;">🛡️</span>
+            <div>
+              <div style="font-size: 0.825rem; font-weight: 700; color: var(--text-main);">
+                System Access Role: <strong>{{ target_user.get_role_display }}</strong>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                Role assignments, permissions matrix, and access overrides are managed in the Access &amp; Permissions tab.
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" data-switch-tab="permissions" style="font-size: 0.78rem;">
+            Go to Access &amp; Permissions &rarr;
+          </button>
         </div>
       </div>
 
-      <!-- ================================================================= -->
-      <!-- PERMISSIONS & FUNCTIONAL CAPABILITIES MATRIX                     -->
-      <!-- ================================================================= -->
-      <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid var(--border-strong);">
+      <!-- ============================================================== -->
+      <!-- TAB 2: Pixel Wallet & Tasks                                    -->
+      <!-- ============================================================== -->
+      <div class="erp-tab-pane {% if active_tab == 'pixels' %}active{% endif %}" id="tab-pixels" role="tabpanel">
+        <!-- Main Pixel Wallet Hero Card -->
+        <div style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); border: 1.5px solid rgba(99, 102, 241, 0.28); border-radius: var(--radius-md); padding: 1.35rem; box-shadow: var(--shadow-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.25rem;">
+                <span style="font-size: 1.3rem; line-height: 1;">👛</span>
+                <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">
+                  Main Pixel Wallet — {{ wallet_data.month_name|default:"Active Cycle" }}
+                </h2>
+                {% if wallet_data.health_percent >= 90 %}
+                  <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700; font-size: 0.78rem;">
+                    ⚡ 100% Solid &amp; Energized
+                  </span>
+                {% elif wallet_data.health_percent >= 60 %}
+                  <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 700; font-size: 0.78rem;">
+                    ⚠️ {{ wallet_data.health_percent }}% Energized
+                  </span>
+                {% else %}
+                  <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 700; font-size: 0.78rem;">
+                    🚨 {{ wallet_data.health_percent }}% Depleted
+                  </span>
+                {% endif %}
+              </div>
+              <div style="font-size: 0.825rem; color: var(--text-muted);">
+                Monthly allocated pixel reserve fighting daily habit misses. Protect your balance through consistency!
+              </div>
+            </div>
+            <a href="{% url 'habit_list' %}" class="btn btn-outline btn-sm" style="font-size: 0.8rem;">
+              View Habits Hub &rarr;
+            </a>
+          </div>
+
+          <!-- 4-Stat Grid -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 1.15rem;">
+            <!-- Current Balance -->
+            <div style="background: var(--surface); border: 1.5px solid rgba(99, 102, 241, 0.3); border-radius: var(--radius-sm); padding: 0.9rem 1rem;">
+              <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+                Current Wallet Balance
+              </div>
+              <div style="font-size: 2rem; font-weight: 800; color: var(--primary); margin: 0.2rem 0; line-height: 1; display: inline-flex; align-items: center; gap: 0.35rem;">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels">
+                {{ wallet_data.current_balance }}
+              </div>
+              <div style="font-size: 0.75rem; color: #10b981; font-weight: 600;">
+                Active Retained Energy
+              </div>
+            </div>
+
+            <!-- Initial Monthly Allocation -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.9rem 1rem;">
+              <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+                Initial Monthly Allocated
+              </div>
+              <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-main); margin: 0.2rem 0; line-height: 1; display: inline-flex; align-items: center; gap: 0.35rem;">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels">
+                {{ wallet_data.allocated_pixels }}
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                {{ total_pixels }} Px/day &times; {{ wallet_data.pending_days }} days
+              </div>
+            </div>
+
+            <!-- Lost From Missed Days -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.9rem 1rem;">
+              <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+                Lost From Missed Days
+              </div>
+              <div style="font-size: 1.6rem; font-weight: 800; color: {% if wallet_data.lost_pixels > 0 %}var(--danger){% else %}var(--text-muted){% endif %}; margin: 0.2rem 0; line-height: 1;">
+                {% if wallet_data.lost_pixels > 0 %}-{{ wallet_data.lost_pixels }}{% else %}0{% endif %} Px
+              </div>
+              <div style="font-size: 0.75rem; color: {% if wallet_data.lost_pixels > 0 %}var(--danger){% else %}#10b981{% endif %}; font-weight: 500;">
+                {% if wallet_data.lost_pixels > 0 %}{{ wallet_data.total_missed_days }} missed day{{ wallet_data.total_missed_days|pluralize }}{% else %}Zero Misses Recorded{% endif %}
+              </div>
+            </div>
+
+            <!-- Daily Rate Sum -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.9rem 1rem;">
+              <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+                Daily Baseline Rate
+              </div>
+              <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-main); margin: 0.2rem 0; line-height: 1; display: inline-flex; align-items: center; gap: 0.35rem;">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels">
+                {{ total_pixels }}
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                Across {{ habits_count }} active task{{ habits_count|pluralize }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Energy Progress Bar -->
+          <div style="background: var(--surface); padding: 0.85rem 1rem; border-radius: var(--radius-sm); border: 1px solid rgba(99, 102, 241, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem; font-size: 0.825rem;">
+              <span style="font-weight: 700; color: var(--text-main); display: inline-flex; align-items: center; gap: 0.35rem;">
+                ⚡ Wallet Energy Level: <strong style="color: var(--primary);">{{ wallet_data.health_percent }}% Solid</strong>
+              </span>
+              <span style="color: var(--text-muted); font-size: 0.78rem;">
+                {{ wallet_data.current_balance }} / {{ wallet_data.allocated_pixels }} Pixels Protected
+              </span>
+            </div>
+            <div style="height: 10px; background: rgba(99, 102, 241, 0.15); border-radius: 999px; overflow: hidden;">
+              <div style="height: 100%; width: {{ wallet_data.health_percent }}%; background: linear-gradient(90deg, #10b981, #6366f1); border-radius: 999px; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tracked Habits & Monthly Wallet Breakdown Table -->
+        <div style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                📋 Habit Allocations &amp; Wallet Breakdown
+              </h3>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem;">
+                Shows daily scores, days in cycle, initial allocation, and retained balances per habit.
+              </div>
+            </div>
+            <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 700; font-size: 0.8rem; padding: 0.2rem 0.55rem;">
+              Total Pixels: {{ total_pixels }}
+            </span>
+          </div>
+
+          {% if wallet_data.habits_breakdown %}
+            <div style="background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                <thead>
+                  <tr style="background: var(--surface-raised); border-bottom: 1.5px solid var(--border); color: var(--text-dim); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+                    <th style="padding: 0.65rem 0.85rem;">Task / Habit</th>
+                    <th style="padding: 0.65rem 0.85rem;">Daily Score</th>
+                    <th style="padding: 0.65rem 0.85rem;">Cycle Days</th>
+                    <th style="padding: 0.65rem 0.85rem;">Initial Allocated</th>
+                    <th style="padding: 0.65rem 0.85rem;">Missed Deductions</th>
+                    <th style="padding: 0.65rem 0.85rem;">Active in Wallet</th>
+                    <th style="padding: 0.65rem 0.85rem;">Today's Target</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in wallet_data.habits_breakdown %}
+                    <tr style="border-bottom: 1px solid var(--border-subtle);">
+                      <td style="padding: 0.75rem 0.85rem;">
+                        <div style="font-weight: 600; color: var(--text-main);">{{ item.habit.name }}</div>
+                        <span class="badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem; background: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border); margin-top: 0.25rem;">
+                          {{ item.habit.get_habit_type_display }}
+                        </span>
+                      </td>
+                      <td style="padding: 0.75rem 0.85rem;">
+                        <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 700; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                          <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ item.daily_score }} Pixel{{ item.daily_score|pluralize }}
+                        </span>
+                      </td>
+                      <td style="padding: 0.75rem 0.85rem; color: var(--text-muted);">
+                        {{ item.pending_days }} days
+                      </td>
+                      <td style="padding: 0.75rem 0.85rem; font-weight: 700; color: var(--text-main);">
+                        <span style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                          <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ item.allocated_pixels }} Pixels
+                        </span>
+                        <div style="font-size: 0.72rem; color: var(--text-dim); font-weight: normal;">
+                          {{ item.daily_score }} &times; {{ item.pending_days }}
+                        </div>
+                      </td>
+                      <td style="padding: 0.75rem 0.85rem;">
+                        {% if item.missed_days > 0 %}
+                          <span style="color: var(--danger); font-weight: 700;">-{{ item.lost_pixels }} Pixels</span>
+                          <div style="font-size: 0.72rem; color: var(--danger);">{{ item.missed_days }} day{{ item.missed_days|pluralize }} missed</div>
+                        {% else %}
+                          <span style="color: var(--text-muted); font-size: 0.8rem;">0 missed (-0 Px)</span>
+                        {% endif %}
+                      </td>
+                      <td style="padding: 0.75rem 0.85rem;">
+                        <strong style="color: var(--primary); font-size: 0.95rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                          <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ item.retained_pixels }} Pixels
+                        </strong>
+                      </td>
+                      <td style="padding: 0.75rem 0.85rem;">
+                        {% if item.is_completed_today %}
+                          <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 0.72rem; font-weight: 700;">
+                            ✅ Done Today
+                          </span>
+                        {% elif item.is_scheduled_today %}
+                          <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 0.72rem; font-weight: 700;">
+                            ⏳ Due Today
+                          </span>
+                        {% else %}
+                          <span class="badge" style="background: var(--surface-raised); color: var(--text-dim); border: 1px solid var(--border); font-size: 0.72rem;">
+                            💤 Rest Day
+                          </span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr style="background: var(--surface-raised); border-top: 1.5px solid var(--border); font-weight: 700; font-size: 0.85rem;">
+                    <td style="padding: 0.75rem 0.85rem; color: var(--text-main);">
+                      Total Sum ({{ habits_count }} active tasks)
+                    </td>
+                    <td style="padding: 0.75rem 0.85rem; color: var(--primary);">
+                      <span style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ total_pixels }} Pixels
+                      </span>
+                    </td>
+                    <td style="padding: 0.75rem 0.85rem; color: var(--text-muted);">
+                      {{ wallet_data.pending_days }} days
+                    </td>
+                    <td style="padding: 0.75rem 0.85rem; color: var(--text-main);">
+                      <span style="display: inline-flex; align-items: center; gap: 0.3rem;">
+                        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ wallet_data.allocated_pixels }} Pixels
+                      </span>
+                    </td>
+                    <td style="padding: 0.75rem 0.85rem; color: {% if wallet_data.lost_pixels > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+                      {% if wallet_data.lost_pixels > 0 %}-{{ wallet_data.lost_pixels }} Pixels{% else %}0 Pixels Lost{% endif %}
+                    </td>
+                    <td style="padding: 0.75rem 0.85rem; color: var(--primary); font-size: 1rem;">
+                      <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ wallet_data.current_balance }} Pixels
+                      </span>
+                    </td>
+                    <td style="padding: 0.75rem 0.85rem; color: #10b981; font-size: 0.8rem;">
+                      {{ wallet_data.health_percent }}% Solid
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          {% else %}
+            <div style="font-size: 0.825rem; color: var(--text-muted); background: var(--surface); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px dashed var(--border); text-align: center;">
+              No active habits currently tracked. <a href="{% url 'habit_create' %}">Create a habit</a> to start accumulating pixels and energizing your wallet!
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Gamification & Wallet Rules Explanations -->
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem 1.25rem;">
+          <div style="font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.45rem;">
+            <span>⚔️</span>
+            <span>How Your Pixel Wallet Works</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.15rem;">
+            <!-- Rule 1: Monthly Allocation -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+              <div style="font-weight: 700; color: var(--primary); font-size: 0.85rem; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.35rem;">
+                <span>🪙</span> Monthly Initial Allocation
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-body); line-height: 1.45; margin: 0;">
+                When you add a habit to your routine, your wallet is immediately credited with:
+                <br><code style="font-size: 0.75rem; background: var(--surface-raised); padding: 0.15rem 0.35rem; border-radius: 3px; font-weight: 700;">Daily Pixel Score &times; Pending Days in Month</code>.
+                <br><em>e.g. On the 1st (30 days pending): 2 &times; 30 = 60 Px. On the 18th (12 days pending): 2 &times; 12 = 24 Px + 5 &times; 12 = 60 Px = <strong>84 Px</strong> total.</em>
+              </p>
+            </div>
+
+            <!-- Rule 2: Daily Defense -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+              <div style="font-weight: 700; color: var(--danger); font-size: 0.85rem; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.35rem;">
+                <span>🛡️</span> Daily Defense &amp; Missed Deductions
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-body); line-height: 1.45; margin: 0;">
+                If you miss completing a scheduled task on any day, you permanently lose that task's daily score from your wallet (e.g. <strong>-2 Px</strong> or <strong>-5 Px</strong> lost per missed day).
+                <br><em>Consistency protects your balance against decay.</em>
+              </p>
+            </div>
+
+            <!-- Rule 3: Energized Solid State -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+              <div style="font-weight: 700; color: #10b981; font-size: 0.85rem; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.35rem;">
+                <span>⚡</span> Keep Your Wallet Energized
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-body); line-height: 1.45; margin: 0;">
+                You are fighting to keep your pixel wallet solid at <strong>100% Energy</strong> without losing pixels.
+                Completing tasks on a daily basis is what keeps your wallet solid, vibrant, and fully energized.
+              </p>
+            </div>
+          </div>
+
+          <!-- Base Scores Breakdown Reference -->
+          <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.5rem;">
+            📐 Base Pixel Scores By Habit Type
+          </div>
+          <div style="display: grid; gap: 0.5rem; font-size: 0.825rem; color: var(--text-body);">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px dashed var(--border);">
+              <span>🌱 <strong>User Created Habits:</strong> Fixed standard score</span>
+              <span class="badge badge-user-created" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> 2 Pixels
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px dashed var(--border);">
+              <span>🎯 <strong>Predefined Purpose Habits:</strong> Goal-focused catalog routines</span>
+              <span class="badge badge-predefined" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> 5 Pixels
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0;">
+              <span>⭐ <strong>Expert Prescribed Habits:</strong> High effort, structured routines</span>
+              <span class="badge badge-expert" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> 10 Pixels
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================== -->
+      <!-- TAB 3: Access & Permissions                                    -->
+      <!-- ============================================================== -->
+      <div class="erp-tab-pane" id="tab-permissions" role="tabpanel">
+        {% if not is_super_admin %}
+          <!-- Standard User Information Banner -->
+          <div class="alert" style="display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 1.25rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.28); border-radius: var(--radius-sm); padding: 0.9rem 1.1rem;">
+            <span style="font-size: 1.25rem; line-height: 1;">ℹ️</span>
+            <div style="font-size: 0.85rem; color: var(--text-body); line-height: 1.45;">
+              <strong style="color: var(--text-main);">Assigned Permissions &amp; Capabilities:</strong><br>
+              Below is the complete list of system capabilities, pages, and menus provisioned for your account.
+              Access permissions and roles are managed by System Super Administrators. You can view what you are permitted to do below, but cannot alter permissions or roles.
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- System Access Role Configuration Card -->
+        <div style="background: var(--surface-raised); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.55rem;">
+              <span style="font-size: 1.35rem; line-height: 1;">🛡️</span>
+              <div>
+                <label class="form-label" for="{{ form.role.id_for_label }}" style="font-weight: 800; font-size: 1rem; margin: 0; color: var(--text-main);">
+                  System Access Role {% if is_super_admin %}<span style="color: var(--danger);">*</span>{% endif %}
+                </label>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem;">
+                  Defines the user's primary security level, access boundaries, and default capabilities.
+                </div>
+              </div>
+            </div>
+            {% with badge=target_user.get_role_badge %}
+              <span class="badge {{ badge.class }}" style="background-color: {{ badge.bg }}; color: {{ badge.color }}; border: 1px solid {{ badge.border }}; font-weight: 700; font-size: 0.8rem; padding: 0.25rem 0.65rem;">
+                Current: {{ badge.icon }} {{ badge.label }}
+              </span>
+            {% endwith %}
+          </div>
+
+          <div style="max-width: 460px; margin-bottom: 0.85rem;">
+            {{ form.role }}
+            {% for error in form.role.errors %}
+              <div class="form-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          {% if is_super_admin %}
+            <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.45; background: var(--surface); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              {% if is_self %}
+                👑 <strong>Super Admin Edit:</strong> Select a role from the dropdown above and click <strong>Save Profile Information</strong> at the bottom of the page to apply your changes.
+              {% else %}
+                👑 <strong>Super Admin Control:</strong> Select an access role from the dropdown above and click <strong>Save User &amp; Permissions</strong> to update this user's base authorization level.
+              {% endif %}
+            </div>
+          {% else %}
+            <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem;">
+              🔒 Assigned system roles are read-only for standard users and managed by System Super Administrators.
+            </div>
+          {% endif %}
+        </div>
+
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
           <div>
-            <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.45rem;">
+            <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.45rem;">
               <span>🔐 System Permissions &amp; Granted Capabilities</span>
             </h2>
             <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.2rem;">
@@ -196,7 +595,7 @@
         {% endif %}
 
         <!-- Capabilities List -->
-        <div style="display: grid; gap: 0.75rem; margin-bottom: 1.5rem;">
+        <div style="display: grid; gap: 0.75rem;">
           {% for perm in user_permissions_data %}
             <div class="permission-item-card" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; display: flex; align-items: flex-start; gap: 0.85rem; transition: background 0.2s;">
               <div style="padding-top: 2px;">
@@ -235,44 +634,63 @@
         </div>
       </div>
 
-      <!-- Password Reset Section -->
-      <div class="form-group" style="background: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-top: 1.5rem;">
-        <label class="form-label" for="{{ form.new_password.id_for_label }}">
-          {% if is_self %}Change Your Password (Optional){% else %}Reset Password (Optional){% endif %}
-        </label>
-        <div class="password-input-wrapper">
-          {{ form.new_password }}
-          <button type="button" class="password-toggle-btn"
-                  aria-label="Show password"
-                  title="Show password"
-                  data-target="{{ form.new_password.id_for_label }}">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-          </button>
-        </div>
-        {% if form.new_password.help_text %}
-          <div class="form-help">{{ form.new_password.help_text }}</div>
-        {% endif %}
-        {% for error in form.new_password.errors %}
-          <div class="form-error">{{ error }}</div>
-        {% endfor %}
-      </div>
-
-      {% if is_super_admin %}
-        <div class="form-group" style="margin-top: 1rem;">
-          <div class="form-check">
-            {{ form.is_active }}
-            <label class="form-label" for="{{ form.is_active.id_for_label }}" style="margin-bottom: 0; cursor: pointer;">
-              Active Account (Allowed to log into the application)
-            </label>
+      <!-- ============================================================== -->
+      <!-- TAB 4: Security & Preferences                                  -->
+      <!-- ============================================================== -->
+      <div class="erp-tab-pane" id="tab-security" role="tabpanel">
+        <!-- Password Reset Section -->
+        <div class="form-group" style="background: var(--surface-raised); padding: 1rem 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
+          <label class="form-label" for="{{ form.new_password.id_for_label }}">
+            {% if is_self %}Change Your Password (Optional){% else %}Reset Password (Optional){% endif %}
+          </label>
+          <div class="password-input-wrapper">
+            {{ form.new_password }}
+            <button type="button" class="password-toggle-btn"
+                    aria-label="Show password"
+                    title="Show password"
+                    data-target="{{ form.new_password.id_for_label }}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
           </div>
-          {% for error in form.is_active.errors %}
+          {% if form.new_password.help_text %}
+            <div class="form-help">{{ form.new_password.help_text }}</div>
+          {% endif %}
+          {% for error in form.new_password.errors %}
             <div class="form-error">{{ error }}</div>
           {% endfor %}
         </div>
-      {% endif %}
 
-      <div style="display: flex; gap: 0.75rem; margin-top: 2rem;">
-        <button type="submit" class="btn btn-primary" style="flex: 1;">
+        {% if is_super_admin %}
+          <div class="form-group" style="background: var(--surface-raised); padding: 1rem 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
+            <div class="form-check">
+              {{ form.is_active }}
+              <label class="form-label" for="{{ form.is_active.id_for_label }}" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">
+                Active Account (Allowed to log into the application)
+              </label>
+            </div>
+            {% for error in form.is_active.errors %}
+              <div class="form-error">{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Preferences Notice -->
+        <div style="background: var(--surface-raised); padding: 1rem 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">🎨 Application Theme &amp; General Preferences</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">
+              Theme selection and general workspace preferences are managed globally in General Settings.
+            </div>
+          </div>
+          <a href="{% url 'general_settings' %}" class="btn btn-outline btn-sm">
+            ⚙️ Open General Settings
+          </a>
+        </div>
+      </div>
+
+      <!-- ERP Action Buttons Footer -->
+      <div style="display: flex; gap: 0.75rem; margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+        <button type="submit" class="btn btn-primary" style="min-width: 180px;">
           {% if is_super_admin %}Save User & Permissions{% else %}Save Profile Information{% endif %}
         </button>
         {% if is_super_admin %}
@@ -285,9 +703,63 @@
   </div>
 </div>
 
-{% if is_super_admin %}
 <script>
   document.addEventListener("DOMContentLoaded", function() {
+    function switchErpTab(targetTab) {
+      const tabBtns = document.querySelectorAll(".erp-tab-btn");
+      const tabPanes = document.querySelectorAll(".erp-tab-pane");
+
+      let found = false;
+      tabPanes.forEach(function(pane) {
+        if (pane.id === "tab-" + targetTab) {
+          pane.classList.add("active");
+          found = true;
+        } else {
+          pane.classList.remove("active");
+        }
+      });
+
+      if (found) {
+        tabBtns.forEach(function(btn) {
+          const isActive = btn.getAttribute("data-tab") === targetTab;
+          btn.classList.toggle("active", isActive);
+          btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+
+        if (history.replaceState) {
+          history.replaceState(null, null, "#" + targetTab);
+        }
+      }
+    }
+
+    // Tab buttons click
+    document.querySelectorAll(".erp-tab-btn").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        const tab = this.getAttribute("data-tab");
+        if (tab) switchErpTab(tab);
+      });
+    });
+
+    // Smart stat buttons click
+    document.querySelectorAll("[data-switch-tab]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        const tab = this.getAttribute("data-switch-tab");
+        if (tab) switchErpTab(tab);
+      });
+    });
+
+    // Hash or query param navigation on initial load
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get("tab");
+    const initialHash = window.location.hash.replace("#", "");
+    const targetInitialTab = tabParam || initialHash;
+    if (targetInitialTab && document.getElementById("tab-" + targetInitialTab)) {
+      switchErpTab(targetInitialTab);
+    }
+
+    {% if is_super_admin %}
     const customToggle = document.getElementById("enable_custom_permissions");
     const permCheckboxes = document.querySelectorAll(".perm-checkbox");
     if (customToggle && permCheckboxes.length > 0) {
@@ -299,7 +771,7 @@
         });
       });
     }
+    {% endif %}
   });
 </script>
-{% endif %}
 {% endblock %}

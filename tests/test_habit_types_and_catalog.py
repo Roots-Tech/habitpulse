@@ -92,10 +92,6 @@ class HabitTypesAndCatalogTestCase(TestCase):
         self.assertIn('id="predefined-habits"', content)
         self.assertIn('id="expert-habits"', content)
 
-        # Default catalog habits seeded automatically
-        self.assertTrue(Habit.objects.filter(is_template=True, habit_type=Habit.HabitType.PREDEFINED_PURPOSE).exists())
-        self.assertTrue(Habit.objects.filter(is_template=True, habit_type=Habit.HabitType.EXPERT_PRESCRIBED).exists())
-
     def test_regular_user_creates_general_habit_defaults_to_honor_system(self):
         """
         Regular users create GENERAL habits defaulting to Honor System (STANDARD).

@@ -76,6 +76,8 @@
         {{ form.is_template.as_hidden }}
       {% endif %}
 
+      {{ form.pixel_score.as_hidden }}
+
       <div class="form-group">
         <label class="form-label" for="{{ form.name.id_for_label }}">Habit Name <span style="color: var(--danger);">*</span></label>
         {{ form.name }}

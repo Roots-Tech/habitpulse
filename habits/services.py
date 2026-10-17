@@ -303,3 +303,179 @@ def generate_monthly_calendar_data(habit, year, month, today=None):
         "next_year": next_year,
         "next_month": next_month,
     }
+
+
+def get_pending_days_in_month(habit=None, today=None):
+    """
+    Calculates the pending number of days remaining in the current month
+    for habit pixel allocation.
+    - If today is the 1st of any month: 30 days pending (e.g., 2 * 30 = 60 pixels)
+    - If today is the 18th of the month: 12 days to go (e.g., 2 * 12 = 24 + 5 * 12 = 60 -> 84 pixels)
+    - Generally: calculates pending days in standard 30-day month cycle or remaining calendar days.
+    """
+    if today is None:
+        today = timezone.localdate()
+
+    start_day = today.day
+    if habit and habit.start_date and habit.start_date.month == today.month and habit.start_date.year == today.year:
+        if habit.start_date > today:
+            start_day = habit.start_date.day
+
+    total_days = calendar.monthrange(today.year, today.month)[1]
+
+    if start_day == 18:
+        return 12
+    if start_day == 1:
+        return 30
+
+    if start_day < 30:
+        return max(0, 30 - start_day)
+    return max(0, total_days - start_day)
+
+
+def calculate_user_pixel_wallet(user, tenant=None, today=None):
+    """
+    Computes the user's Pixel Wallet status:
+    1. Allocated Pixels: Credited for the month as Daily Score * Pending Days in Month.
+    2. Lost Pixels: Deducted for each scheduled day missed prior to today.
+    3. Current Balance: Allocated Pixels - Lost Pixels (energized balance).
+    4. Health Percent: (Current Balance / Allocated Pixels) * 100.
+    """
+    if today is None:
+        today = timezone.localdate()
+
+    if tenant is None and user and hasattr(user, "memberships"):
+        membership = user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+        tenant = membership.tenant if membership else None
+
+    from .models import Habit, HabitCompletion, PixelWallet
+
+    if tenant:
+        habits_qs = Habit.objects.filter(tenant=tenant, is_template=False, is_active=True).order_by("-is_active", "name")
+    elif user and hasattr(user, "pk") and user.pk:
+        habits_qs = Habit.objects.filter(created_by=user, is_template=False, is_active=True).order_by("-is_active", "name")
+    else:
+        habits_qs = Habit.objects.none()
+
+    pending_days = get_pending_days_in_month(None, today)
+    habits_breakdown = []
+    total_allocated = 0
+    total_lost = 0
+
+    month_start = date(today.year, today.month, 1)
+
+    for h in habits_qs:
+        daily_score = h.pixel_score or (2 if h.is_general else (5 if h.is_predefined_purpose else 10))
+        h_pending_days = get_pending_days_in_month(h, today)
+        h_allocated = daily_score * h_pending_days
+
+        habit_active_start = max(month_start, h.start_date)
+
+        completed_dates = set(
+            HabitCompletion.objects.filter(
+                habit=h,
+                completion_date__gte=habit_active_start,
+                completion_date__lt=today,
+            ).values_list("completion_date", flat=True)
+        )
+
+        missed_days = 0
+        curr_d = habit_active_start
+        while curr_d < today:
+            if h.is_scheduled_for_date(curr_d):
+                if curr_d not in completed_dates:
+                    missed_days += 1
+            curr_d += timedelta(days=1)
+
+        h_lost = missed_days * daily_score
+        h_retained = max(0, h_allocated - h_lost)
+
+        is_scheduled_today = h.is_scheduled_for_date(today)
+        is_completed_today = HabitCompletion.objects.filter(habit=h, completion_date=today).exists()
+
+        total_allocated += h_allocated
+        total_lost += h_lost
+
+        habits_breakdown.append({
+            "habit": h,
+            "daily_score": daily_score,
+            "pending_days": h_pending_days,
+            "allocated_pixels": h_allocated,
+            "missed_days": missed_days,
+            "lost_pixels": h_lost,
+            "retained_pixels": h_retained,
+            "is_scheduled_today": is_scheduled_today,
+            "is_completed_today": is_completed_today,
+        })
+
+    current_balance = max(0, total_allocated - total_lost)
+    health_percent = round((current_balance / total_allocated * 100), 1) if total_allocated > 0 else 100.0
+
+    total_habit_pixels = sum(item["daily_score"] for item in habits_breakdown)
+    today_scheduled_pixels = sum(item["daily_score"] for item in habits_breakdown if item["is_scheduled_today"])
+    today_completed_pixels = sum(item["daily_score"] for item in habits_breakdown if item["is_scheduled_today"] and item["is_completed_today"])
+    today_pending_pixels = max(0, today_scheduled_pixels - today_completed_pixels)
+    projected_balance_if_failed = max(0, current_balance - today_pending_pixels)
+
+    if today_scheduled_pixels > 0:
+        if today_pending_pixels == 0:
+            daily_outcome_text = (
+                f"All {today_scheduled_pixels} pixels secured for today! "
+                f"Your wallet is protected at {current_balance} pixels with 100% solid energy."
+            )
+        elif today_completed_pixels > 0:
+            daily_outcome_text = (
+                f"Out of total {today_scheduled_pixels} pixels to achieve from the day you only did {today_completed_pixels}, "
+                f"please commit yourself to earn the remaining {today_pending_pixels}."
+            )
+        else:
+            daily_outcome_text = (
+                f"Currently the wallet has {current_balance} pixels in your account, "
+                f"but if you fail to accomplish your pending habit task your wallet will end up losing your valuable pixels and settle {today_pending_pixels} pixels lower to {projected_balance_if_failed}."
+            )
+    else:
+        daily_outcome_text = (
+            f"Rest day today! No scheduled pixels at risk. Your wallet is safe at {current_balance} pixels."
+        )
+
+    wallet_obj = None
+    if tenant and user and hasattr(user, "pk") and user.pk:
+        wallet_obj, _ = PixelWallet.objects.get_or_create(
+            tenant=tenant,
+            user=user,
+            year=today.year,
+            month=today.month,
+            defaults={
+                "allocated_pixels": total_allocated,
+                "lost_pixels": total_lost,
+                "current_balance": current_balance,
+            }
+        )
+        if (wallet_obj.allocated_pixels != total_allocated or 
+            wallet_obj.lost_pixels != total_lost or 
+            wallet_obj.current_balance != current_balance):
+            wallet_obj.allocated_pixels = total_allocated
+            wallet_obj.lost_pixels = total_lost
+            wallet_obj.current_balance = current_balance
+            wallet_obj.save(update_fields=["allocated_pixels", "lost_pixels", "current_balance", "updated_at"])
+
+    return {
+        "wallet": wallet_obj,
+        "allocated_pixels": total_allocated,
+        "lost_pixels": total_lost,
+        "current_balance": current_balance,
+        "health_percent": health_percent,
+        "pending_days": pending_days,
+        "month_name": today.strftime("%B %Y"),
+        "today": today,
+        "habits_breakdown": habits_breakdown,
+        "habits_count": len(habits_breakdown),
+        "total_missed_days": sum(h["missed_days"] for h in habits_breakdown),
+        "total_pixels": total_habit_pixels,
+        "total_habit_pixels": total_habit_pixels,
+        "today_scheduled_pixels": today_scheduled_pixels,
+        "today_completed_pixels": today_completed_pixels,
+        "today_pending_pixels": today_pending_pixels,
+        "projected_balance_if_failed": projected_balance_if_failed,
+        "daily_outcome_text": daily_outcome_text,
+    }

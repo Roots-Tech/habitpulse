@@ -197,7 +197,20 @@ def _handle_user_edit(request, target_user, is_super_admin, redirect_url):
 
     membership = target_user.memberships.select_related("tenant").filter(status="ACTIVE").first()
     tenant = membership.tenant if membership else None
-    habits_count = target_user.created_habits.count()
+
+    from habits.models import Habit
+    from habits.services import calculate_user_pixel_wallet
+    from django.db.models import Sum
+
+    if tenant:
+        user_habits_qs = Habit.objects.filter(tenant=tenant, is_template=False).order_by("-is_active", "name")
+    else:
+        user_habits_qs = Habit.objects.filter(created_by=target_user, is_template=False).order_by("-is_active", "name")
+
+    habits_count = user_habits_qs.count()
+    total_pixels = user_habits_qs.aggregate(total=Sum("pixel_score"))["total"] or 0
+    user_habits_list = list(user_habits_qs)
+    wallet_data = calculate_user_pixel_wallet(target_user, tenant=tenant)
 
     override = getattr(target_user, "permission_override", None)
     has_custom = bool(override and override.enable_custom)
@@ -215,15 +228,23 @@ def _handle_user_edit(request, target_user, is_super_admin, redirect_url):
             "field": form[field_name] if field_name in form.fields else None,
         })
 
+    active_tab = request.GET.get("tab", "account")
+    if active_tab not in ["account", "pixels", "permissions", "security"]:
+        active_tab = "account"
+
     return render(request, "accounts/admin_user_edit.html", {
         "form": form,
         "target_user": target_user,
         "tenant": tenant,
         "habits_count": habits_count,
+        "total_pixels": total_pixels,
+        "user_habits": user_habits_list,
+        "wallet_data": wallet_data,
         "is_super_admin": is_super_admin,
         "is_self": is_self,
         "user_permissions_data": user_permissions_data,
         "has_custom_override": has_custom,
+        "active_tab": active_tab,
     })
 
 
@@ -256,6 +277,39 @@ def profile_view(request):
         is_super_admin=bool(request.user.is_super_admin),
         redirect_url="profile",
     )
+
+
+def general_settings_view(request):
+    """
+    General Settings and Application Preferences view, accessible to all authenticated users.
+    Displays theme options, workspace info, and pixel score breakdown.
+    """
+    if not request.user.is_authenticated:
+        return redirect(f"{reverse('login')}?next={request.path}")
+
+    membership = request.user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+    tenant = membership.tenant if membership else getattr(request, "tenant", None)
+
+    from habits.models import Habit
+    from habits.services import calculate_user_pixel_wallet
+    from django.db.models import Sum
+
+    if tenant:
+        user_habits_qs = Habit.objects.filter(tenant=tenant, is_template=False).order_by("-is_active", "name")
+    else:
+        user_habits_qs = Habit.objects.filter(created_by=request.user, is_template=False).order_by("-is_active", "name")
+
+    habits_count = user_habits_qs.count()
+    total_pixels = user_habits_qs.aggregate(total=Sum("pixel_score"))["total"] or 0
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant)
+
+    return render(request, "accounts/general_settings.html", {
+        "tenant": tenant,
+        "habits_count": habits_count,
+        "total_pixels": total_pixels,
+        "user_habits": list(user_habits_qs),
+        "wallet_data": wallet_data,
+    })
 
 
 @super_admin_required

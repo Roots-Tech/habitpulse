@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from habits.models import Habit, HabitCompletion
-from habits.services import calculate_completion_rate, calculate_streaks
+from habits.services import calculate_completion_rate, calculate_streaks, calculate_user_pixel_wallet
 
 
 @login_required
@@ -82,6 +82,7 @@ def dashboard_view(request):
         })
 
     all_completed_today = (scheduled_today_count > 0 and scheduled_today_count == completed_today_count)
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
 
     context = {
         "today": today,
@@ -93,6 +94,7 @@ def dashboard_view(request):
         "scope": scope,
         "all_users_habits_count": all_users_habits_count,
         "my_habits_count": my_habits_count,
+        "wallet_data": wallet_data,
     }
 
     return render(request, "dashboard/dashboard.html", context)

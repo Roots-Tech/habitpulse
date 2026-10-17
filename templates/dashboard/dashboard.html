@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Dashboard - HabitPulse{% endblock %}
 
@@ -29,6 +30,121 @@
   </div>
 </div>
 
+{% if wallet_data and wallet_data.habits_count > 0 %}
+  <!-- Pixel Wallet Energy Status Banner & Daily Outcome Projection -->
+  <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); border: 1.5px solid rgba(99, 102, 241, 0.28); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+    <!-- Top Row: Total Pixels & Energy Bar (Left) + Your Pixel Wallet & Details Button (Right) -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <!-- Left side: Total Pixels & Wallet Energy -->
+      <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+        <!-- Total Pixels on the left -->
+        <div>
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.15rem;">
+            Total Pixels
+          </div>
+          <div style="display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(99, 102, 241, 0.12); border: 1.5px solid rgba(99, 102, 241, 0.28); padding: 0.2rem 0.65rem; border-radius: var(--radius-pill); font-weight: 800; font-size: 0.95rem; color: var(--primary);" title="Sum of daily pixel scores across all active habits">
+            <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels">
+            <span>{{ wallet_data.total_pixels }}</span>
+            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Px/day</span>
+          </div>
+        </div>
+
+        <!-- Wallet Energy on the left -->
+        <div style="min-width: 160px;">
+          <div style="display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.72rem; font-weight: 700; margin-bottom: 0.25rem;">
+            <span style="color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Wallet Energy</span>
+            <span style="color: #10b981; font-weight: 800;">{{ wallet_data.health_percent }}% Solid</span>
+          </div>
+          <div style="height: 6px; background: rgba(99, 102, 241, 0.15); border-radius: 999px; overflow: hidden; width: 100%;">
+            <div style="height: 100%; width: {{ wallet_data.health_percent }}%; background: linear-gradient(90deg, #10b981, #6366f1); border-radius: 999px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right side: Crown, Your Pixel Wallet title, Active balance & View Details Button -->
+      <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; justify-content: flex-end;">
+        <div style="display: flex; align-items: center; gap: 0.65rem; text-align: right;">
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+              Your Pixel Wallet &bull; {{ wallet_data.month_name }}
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 0.4rem; justify-content: flex-end;">
+              <span style="font-size: 1.6rem; font-weight: 800; color: var(--primary); line-height: 1;">{{ wallet_data.current_balance }}</span>
+              <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Pixels</span>
+              <span style="font-size: 0.78rem; color: var(--text-muted);">({{ wallet_data.allocated_pixels }} Initial Alloc &bull; {% if wallet_data.lost_pixels > 0 %}<span style="color: var(--danger);">-{{ wallet_data.lost_pixels }} Missed</span>{% else %}<span style="color: #10b981;">0 Missed</span>{% endif %})</span>
+            </div>
+          </div>
+          <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels">
+        </div>
+
+        <button type="button" class="btn btn-primary btn-sm" id="open-wallet-breakdown-btn" onclick="openWalletBreakdownModal(); return false;" style="font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; cursor: pointer;">
+          <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels">
+          <span>View Wallet Details</span> &rarr;
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom Row: Dynamic Daily Risk & Projected Outcome Callout -->
+    <div style="margin-top: 0.75rem; padding: 0.6rem 0.9rem; background: var(--surface); border: 1.5px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-sm); font-size: 0.825rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem;">
+      <div style="display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 260px;">
+        {% if wallet_data.today_pending_pixels == 0 and wallet_data.today_scheduled_pixels > 0 %}
+          <span style="font-size: 1.25rem; line-height: 1;">🎉</span>
+          <div>
+            <span style="color: #10b981; font-weight: 700;">
+              Awesome! You secured all {{ wallet_data.today_scheduled_pixels }} pixels for today!
+            </span>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem;">
+              Your wallet is fully protected at <strong>{{ wallet_data.current_balance }} Pixels</strong> with 100% solid energy.
+            </div>
+          </div>
+        {% elif wallet_data.today_completed_pixels > 0 %}
+          <span style="font-size: 1.25rem; line-height: 1;">⚡</span>
+          <div>
+            <span style="color: var(--text-main); font-weight: 600;">
+              Out of total <strong>{{ wallet_data.today_scheduled_pixels }} pixels</strong> to achieve from the day you only did <strong>{{ wallet_data.today_completed_pixels }}</strong>, please commit yourself to earn the remaining <strong>{{ wallet_data.today_pending_pixels }}</strong>!
+            </span>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem;">
+              If you fail to accomplish the remaining tasks today, your wallet will settle <strong>{{ wallet_data.today_pending_pixels }} pixels lower to {{ wallet_data.projected_balance_if_failed }}</strong>.
+            </div>
+          </div>
+        {% elif wallet_data.today_scheduled_pixels > 0 %}
+          <span style="font-size: 1.25rem; line-height: 1;">⚠️</span>
+          <div>
+            <span style="color: var(--text-main); font-weight: 600;">
+              Currently the wallet has <strong>{{ wallet_data.current_balance }} pixels</strong> in your account, but if you fail to accomplish your pending habit task your wallet will end up losing your valuable pixels and settle <strong>{{ wallet_data.today_pending_pixels }} pixels lower to {{ wallet_data.projected_balance_if_failed }}</strong>.
+            </span>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem;">
+              Complete your daily tasks to defend your wallet and preserve your pixel score.
+            </div>
+          </div>
+        {% else %}
+          <span style="font-size: 1.25rem; line-height: 1;">💤</span>
+          <div>
+            <span style="color: var(--text-main); font-weight: 600;">
+              Rest day today! No scheduled pixels at risk.
+            </span>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem;">
+              Your wallet balance is safe at <strong>{{ wallet_data.current_balance }} Pixels</strong>.
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+        {% if wallet_data.today_pending_pixels > 0 %}
+          <span class="badge" style="background: rgba(239, 68, 68, 0.12); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; font-size: 0.75rem; padding: 0.25rem 0.55rem;">
+            -{{ wallet_data.today_pending_pixels }} Px if missed &rarr; {{ wallet_data.projected_balance_if_failed }} Px
+          </span>
+        {% else %}
+          <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; font-size: 0.75rem; padding: 0.25rem 0.55rem;">
+            ✓ 100% Protected Today
+          </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %}
+
 {% if all_completed_today %}
   <div class="celebration-banner" role="status">
     <div class="celebration-icon">🎉</div>
@@ -44,93 +160,115 @@
     {% for item in habit_cards %}
       <div class="card habit-card {% if item.is_completed_today %}completed-today{% endif %}">
         <div>
-          <div class="card-header">
-            <div>
-              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
-                {% if request.user.is_super_admin and item.habit.created_by %}
-                  <span class="badge" style="background-color: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.35); font-weight: 700;" title="Created by user {{ item.habit.created_by.username }}">
-                    👤 User: {{ item.habit.created_by.username }}
+          <!-- Compact Card Header: Title on Left, Pixel Score & Status on Right -->
+          <div class="habit-card-compact-header">
+            <div style="flex: 1; min-width: 0;">
+              <h2 class="card-title" style="font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--text-main); line-height: 1.3;" title="{{ item.habit.name }}">
+                {{ item.habit.name }}
+              </h2>
+
+              <!-- Subtle Secondary Meta Row: Category, Frequency, & Context -->
+              <div class="habit-card-compact-meta">
+                {% if request.user.is_super_admin and scope == 'all' and item.habit.created_by and item.habit.created_by != request.user %}
+                  <span class="badge" style="background-color: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 700; font-size: 0.68rem; padding: 0.1rem 0.35rem;" title="Created by user {{ item.habit.created_by.username }}">
+                    👤 @{{ item.habit.created_by.username }}
                   </span>
-                {% elif request.user.is_super_admin and item.habit.tenant %}
-                  <span class="badge" style="background-color: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.35); font-weight: 700;">
+                  <span>&bull;</span>
+                {% elif request.user.is_super_admin and scope == 'all' and item.habit.tenant %}
+                  <span class="badge" style="background-color: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 700; font-size: 0.68rem; padding: 0.1rem 0.35rem;">
                     🏢 {{ item.habit.tenant.name }}
                   </span>
+                  <span>&bull;</span>
                 {% endif %}
+
                 {% if item.habit.category %}
-                  <span class="badge badge-{{ item.habit.category|lower|slugify }}">{{ item.habit.category }}</span>
+                  <span style="font-weight: 600; color: var(--text-main);">{{ item.habit.category }}</span>
+                  <span>&bull;</span>
                 {% endif %}
+
+                <span>{{ item.habit.get_frequency_display|default:"Daily" }}</span>
+
                 {% if not item.is_scheduled_today %}
-                  <span class="badge" style="background-color: var(--surface-raised); color: #cbd5e1; border: 1px solid var(--border-strong);">Rest Day</span>
+                  <span>&bull; <span style="color: var(--text-muted); font-style: italic;">Rest Day</span></span>
                 {% endif %}
                 {% if item.habit.has_time_window %}
-                  <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);" title="Allowed hours">⏰ {{ item.habit.get_time_window_display }}</span>
+                  <span>&bull; <span title="Allowed window">⏰ {{ item.habit.get_time_window_display }}</span></span>
                 {% endif %}
                 {% if item.habit.requires_numeric %}
-                  <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);" title="Target threshold">🎯 {{ item.habit.target_value }} {{ item.habit.unit_label }}</span>
+                  <span>&bull; <span title="Target threshold">🎯 {{ item.habit.target_value }} {{ item.habit.unit_label }}</span></span>
                 {% endif %}
                 {% if item.habit.requires_evidence and not item.habit.has_time_window %}
-                  <span class="badge" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);" title="Proof of work required">📎 Proof Required</span>
+                  <span>&bull; <span title="Proof of work required">📎 Proof Required</span></span>
                 {% endif %}
               </div>
-              <h2 class="card-title" style="font-size: 1.15rem;">{{ item.habit.name }}</h2>
             </div>
 
-            {% if item.is_completed_today %}
-              <span style="font-size: 1.5rem;" title="Completed today">✅</span>
-            {% elif item.is_scheduled_today %}
-              <span style="font-size: 1.5rem;" title="Scheduled today">⏳</span>
-            {% else %}
-              <span style="font-size: 1.5rem;" title="Not scheduled for today">💤</span>
-            {% endif %}
+            <!-- Right Anchor: Pixel Score Crown Badge & Today's State Icon -->
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0;">
+              <span class="badge" style="background-color: rgba(168, 85, 247, 0.14); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.38); font-weight: 700; font-size: 0.72rem; padding: 0.15rem 0.5rem; display: inline-flex; align-items: center; gap: 0.3rem;" title="Allotted Pixel Score">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels"> {{ item.habit.pixel_score }} Pixels
+              </span>
+              {% if item.is_completed_today %}
+                <span style="font-size: 1.3rem; line-height: 1;" title="Completed today">✅</span>
+              {% elif item.is_scheduled_today %}
+                <span style="font-size: 1.3rem; line-height: 1;" title="Scheduled today">⏳</span>
+              {% else %}
+                <span style="font-size: 1.3rem; line-height: 1;" title="Not scheduled for today">💤</span>
+              {% endif %}
+            </div>
           </div>
 
-          {% if item.habit.description %}
-            <p class="card-description">{{ item.habit.description|truncatewords:15 }}</p>
+          <!-- Non-Redundant Description (Suppressed if identical to title) -->
+          {% if item.habit.description and item.habit.description|lower|cut:" "|cut:"." != item.habit.name|lower|cut:" "|cut:"." %}
+            <p class="card-description" style="font-size: 0.82rem; margin: 0.4rem 0 0.5rem 0; line-height: 1.4; color: var(--text-muted);">
+              {{ item.habit.description|truncatewords:15 }}
+            </p>
           {% endif %}
 
-          <div class="stats-row">
-            <div class="stat-item">
-              <span class="stat-label">Current Streak</span>
-              <span class="stat-value streak">
-                🔥 {{ item.current_streak }} <small style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">days</small>
-              </span>
-            </div>
-
-            <div class="stat-item">
-              <span class="stat-label">7-Day Rate</span>
-              <span class="stat-value">
+          <!-- Compact Horizontal Metric Strip -->
+          <div class="habit-compact-metric-strip">
+            <span style="display: inline-flex; align-items: center; gap: 0.3rem;">
+              <span>🔥</span>
+              <span><strong>{{ item.current_streak }}</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">day{{ item.current_streak|pluralize }} streak</span></span>
+            </span>
+            <span style="color: var(--border-strong);">&bull;</span>
+            <span style="display: inline-flex; align-items: center; gap: 0.3rem;">
+              <span>📈</span>
+              <span>
                 {% if item.rate_7d is not None %}
-                  {{ item.rate_7d }}%
+                  <strong>{{ item.rate_7d }}%</strong> <span style="color: var(--text-muted); font-size: 0.75rem;">7-day</span>
                 {% else %}
-                  <span style="font-size: 0.85rem; color: var(--gray-400); font-weight: normal;">No days yet</span>
+                  <span style="color: var(--text-muted); font-size: 0.75rem;">No days yet</span>
                 {% endif %}
               </span>
-            </div>
+            </span>
           </div>
         </div>
 
+        <!-- Action Buttons -->
         <div class="habit-card-actions">
           <div style="display: flex; gap: 0.4rem;">
-            <a href="{% url 'habit_calendar' item.habit.pk %}" class="btn btn-outline btn-sm" title="View monthly calendar">📅 Calendar</a>
-            <a href="{% url 'habit_stats' item.habit.pk %}" class="btn btn-outline btn-sm" title="View detailed statistics">📊 Stats</a>
+            <a href="{% url 'habit_calendar' item.habit.pk %}" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;" title="View monthly calendar">📅 Calendar</a>
+            <a href="{% url 'habit_stats' item.habit.pk %}" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;" title="View detailed statistics">📊 Stats</a>
           </div>
 
           <div>
             {% if item.is_completed_today %}
               <form method="post" action="{% url 'habit_undo_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-outline btn-sm" style="color: var(--gray-600);">
+                <button type="submit" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.25rem 0.65rem; color: var(--text-muted);">
                   ↺ Undo
                 </button>
               </form>
             {% elif item.is_scheduled_today %}
               {% if not item.time_allowed %}
-                <button type="button" class="btn btn-outline btn-sm" disabled style="opacity: 0.65; cursor: not-allowed; border-color: rgba(239, 68, 68, 0.4); color: var(--danger);" title="{{ item.time_status }}">
+                <button type="button" class="btn btn-outline btn-sm" disabled style="font-size: 0.78rem; padding: 0.25rem 0.65rem; opacity: 0.65; cursor: not-allowed; border-color: rgba(239, 68, 68, 0.4); color: var(--danger);" title="{{ item.time_status }}">
                   🔒 {{ item.time_status }}
                 </button>
               {% elif item.habit.requires_modal %}
                 <button type="button"
                         class="btn btn-success btn-sm open-completion-modal"
+                        style="font-size: 0.8rem; padding: 0.28rem 0.75rem;"
                         data-habit-id="{{ item.habit.pk }}"
                         data-habit-name="{{ item.habit.name }}"
                         data-action-url="{% url 'habit_complete' item.habit.pk %}"
@@ -139,18 +277,18 @@
                         data-target-value="{{ item.habit.target_value|default:'' }}"
                         data-unit-label="{{ item.habit.unit_label|default:'' }}"
                         data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% else %}Verify completion{% endif %}">
-                  ✓ Verify & Complete
+                  ✓ Verify &amp; Complete
                 </button>
               {% else %}
                 <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
                   {% csrf_token %}
-                  <button type="submit" class="btn btn-success btn-sm">
+                  <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.8rem; padding: 0.28rem 0.75rem;">
                     ✓ Mark Complete
                   </button>
                 </form>
               {% endif %}
             {% else %}
-              <span style="font-size: 0.8rem; color: var(--gray-500); font-style: italic;">Unscheduled today</span>
+              <span style="font-size: 0.78rem; color: var(--text-dim); font-style: italic;">Unscheduled today</span>
             {% endif %}
           </div>
         </div>
@@ -216,4 +354,226 @@
     </form>
   </div>
 </div>
+
+{% if wallet_data %}
+<!-- Wallet Breakdown Interactive Modal -->
+<div id="wallet-breakdown-modal" class="modal-backdrop" style="display: none; align-items: center; justify-content: center; z-index: 1050;">
+  <div class="modal-dialog" style="max-width: 820px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 1.5px solid var(--border);">
+    <div class="modal-header" style="border-bottom: 1.5px solid var(--border); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; background: var(--surface-raised);">
+      <div style="display: flex; align-items: center; gap: 0.65rem;">
+        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels">
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin: 0; line-height: 1.2;">
+            Your Pixel Wallet Breakdown &bull; {{ wallet_data.month_name }}
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0.15rem 0 0 0;">
+            Live habit allocations, daily defense status, and risk projections
+          </p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" id="close-wallet-modal-x" onclick="closeWalletBreakdownModal(); return false;" aria-label="Close modal" style="font-size: 1.5rem; background: transparent; border: none; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
+    </div>
+
+    <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1;">
+      <!-- Projected Daily Outcome Callout Banner -->
+      <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); border: 1.5px solid rgba(99, 102, 241, 0.28); border-radius: var(--radius-sm); padding: 0.9rem 1.1rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.35rem;">
+          <span>🎯</span> Today's Pixel Stakes &amp; Projected Outcome
+        </div>
+        <div style="font-size: 0.88rem; color: var(--text-main); line-height: 1.45; font-weight: 500;">
+          {% if wallet_data.today_pending_pixels == 0 and wallet_data.today_scheduled_pixels > 0 %}
+            <strong style="color: #10b981;">🎉 All {{ wallet_data.today_scheduled_pixels }} pixels secured for today!</strong> Your wallet is fully protected at <strong>{{ wallet_data.current_balance }} Pixels</strong> with 100% solid energy. Keep the momentum going!
+          {% elif wallet_data.today_completed_pixels > 0 %}
+            Out of total <strong>{{ wallet_data.today_scheduled_pixels }} pixels</strong> to achieve from the day you only did <strong>{{ wallet_data.today_completed_pixels }}</strong>, please commit yourself to earn the remaining <strong>{{ wallet_data.today_pending_pixels }}</strong> (or your wallet will settle <strong>{{ wallet_data.today_pending_pixels }} pixels lower to {{ wallet_data.projected_balance_if_failed }}</strong>).
+          {% elif wallet_data.today_scheduled_pixels > 0 %}
+            Currently the wallet has <strong>{{ wallet_data.current_balance }} pixels</strong> in your account, but if you fail to accomplish your pending habit task your wallet will end up losing your valuable pixels and settle <strong>{{ wallet_data.today_pending_pixels }} pixels lower to {{ wallet_data.projected_balance_if_failed }}</strong>.
+          {% else %}
+            Rest day today! No scheduled pixels at risk. Your wallet is safe at <strong>{{ wallet_data.current_balance }} Pixels</strong>.
+          {% endif %}
+        </div>
+
+        <!-- 4 Outcome Metric Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 0.6rem; margin-top: 0.85rem;">
+          <div style="background: var(--surface); padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Current Wallet</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); display: inline-flex; align-items: center; gap: 0.25rem;">
+              <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels"> {{ wallet_data.current_balance }}
+            </div>
+          </div>
+          <div style="background: var(--surface); padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">At Stake Today</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-main);">
+              {{ wallet_data.today_scheduled_pixels }} Px
+            </div>
+          </div>
+          <div style="background: var(--surface); padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Earned Today</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #10b981;">
+              {{ wallet_data.today_completed_pixels }} Px
+            </div>
+          </div>
+          <div style="background: var(--surface); padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">If Missed Today</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: {% if wallet_data.today_pending_pixels > 0 %}var(--danger){% else %}#10b981{% endif %};">
+              {{ wallet_data.projected_balance_if_failed }} Px
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Habit Breakdown Table -->
+      <div style="font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>📋 Habit Allocation &amp; Balance Breakdown</span>
+        <span style="font-weight: 600; color: var(--text-muted); font-size: 0.75rem;">Cycle Remaining: {{ wallet_data.pending_days }} days</span>
+      </div>
+
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-x: auto; margin-bottom: 0.5rem;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+          <thead>
+            <tr style="background: var(--surface-raised); border-bottom: 1.5px solid var(--border); color: var(--text-dim); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+              <th style="padding: 0.6rem 0.75rem;">Task / Habit</th>
+              <th style="padding: 0.6rem 0.75rem;">Daily Score</th>
+              <th style="padding: 0.6rem 0.75rem;">Cycle Days</th>
+              <th style="padding: 0.6rem 0.75rem;">Initial Alloc</th>
+              <th style="padding: 0.6rem 0.75rem;">Past Misses</th>
+              <th style="padding: 0.6rem 0.75rem;">Active Balance</th>
+              <th style="padding: 0.6rem 0.75rem;">Today's Target</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in wallet_data.habits_breakdown %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.65rem 0.75rem;">
+                  <div style="font-weight: 600; color: var(--text-main);">{{ item.habit.name }}</div>
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">{{ item.habit.get_habit_type_display }}</span>
+                </td>
+                <td style="padding: 0.65rem 0.75rem;">
+                  <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: var(--primary); font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                    <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels"> {{ item.daily_score }} Px
+                  </span>
+                </td>
+                <td style="padding: 0.65rem 0.75rem; color: var(--text-muted);">
+                  {{ item.pending_days }}d
+                </td>
+                <td style="padding: 0.65rem 0.75rem; font-weight: 600; color: var(--text-main);">
+                  {{ item.allocated_pixels }} Px
+                </td>
+                <td style="padding: 0.65rem 0.75rem;">
+                  {% if item.missed_days > 0 %}
+                    <span style="color: var(--danger); font-weight: 700;">-{{ item.lost_pixels }} Px</span>
+                  {% else %}
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">0 missed (-0 Px)</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 0.65rem 0.75rem;">
+                  <strong style="color: var(--primary); font-size: 0.9rem;">{{ item.retained_pixels }} Px</strong>
+                </td>
+                <td style="padding: 0.65rem 0.75rem;">
+                  {% if item.is_completed_today %}
+                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; font-size: 0.7rem;">✅ Done</span>
+                  {% elif item.is_scheduled_today %}
+                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-weight: 700; font-size: 0.7rem;">⏳ Due Today</span>
+                  {% else %}
+                    <span class="badge" style="background: var(--surface-raised); color: var(--text-dim); font-size: 0.7rem;">💤 Rest</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr style="background: var(--surface-raised); border-top: 1.5px solid var(--border); font-weight: 700; font-size: 0.825rem;">
+              <td style="padding: 0.65rem 0.75rem; color: var(--text-main);">Total Sum</td>
+              <td style="padding: 0.65rem 0.75rem; color: var(--primary);">{{ wallet_data.today_scheduled_pixels }} Px/day</td>
+              <td style="padding: 0.65rem 0.75rem; color: var(--text-muted);">{{ wallet_data.pending_days }}d</td>
+              <td style="padding: 0.65rem 0.75rem; color: var(--text-main);">{{ wallet_data.allocated_pixels }} Px</td>
+              <td style="padding: 0.65rem 0.75rem; color: {% if wallet_data.lost_pixels > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+                {% if wallet_data.lost_pixels > 0 %}-{{ wallet_data.lost_pixels }} Px{% else %}0 Px{% endif %}
+              </td>
+              <td style="padding: 0.65rem 0.75rem; color: var(--primary); font-size: 0.95rem;">
+                {{ wallet_data.current_balance }} Px
+              </td>
+              <td style="padding: 0.65rem 0.75rem; color: #10b981;">
+                {{ wallet_data.health_percent }}% Solid
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface-raised);">
+      <a href="{% url 'profile' %}?tab=pixels#pixels" class="btn btn-outline btn-sm" style="font-size: 0.78rem;">
+        Open Workspace Profile &rarr;
+      </a>
+      <button type="button" class="btn btn-primary btn-sm" id="close-wallet-modal-btn" onclick="closeWalletBreakdownModal(); return false;" style="font-size: 0.78rem;">
+        Close Breakdown
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openWalletBreakdownModal() {
+    const modal = document.getElementById("wallet-breakdown-modal");
+    if (!modal) return;
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(function() {
+      modal.classList.add("open");
+    });
+  }
+
+  function closeWalletBreakdownModal() {
+    const modal = document.getElementById("wallet-breakdown-modal");
+    if (!modal) return;
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+    setTimeout(function() {
+      modal.style.display = "none";
+    }, 180);
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    const walletModal = document.getElementById("wallet-breakdown-modal");
+    const openBtn = document.getElementById("open-wallet-breakdown-btn");
+    const closeX = document.getElementById("close-wallet-modal-x");
+    const closeBtn = document.getElementById("close-wallet-modal-btn");
+
+    if (openBtn) {
+      openBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        openWalletBreakdownModal();
+      });
+    }
+
+    if (closeX) {
+      closeX.addEventListener("click", function(e) {
+        e.preventDefault();
+        closeWalletBreakdownModal();
+      });
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        closeWalletBreakdownModal();
+      });
+    }
+
+    if (walletModal) {
+      walletModal.addEventListener("click", function(e) {
+        if (e.target === walletModal) {
+          closeWalletBreakdownModal();
+        }
+      });
+    }
+
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape" && walletModal && walletModal.classList.contains("open")) {
+        closeWalletBreakdownModal();
+      }
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}

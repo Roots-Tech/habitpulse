@@ -256,6 +256,13 @@ class Habit(models.Model):
         help_text="Unit label (e.g. mins, km, pages, liters, reps).",
     )
 
+    # Pixel Score Allocation
+    pixel_score = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Pixel score allotted for completing this habit (2 for User-Created, 5 for Predefined, 10 for Expert).",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -333,6 +340,14 @@ class Habit(models.Model):
                 errors["target_value"] = "Target value must be greater than zero."
             if not self.unit_label or not self.unit_label.strip():
                 errors["unit_label"] = "Unit label is required (e.g. pages, mins, km)."
+
+        # Pixel Score Rules Validation
+        if self.habit_type == self.HabitType.GENERAL:
+            if self.pixel_score is not None and self.pixel_score != 2:
+                errors["pixel_score"] = "User-created personal habits have a fixed pixel score of 2."
+        else:
+            if self.pixel_score is not None and self.pixel_score < 1:
+                errors["pixel_score"] = "Pixel score must be at least 1."
 
         if errors:
             raise ValidationError(errors)
@@ -449,7 +464,26 @@ class Habit(models.Model):
         elif self.rule_strategy_ref:
             self.validation_rule = self.rule_strategy_ref.engine_type
 
+        # 3. Enforce pixel score rules
+        if self.habit_type == self.HabitType.GENERAL:
+            self.pixel_score = 2
+        elif not self.pixel_score or self.pixel_score < 1:
+            if self.habit_type == self.HabitType.PREDEFINED_PURPOSE:
+                self.pixel_score = 5
+            elif self.habit_type == self.HabitType.EXPERT_PRESCRIBED:
+                self.pixel_score = 10
+            else:
+                self.pixel_score = 2
+
         super().save(*args, **kwargs)
+
+    @property
+    def pixel_badge(self):
+        return {
+            "score": self.pixel_score,
+            "label": f"{self.pixel_score} Px",
+            "full_label": f"{self.pixel_score} Pixels",
+        }
 
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
@@ -556,6 +590,56 @@ class HabitCompletion(models.Model):
 
     def __str__(self):
         return f"{self.habit.name} - {self.completion_date}"
+
+
+class PixelWallet(models.Model):
+    """
+    Main Pixel Wallet for a user within a workspace/tenant.
+    Tracks monthly allocated pixels, deductions from missed habits,
+    and current energized wallet balance.
+    """
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="pixel_wallets",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="pixel_wallets",
+    )
+    year = models.PositiveIntegerField(default=2026)
+    month = models.PositiveIntegerField(default=10)
+    allocated_pixels = models.PositiveIntegerField(
+        default=0,
+        help_text="Total pixels credited for the month based on daily scores * pending days",
+    )
+    lost_pixels = models.PositiveIntegerField(
+        default=0,
+        help_text="Pixels deducted due to missed habit days",
+    )
+    current_balance = models.PositiveIntegerField(
+        default=0,
+        help_text="Remaining energized pixels (allocated - lost)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-year", "-month"]
+        unique_together = [("tenant", "user", "year", "month")]
+        indexes = [
+            models.Index(fields=["tenant", "user", "year", "month"]),
+        ]
+
+    def __str__(self):
+        return f"Wallet for {self.user.username} ({self.month}/{self.year}): {self.current_balance} Px"
+
+    @property
+    def health_percent(self):
+        if self.allocated_pixels <= 0:
+            return 100.0
+        return round((self.current_balance / self.allocated_pixels) * 100, 1)
 
 
 def seed_default_master_data_for_tenant(tenant):
@@ -721,6 +805,7 @@ def seed_default_catalog_habits(creator=None, tenant=None):
             unit_label=item.get("unit_label", ""),
             window_start_time=item.get("window_start_time"),
             window_end_time=item.get("window_end_time"),
+            pixel_score=5 if item["habit_type"] == Habit.HabitType.PREDEFINED_PURPOSE else 10,
             is_template=True,
             is_active=True,
         )

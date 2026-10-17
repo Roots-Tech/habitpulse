@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Statistics - {{ habit.name }} - HabitPulse{% endblock %}
 
@@ -13,7 +14,10 @@
       {% endif %}
     </div>
     <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--gray-900);">{{ habit.name }} — Progress & Analytics</h1>
-    <p style="color: var(--text-muted); font-size: 0.875rem;">Started on {{ habit.start_date }} &bull; Frequency: {{ habit.get_weekday_display_names }}</p>
+    <p style="color: var(--text-muted); font-size: 0.875rem;">
+      Started on {{ habit.start_date }} &bull; Frequency: {{ habit.get_weekday_display_names }} &bull; 
+      <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem;"><img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels"> {{ habit.pixel_score }} Pixels</span>
+    </p>
   </div>
 
   <div style="display: flex; gap: 0.5rem;">

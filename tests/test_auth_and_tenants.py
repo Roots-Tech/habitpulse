@@ -235,5 +235,119 @@ class AuthAndTenantsTestCase(TestCase):
         self.assertEqual(resp_self.status_code, 302)
         self.assertTrue(User.objects.filter(username="superadmin").exists())
 
+    def test_workspace_navbar_button_replaces_my_access(self):
+        """
+        Navbar has the user's workspace as an interactive button linking to the profile/access view,
+        and does not render 'My Access'.
+        """
+        user = User.objects.create_user(username="testshrinath", email="shrinath@example.com", password="Password123!")
+        tenant = Tenant.objects.create(name="Shrinath's Workspace", slug="shrinaths-workspace")
+        Membership.objects.create(tenant=tenant, user=user, role="OWNER", status="ACTIVE")
+
+        from habits.models import Habit
+        Habit.objects.create(name="Daily Reading", tenant=tenant, created_by=user, habit_type=Habit.HabitType.GENERAL)
+
+        self.client.login(username="testshrinath", password="Password123!")
+
+        resp = self.client.get(reverse("dashboard"))
+        self.assertEqual(resp.status_code, 200)
+
+        # "My Access" should not be present
+        self.assertNotContains(resp, "My Access")
+
+        # Workspace button linking to profile should be present
+        profile_url = reverse("profile")
+        self.assertContains(resp, f'href="{profile_url}"')
+        self.assertContains(resp, "Shrinath&#x27;s Workspace")
+        self.assertContains(resp, "tenant-badge-btn")
+
+        # Visiting the profile URL renders the workspace & profile settings
+        profile_resp = self.client.get(profile_url)
+        self.assertEqual(profile_resp.status_code, 200)
+        self.assertContains(profile_resp, "Shrinath&#x27;s Workspace")
+    def test_general_settings_header_button_visible_to_all_users(self):
+        """
+        General Settings button is visible on the header to ALL authenticated users.
+        Admin Panel is visible only to users with admin privileges.
+        """
+        from habits.models import Habit
+        # 1. Regular user test
+        reg_user = User.objects.create_user(username="regularjoe", email="joe@example.com", password="Password123!")
+        reg_tenant = Tenant.objects.create(name="Joe's Workspace", slug="joes-workspace")
+        Membership.objects.create(tenant=reg_tenant, user=reg_user, role="OWNER", status="ACTIVE")
+        Habit.objects.create(name="Drink Water", tenant=reg_tenant, created_by=reg_user, habit_type=Habit.HabitType.GENERAL)
+
+        self.client.login(username="regularjoe", password="Password123!")
+        resp = self.client.get(reverse("dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "General Settings")
+        self.assertNotContains(resp, "Admin Panel")
+
+        # Visiting general settings page works
+        settings_resp = self.client.get(reverse("general_settings"))
+        self.assertEqual(settings_resp.status_code, 200)
+        self.assertContains(settings_resp, "General Settings")
+        self.assertContains(settings_resp, "Cool Ice")
+
+        # 2. Super admin user test
+        admin_user = User.objects.create_user(username="superadmin2", email="super2@example.com", password="Password123!", is_staff=True, is_superuser=True)
+        admin_tenant = Tenant.objects.create(name="Admin's Workspace", slug="admins-workspace")
+        Membership.objects.create(tenant=admin_tenant, user=admin_user, role="OWNER", status="ACTIVE")
+        Habit.objects.create(name="Daily Review", tenant=admin_tenant, created_by=admin_user, habit_type=Habit.HabitType.GENERAL)
+
+        self.client.login(username="superadmin2", password="Password123!")
+        admin_resp = self.client.get(reverse("dashboard"))
+        self.assertEqual(admin_resp.status_code, 200)
+        self.assertContains(admin_resp, "General Settings")
+        self.assertContains(admin_resp, "Admin Panel")
+
+    def test_workspace_button_displays_summed_pixels_on_open(self):
+        """
+        When opening the workspace button (profile view), the page displays
+        the total pixels summed from the user's active tasks (e.g., 2 + 5 = 7 pixels).
+        """
+        from habits.models import Habit
+        shrinath = User.objects.create_user(username="shrinath_test", email="shrinath_test@example.com", password="Password123!")
+        tenant = Tenant.objects.create(name="Shrinath's Workspace", slug="shrinath-ws")
+        Membership.objects.create(tenant=tenant, user=shrinath, role="OWNER", status="ACTIVE")
+
+        # Task 1: 2 Pixels (General / User Created)
+        Habit.objects.create(
+            name="Eat 2 egg daily",
+            tenant=tenant,
+            created_by=shrinath,
+            habit_type=Habit.HabitType.GENERAL,
+            pixel_score=2,
+            is_template=False,
+        )
+
+        # Task 2: 5 Pixels (Predefined Purpose)
+        Habit.objects.create(
+            name="Meditation 15 mins",
+            tenant=tenant,
+            created_by=shrinath,
+            habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
+            pixel_score=5,
+            is_template=False,
+        )
+
+        self.client.login(username="shrinath_test", password="Password123!")
+
+        # Open Shrinath's Workspace via profile URL
+        profile_url = reverse("profile")
+        resp = self.client.get(profile_url)
+        self.assertEqual(resp.status_code, 200)
+
+        # Check total pixels calculation: 2 + 5 = 7
+        self.assertContains(resp, "Total Pixels: 7")
+        self.assertContains(resp, "Eat 2 egg daily")
+        self.assertContains(resp, "Meditation 15 mins")
+        self.assertContains(resp, "2 Pixels")
+        self.assertContains(resp, "7 Pixels")
+        self.assertContains(resp, "pixel_crown.png")
+
+        # Role explanation box is NOT shown on the user's workspace profile
+        self.assertNotContains(resp, "Unrestricted access across frontend, backend, Admin Panel")
+
 
 

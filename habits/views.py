@@ -69,10 +69,6 @@ def habit_list_view(request):
     if not tenant:
         raise Http404("Workspace not found.")
 
-    # Ensure default catalog templates exist
-    if not Habit.objects.filter(is_template=True).exists():
-        seed_default_catalog_habits(creator=request.user, tenant=tenant)
-
     scope = request.GET.get("scope", "all" if request.user.is_super_admin else "my")
     all_habits_count = Habit.objects.filter(is_template=False).count()
     my_personal_habits_count = Habit.objects.filter(tenant=tenant, is_template=False).count()
@@ -303,6 +299,7 @@ def habit_adopt_view(request, pk):
             window_end_time=template_habit.window_end_time,
             target_value=template_habit.target_value,
             unit_label=template_habit.unit_label,
+            pixel_score=template_habit.pixel_score,
             frequency=template_habit.frequency,
             selected_weekdays=template_habit.selected_weekdays,
             start_date=timezone.localdate(),
