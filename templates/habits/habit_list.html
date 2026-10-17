@@ -30,52 +30,52 @@
   <div class="habits-sub-header-wrapper">
     <div class="habits-sub-header" role="tablist" aria-label="Habits Categories">
       <!-- 1 Menu for User Created Habits (Default) -->
-      <button type="button" 
-              class="habit-sub-header-btn {% if active_tab == 'user_created' %}active{% endif %}" 
-              id="tab-user-created" 
-              role="tab" 
-              aria-controls="my-habits" 
-              aria-selected="{% if active_tab == 'user_created' %}true{% else %}false{% endif %}"
-              data-target="my-habits" 
-              data-accent="user-created">
+      <a href="?tab=user_created#my-habits" 
+         class="habit-sub-header-btn {% if active_tab == 'user_created' %}active{% endif %}" 
+         id="tab-user-created" 
+         role="tab" 
+         aria-controls="my-habits" 
+         aria-selected="{% if active_tab == 'user_created' %}true{% else %}false{% endif %}"
+         data-target="my-habits" 
+         data-accent="user-created">
         <div class="habit-tab-content">
           <span class="habit-tab-icon">👤</span>
           <span class="habit-tab-title">User Created Habits</span>
           <span class="habit-tab-badge badge-user-created">{{ my_habits.count }}</span>
         </div>
-      </button>
+      </a>
 
       <!-- 2nd Menu for Predefined Purpose Habits -->
-      <button type="button" 
-              class="habit-sub-header-btn {% if active_tab == 'predefined' %}active{% endif %}" 
-              id="tab-predefined" 
-              role="tab" 
-              aria-controls="predefined-habits" 
-              aria-selected="{% if active_tab == 'predefined' %}true{% else %}false{% endif %}"
-              data-target="predefined-habits" 
-              data-accent="predefined">
+      <a href="?tab=predefined#predefined-habits" 
+         class="habit-sub-header-btn {% if active_tab == 'predefined' %}active{% endif %}" 
+         id="tab-predefined" 
+         role="tab" 
+         aria-controls="predefined-habits" 
+         aria-selected="{% if active_tab == 'predefined' %}true{% else %}false{% endif %}"
+         data-target="predefined-habits" 
+         data-accent="predefined">
         <div class="habit-tab-content">
           <span class="habit-tab-icon">🎯</span>
           <span class="habit-tab-title">Predefined Purpose Habits</span>
           <span class="habit-tab-badge badge-predefined">{{ predefined_habits.count }}</span>
         </div>
-      </button>
+      </a>
 
       <!-- 3rd Menu for Expert Defined Purpose Habits -->
-      <button type="button" 
-              class="habit-sub-header-btn {% if active_tab == 'expert' %}active{% endif %}" 
-              id="tab-expert" 
-              role="tab" 
-              aria-controls="expert-habits" 
-              aria-selected="{% if active_tab == 'expert' %}true{% else %}false{% endif %}"
-              data-target="expert-habits" 
-              data-accent="expert">
+      <a href="?tab=expert#expert-habits" 
+         class="habit-sub-header-btn {% if active_tab == 'expert' %}active{% endif %}" 
+         id="tab-expert" 
+         role="tab" 
+         aria-controls="expert-habits" 
+         aria-selected="{% if active_tab == 'expert' %}true{% else %}false{% endif %}"
+         data-target="expert-habits" 
+         data-accent="expert">
         <div class="habit-tab-content">
           <span class="habit-tab-icon">🩺</span>
           <span class="habit-tab-title">Expert Defined Purpose Habits</span>
           <span class="habit-tab-badge badge-expert">{{ expert_habits.count }}</span>
         </div>
-      </button>
+      </a>
     </div>
   </div>
 </div>

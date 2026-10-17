@@ -380,6 +380,8 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
       }
     });
+  });
+
   // 7. Habits Hub 3-Section Sub Header Tabs
   const habitTabButtons = document.querySelectorAll(".habit-sub-header-btn");
   const habitSections = document.querySelectorAll(".habit-section");
