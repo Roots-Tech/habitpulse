@@ -380,5 +380,60 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
       }
     });
-  });
+  // 7. Habits Hub 3-Section Sub Header Tabs
+  const habitTabButtons = document.querySelectorAll(".habit-sub-header-btn");
+  const habitSections = document.querySelectorAll(".habit-section");
+
+  if (habitTabButtons.length > 0 && habitSections.length > 0) {
+    const activateTab = (targetId) => {
+      // Normalize targetId
+      let normalizedId = targetId;
+      if (targetId === "user_created" || targetId === "user-created") normalizedId = "my-habits";
+      if (targetId === "predefined") normalizedId = "predefined-habits";
+      if (targetId === "expert") normalizedId = "expert-habits";
+
+      habitTabButtons.forEach((btn) => {
+        const isMatch = btn.getAttribute("data-target") === normalizedId;
+        btn.classList.toggle("active", isMatch);
+        btn.setAttribute("aria-selected", isMatch ? "true" : "false");
+      });
+
+      habitSections.forEach((sec) => {
+        const isMatch = sec.id === normalizedId;
+        sec.classList.toggle("active", isMatch);
+      });
+    };
+
+    habitTabButtons.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const targetId = btn.getAttribute("data-target");
+        if (targetId) {
+          activateTab(targetId);
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, "", `#${targetId}`);
+          } else {
+            window.location.hash = `#${targetId}`;
+          }
+        }
+      });
+    });
+
+    // Handle hash on load or popstate
+    const handleUrlHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash && (hash === "my-habits" || hash === "predefined-habits" || hash === "expert-habits" || hash === "user-created" || hash === "predefined" || hash === "expert")) {
+        activateTab(hash);
+      } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get("tab");
+        if (tabParam) {
+          activateTab(tabParam);
+        }
+      }
+    };
+
+    handleUrlHash();
+    window.addEventListener("hashchange", handleUrlHash);
+  }
 });

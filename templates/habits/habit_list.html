@@ -26,28 +26,68 @@
     </div>
   </div>
 
-  <!-- Quick Section Jump Navigation Pills -->
-  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; padding: 0.75rem 1rem; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 2rem;">
-    <a href="#my-habits" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.825rem; font-weight: 700;">
-      <span>👤</span> My Habit List ({{ my_habits.count }})
-    </a>
-    <a href="#predefined-habits" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.825rem; font-weight: 700;">
-      <span>🎯</span> Predefined Purpose Habits ({{ predefined_habits.count }})
-    </a>
-    <a href="#expert-habits" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; border-radius: 9999px; background: rgba(168, 85, 247, 0.15); color: #c084fc; font-size: 0.825rem; font-weight: 700;">
-      <span>🩺</span> Expert Prescribed Habits ({{ expert_habits.count }})
-    </a>
+  <!-- Sub Header: 3 Equally Divided Section Buttons -->
+  <div class="habits-sub-header-wrapper">
+    <div class="habits-sub-header" role="tablist" aria-label="Habits Categories">
+      <!-- 1 Menu for User Created Habits (Default) -->
+      <button type="button" 
+              class="habit-sub-header-btn {% if active_tab == 'user_created' %}active{% endif %}" 
+              id="tab-user-created" 
+              role="tab" 
+              aria-controls="my-habits" 
+              aria-selected="{% if active_tab == 'user_created' %}true{% else %}false{% endif %}"
+              data-target="my-habits" 
+              data-accent="user-created">
+        <div class="habit-tab-content">
+          <span class="habit-tab-icon">👤</span>
+          <span class="habit-tab-title">User Created Habits</span>
+          <span class="habit-tab-badge badge-user-created">{{ my_habits.count }}</span>
+        </div>
+      </button>
+
+      <!-- 2nd Menu for Predefined Purpose Habits -->
+      <button type="button" 
+              class="habit-sub-header-btn {% if active_tab == 'predefined' %}active{% endif %}" 
+              id="tab-predefined" 
+              role="tab" 
+              aria-controls="predefined-habits" 
+              aria-selected="{% if active_tab == 'predefined' %}true{% else %}false{% endif %}"
+              data-target="predefined-habits" 
+              data-accent="predefined">
+        <div class="habit-tab-content">
+          <span class="habit-tab-icon">🎯</span>
+          <span class="habit-tab-title">Predefined Purpose Habits</span>
+          <span class="habit-tab-badge badge-predefined">{{ predefined_habits.count }}</span>
+        </div>
+      </button>
+
+      <!-- 3rd Menu for Expert Defined Purpose Habits -->
+      <button type="button" 
+              class="habit-sub-header-btn {% if active_tab == 'expert' %}active{% endif %}" 
+              id="tab-expert" 
+              role="tab" 
+              aria-controls="expert-habits" 
+              aria-selected="{% if active_tab == 'expert' %}true{% else %}false{% endif %}"
+              data-target="expert-habits" 
+              data-accent="expert">
+        <div class="habit-tab-content">
+          <span class="habit-tab-icon">🩺</span>
+          <span class="habit-tab-title">Expert Defined Purpose Habits</span>
+          <span class="habit-tab-badge badge-expert">{{ expert_habits.count }}</span>
+        </div>
+      </button>
+    </div>
   </div>
 </div>
 
 <!-- ========================================================================= -->
-<!-- SECTION 1: MY HABIT LIST                                                 -->
+<!-- SECTION 1: USER CREATED HABITS (DEFAULT)                                  -->
 <!-- ========================================================================= -->
-<section id="my-habits" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
+<section id="my-habits" class="habit-section {% if active_tab == 'user_created' %}active{% endif %}" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
   <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong); flex-wrap: wrap; gap: 1rem;">
     <div>
       <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-        <span>👤 My Habit List {% if request.user.is_super_admin and scope != 'my' %}(All User Habits - Global View){% endif %}</span>
+        <span>👤 User Created Habits <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-muted);">(My Habit List)</span> {% if request.user.is_super_admin and scope != 'my' %}(All User Habits - Global View){% endif %}</span>
         <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.8rem;">{{ my_habits.count }} Active</span>
       </h2>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
@@ -59,10 +99,10 @@
       </p>
       {% if request.user.is_super_admin %}
         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-          <a href="{% url 'habit_list' %}?scope=all#my-habits" class="btn btn-sm {% if scope != 'my' %}btn-primary{% else %}btn-outline{% endif %}" style="font-size: 0.775rem; padding: 0.2rem 0.6rem;">
+          <a href="{% url 'habit_list' %}?scope=all&tab=user_created#my-habits" class="btn btn-sm {% if scope != 'my' %}btn-primary{% else %}btn-outline{% endif %}" style="font-size: 0.775rem; padding: 0.2rem 0.6rem;">
             🌐 All Users' Habits ({{ all_habits_count }})
           </a>
-          <a href="{% url 'habit_list' %}?scope=my#my-habits" class="btn btn-sm {% if scope == 'my' %}btn-primary{% else %}btn-outline{% endif %}" style="font-size: 0.775rem; padding: 0.2rem 0.6rem;">
+          <a href="{% url 'habit_list' %}?scope=my&tab=user_created#my-habits" class="btn btn-sm {% if scope == 'my' %}btn-primary{% else %}btn-outline{% endif %}" style="font-size: 0.775rem; padding: 0.2rem 0.6rem;">
             👤 My Workspace Only ({{ my_personal_habits_count }})
           </a>
         </div>
@@ -169,20 +209,20 @@
       </p>
       <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
         <a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">+ Create Personal Habit</a>
-        <a href="#predefined-habits" class="btn btn-outline btn-sm">Browse Predefined Habits ↓</a>
+        <button type="button" class="btn btn-outline btn-sm habit-sub-header-btn" data-target="predefined-habits" style="display: inline-flex; width: auto; padding: 0.35rem 0.75rem; border-color: var(--border-strong);">Browse Predefined Habits →</button>
       </div>
     </div>
   {% endif %}
 </section>
 
 <!-- ========================================================================= -->
-<!-- SECTION 2: PREDEFINED PURPOSEFUL HABITS                                   -->
+<!-- SECTION 2: PREDEFINED PURPOSE HABITS                                      -->
 <!-- ========================================================================= -->
-<section id="predefined-habits" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong);">
+<section id="predefined-habits" class="habit-section {% if active_tab == 'predefined' %}active{% endif %}" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong); flex-wrap: wrap; gap: 1rem;">
     <div>
       <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-        <span>🎯 Predefined Purposeful Habits</span>
+        <span>🎯 Predefined Purpose Habits</span>
         <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.8rem;">{{ predefined_habits.count }} Available</span>
       </h2>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
@@ -286,13 +326,13 @@
 </section>
 
 <!-- ========================================================================= -->
-<!-- SECTION 3: EXPERT PRESCRIBED HABITS                                       -->
+<!-- SECTION 3: EXPERT DEFINED PURPOSE HABITS                                  -->
 <!-- ========================================================================= -->
-<section id="expert-habits" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong);">
+<section id="expert-habits" class="habit-section {% if active_tab == 'expert' %}active{% endif %}" style="margin-bottom: 3rem; scroll-margin-top: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--border-strong); flex-wrap: wrap; gap: 1rem;">
     <div>
       <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-        <span>🩺 Expert Prescribed Habits</span>
+        <span>🩺 Expert Defined Purpose Habits <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-muted);">(Expert Prescribed Habits)</span></span>
         <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; font-size: 0.8rem;">{{ expert_habits.count }} Available</span>
       </h2>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">

@@ -107,6 +107,10 @@ def habit_list_view(request):
         request.user.is_authenticated and (request.user.is_super_admin or request.user.is_technical_user)
     )
 
+    active_tab = request.GET.get("tab", "user_created")
+    if active_tab not in ["user_created", "predefined", "expert"]:
+        active_tab = "user_created"
+
     return render(request, "habits/habit_list.html", {
         "my_habits": my_habits,
         "predefined_habits": predefined_habits,
@@ -116,6 +120,7 @@ def habit_list_view(request):
         "scope": scope,
         "all_habits_count": all_habits_count,
         "my_personal_habits_count": my_personal_habits_count,
+        "active_tab": active_tab,
     })
 
 
