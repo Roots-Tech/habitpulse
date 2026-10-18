@@ -103,6 +103,9 @@
         <button type="button" class="erp-tab-btn {% if active_tab == 'security' %}active{% endif %}" data-tab="security" role="tab" aria-selected="{% if active_tab == 'security' %}true{% else %}false{% endif %}">
           <span>⚙️</span> Security &amp; Preferences
         </button>
+        <button type="button" class="erp-tab-btn {% if active_tab == 'metadata' %}active{% endif %}" data-tab="metadata" role="tab" aria-selected="{% if active_tab == 'metadata' %}true{% else %}false{% endif %}">
+          <span>ℹ️</span> Metadata
+        </button>
       </div>
 
       <!-- ============================================================== -->
@@ -685,6 +688,73 @@
           <a href="{% url 'general_settings' %}" class="btn btn-outline btn-sm">
             ⚙️ Open General Settings
           </a>
+        </div>
+      </div>
+
+      <!-- ============================================================== -->
+      <!-- TAB 5: Metadata                                                -->
+      <!-- ============================================================== -->
+      <div class="erp-tab-pane {% if active_tab == 'metadata' %}active{% endif %}" id="tab-metadata" role="tabpanel">
+        <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 1rem;">
+          System Metadata &amp; Workspace Information
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <!-- Primary Workspace -->
+          <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem;">
+            <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.35rem;">
+              🏢 Primary Workspace
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-main);">
+              {{ tenant.name|default:"Personal Workspace" }}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">
+              {{ habits_count }} habit{{ habits_count|pluralize }} configured
+            </div>
+          </div>
+
+          <!-- Workspace Role -->
+          <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem;">
+            <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.35rem;">
+              🌐 Workspace Role &amp; Locale
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-main);">
+              English (US) <span style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted);">({{ membership.role|default:"OWNER" }})</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">
+              Membership: <strong style="color: #10b981;">{{ membership.status|default:"ACTIVE" }}</strong>
+            </div>
+          </div>
+
+          <!-- Latest Authentication -->
+          <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem;">
+            <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.35rem;">
+              🕒 Latest Authentication
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); font-family: monospace;">
+              {% if target_user.last_login %}
+                {{ target_user.last_login|date:"m/d/Y H:i:s" }}
+              {% else %}
+                <span style="color: var(--text-muted); font-size: 0.9rem;">Never logged in</span>
+              {% endif %}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">
+              Registered: {{ target_user.date_joined|date:"m/d/Y H:i:s" }}
+            </div>
+          </div>
+
+          <!-- System ID & Status -->
+          <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem;">
+            <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.35rem;">
+              🆔 System User Reference
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 700; color: var(--primary);">
+              User #{{ target_user.id }}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem;">
+              Status: {% if target_user.is_active %}<span style="color: #10b981; font-weight: 700;">Active User</span>{% else %}<span style="color: var(--danger); font-weight: 700;">Disabled</span>{% endif %}
+            </div>
+          </div>
         </div>
       </div>
 

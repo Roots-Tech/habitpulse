@@ -150,3 +150,37 @@ class AdminUsersCrudTestCase(TestCase):
 
         # Admin must still exist
         self.assertTrue(User.objects.filter(id=self.admin_user.id).exists())
+
+    def test_users_list_view_columns_and_pixel_score(self):
+        """Users list view must contain only Name, Login/Email, System Access Role, Pixel Score, Actions."""
+        self.client.force_login(self.admin_user)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+
+        # Check required columns
+        self.assertContains(response, "<th>Name</th>")
+        self.assertContains(response, "<th>Login / Email</th>")
+        self.assertContains(response, "System Access Role")
+        self.assertContains(response, "Pixel Score")
+        self.assertContains(response, "Actions")
+
+        # Check removed table header columns are not in the table header
+        self.assertNotContains(response, "<th>Workspace Role</th>")
+        self.assertNotContains(response, "<th>Latest Authentication</th>")
+        self.assertNotContains(response, "<th>Primary Workspace</th>")
+
+        # Check pixel score badge is rendered
+        self.assertContains(response, "0</span> Px")
+
+    def test_user_edit_metadata_tab_renders(self):
+        """User edit form view must include the Metadata tab with workspace and auth details."""
+        self.client.force_login(self.admin_user)
+        response = self.client.get(self.edit_url)
+        self.assertEqual(response.status_code, 200)
+
+        # Metadata tab button and pane
+        self.assertContains(response, 'data-tab="metadata"')
+        self.assertContains(response, 'id="tab-metadata"')
+        self.assertContains(response, "Primary Workspace")
+        self.assertContains(response, "Workspace Role &amp; Locale")
+        self.assertContains(response, "Latest Authentication")

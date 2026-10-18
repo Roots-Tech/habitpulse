@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Users - Admin Panel - HabitPulse{% endblock %}
 
@@ -82,10 +83,8 @@
           </th>
           <th>Name</th>
           <th>Login / Email</th>
-          <th>Workspace Role</th>
-          <th>Latest Authentication</th>
-          <th>Primary Workspace</th>
           <th style="text-align: center;">System Access Role</th>
+          <th style="text-align: center;">Pixel Score</th>
           <th style="text-align: center; width: 140px;">Actions</th>
         </tr>
       </thead>
@@ -113,26 +112,15 @@
             <td>
               <div>{{ u.email }}</div>
             </td>
-            <td>
-              <span style="color: var(--gray-700);">{{ u.language }}</span>
-              <span style="font-size: 0.75rem; color: var(--gray-400); margin-left: 4px;">({{ u.role }})</span>
-            </td>
-            <td>
-              {% if u.last_login %}
-                <span style="font-family: monospace; font-size: 0.825rem; color: var(--gray-700);">
-                  {{ u.last_login|date:"m/d/Y H:i:s" }}
-                </span>
-              {% else %}
-                <span style="color: var(--gray-400); font-size: 0.8rem;">—</span>
-              {% endif %}
-            </td>
-            <td>
-              <span style="color: var(--gray-800); font-weight: 500;">{{ u.company }}</span>
-              <div style="font-size: 0.75rem; color: var(--gray-500);">{{ u.habits_count }} habit{{ u.habits_count|pluralize }}</div>
-            </td>
             <td style="text-align: center;">
               <span class="badge {{ u.role_badge.class }}" style="background-color: {{ u.role_badge.bg }}; color: {{ u.role_badge.color }}; border: 1px solid {{ u.role_badge.border }}; padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em;">
                 {{ u.role_badge.icon }} {{ u.role_badge.label }}
+              </span>
+            </td>
+            <td style="text-align: center;">
+              <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.28); font-size: 0.8rem; font-weight: 800; padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 0.35rem;" title="Total daily pixel score for this user's active habits">
+                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels">
+                <span>{{ u.total_pixels }}</span> Px
               </span>
             </td>
             <td style="text-align: center; white-space: nowrap;">
@@ -157,7 +145,7 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="8" style="text-align: center; padding: 3rem 1rem; color: var(--gray-500);">
+            <td colspan="6" style="text-align: center; padding: 3rem 1rem; color: var(--gray-500);">
               <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">No users found matching your search.</div>
               {% if search_query or role_filter %}
                 <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">Clear Filters</a>

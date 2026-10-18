@@ -114,11 +114,22 @@ def admin_users_list_view(request):
         else:
             users_qs = users_qs.filter(role=role_filter, is_superuser=False)
 
+    from habits.models import Habit
+    from django.db.models import Sum
+
     users_data = []
     for user in users_qs:
         membership = user.memberships.select_related("tenant").filter(status="ACTIVE").first()
         tenant = membership.tenant if membership else None
-        habits_count = user.created_habits.count()
+        
+        # Calculate pixel score for this user's active habits
+        if tenant:
+            user_habits_qs = Habit.objects.filter(tenant=tenant, is_template=False, is_active=True)
+        else:
+            user_habits_qs = Habit.objects.filter(created_by=user, is_template=False, is_active=True)
+            
+        habits_count = user_habits_qs.count()
+        total_pixels = user_habits_qs.aggregate(total=Sum("pixel_score"))["total"] or 0
         role_badge = user.get_role_badge()
 
         display_name = user.get_full_name() or user.username
@@ -134,6 +145,7 @@ def admin_users_list_view(request):
             "company": tenant.name if tenant else "Personal Workspace",
             "role": membership.role if membership else "Owner",
             "habits_count": habits_count,
+            "total_pixels": total_pixels,
             "role_badge": role_badge,
             "system_role": user.role,
             "is_active": user.is_active,
@@ -229,13 +241,14 @@ def _handle_user_edit(request, target_user, is_super_admin, redirect_url):
         })
 
     active_tab = request.GET.get("tab", "account")
-    if active_tab not in ["account", "pixels", "permissions", "security"]:
+    if active_tab not in ["account", "pixels", "permissions", "security", "metadata"]:
         active_tab = "account"
 
     return render(request, "accounts/admin_user_edit.html", {
         "form": form,
         "target_user": target_user,
         "tenant": tenant,
+        "membership": membership,
         "habits_count": habits_count,
         "total_pixels": total_pixels,
         "user_habits": user_habits_list,
