@@ -138,6 +138,37 @@ def habit_create_view(request):
         is_template_req = False
 
     if request.method == "POST":
+        idempotency_key = request.POST.get("idempotency_key", "").strip()
+        submitted_name = request.POST.get("name", "").strip()
+
+        # 1. Immediate idempotency check by submission key
+        if idempotency_key:
+            existing_by_key = Habit.objects.filter(idempotency_key=idempotency_key).first()
+            if existing_by_key:
+                if existing_by_key.is_template:
+                    messages.success(request, f'Catalog template "{existing_by_key.name}" published successfully! Users can now add it to their habit list.')
+                    return redirect("habit_list")
+                else:
+                    messages.success(request, f'Habit "{existing_by_key.name}" created successfully!')
+                    return redirect("dashboard")
+
+        # 2. Rapid duplicate check (multi-click within last 15 seconds)
+        if submitted_name:
+            recent_duplicate = Habit.objects.filter(
+                tenant=tenant,
+                created_by=request.user,
+                name__iexact=submitted_name,
+                is_active=True,
+                created_at__gte=timezone.now() - timezone.timedelta(seconds=15),
+            ).first()
+            if recent_duplicate:
+                if recent_duplicate.is_template:
+                    messages.success(request, f'Catalog template "{recent_duplicate.name}" published successfully! Users can now add it to their habit list.')
+                    return redirect("habit_list")
+                else:
+                    messages.success(request, f'Habit "{recent_duplicate.name}" created successfully!')
+                    return redirect("dashboard")
+
         form = HabitForm(
             request.POST,
             tenant=tenant,
@@ -146,13 +177,32 @@ def habit_create_view(request):
             is_template_initial=is_template_req,
         )
         if form.is_valid():
-            habit = form.save(commit=False)
-            habit.tenant = tenant
-            habit.created_by = request.user
-            if not is_admin_or_tech:
-                habit.habit_type = Habit.HabitType.GENERAL
-                habit.is_template = False
-            habit.save()
+            try:
+                with transaction.atomic():
+                    habit = form.save(commit=False)
+                    habit.tenant = tenant
+                    habit.created_by = request.user
+                    if not is_admin_or_tech:
+                        habit.habit_type = Habit.HabitType.GENERAL
+                        habit.is_template = False
+                    if idempotency_key:
+                        habit.idempotency_key = idempotency_key
+                    habit.save()
+            except IntegrityError:
+                # Concurrent submission collision caught by unique idempotency key or database constraint
+                existing = None
+                if idempotency_key:
+                    existing = Habit.objects.filter(idempotency_key=idempotency_key).first()
+                if not existing and submitted_name:
+                    existing = Habit.objects.filter(tenant=tenant, name__iexact=submitted_name, is_active=True).first()
+                if existing:
+                    if existing.is_template:
+                        messages.success(request, f'Catalog template "{existing.name}" published successfully! Users can now add it to their habit list.')
+                        return redirect("habit_list")
+                    else:
+                        messages.success(request, f'Habit "{existing.name}" created successfully!')
+                        return redirect("dashboard")
+                raise
 
             if habit.is_template:
                 messages.success(request, f'Catalog template "{habit.name}" published successfully! Users can now add it to their habit list.')
@@ -161,6 +211,27 @@ def habit_create_view(request):
                 messages.success(request, f'Habit "{habit.name}" created successfully!')
                 return redirect("dashboard")
         else:
+            # Check if validation failed because an identical habit was created concurrently
+            existing = None
+            if idempotency_key:
+                existing = Habit.objects.filter(idempotency_key=idempotency_key).first()
+            if not existing and submitted_name:
+                existing = Habit.objects.filter(
+                    tenant=tenant,
+                    created_by=request.user,
+                    name__iexact=submitted_name,
+                    is_active=True,
+                    created_at__gte=timezone.now() - timezone.timedelta(seconds=15),
+                ).first()
+
+            if existing:
+                if existing.is_template:
+                    messages.success(request, f'Catalog template "{existing.name}" published successfully! Users can now add it to their habit list.')
+                    return redirect("habit_list")
+                else:
+                    messages.success(request, f'Habit "{existing.name}" created successfully!')
+                    return redirect("dashboard")
+
             err_list = []
             for f_name, f_errs in form.errors.items():
                 field_obj = form.fields.get(f_name)
@@ -282,31 +353,35 @@ def habit_adopt_view(request, pk):
         return redirect("habit_list")
 
     # Clone template habit into user's workspace
-    with transaction.atomic():
-        adopted_habit = Habit.objects.create(
-            tenant=tenant,
-            created_by=request.user,
-            name=template_habit.name,
-            description=template_habit.description,
-            habit_type=template_habit.habit_type,
-            is_template=False,
-            template_source=template_habit,
-            category=template_habit.category,
-            category_ref=template_habit.category_ref,
-            rule_strategy_ref=template_habit.rule_strategy_ref,
-            validation_rule=template_habit.validation_rule,
-            window_start_time=template_habit.window_start_time,
-            window_end_time=template_habit.window_end_time,
-            target_value=template_habit.target_value,
-            unit_label=template_habit.unit_label,
-            pixel_score=template_habit.pixel_score,
-            frequency=template_habit.frequency,
-            selected_weekdays=template_habit.selected_weekdays,
-            start_date=timezone.localdate(),
-            is_active=True,
-        )
+    try:
+        with transaction.atomic():
+            adopted_habit = Habit.objects.create(
+                tenant=tenant,
+                created_by=request.user,
+                name=template_habit.name,
+                description=template_habit.description,
+                habit_type=template_habit.habit_type,
+                is_template=False,
+                template_source=template_habit,
+                category=template_habit.category,
+                category_ref=template_habit.category_ref,
+                rule_strategy_ref=template_habit.rule_strategy_ref,
+                validation_rule=template_habit.validation_rule,
+                window_start_time=template_habit.window_start_time,
+                window_end_time=template_habit.window_end_time,
+                target_value=template_habit.target_value,
+                unit_label=template_habit.unit_label,
+                pixel_score=template_habit.pixel_score,
+                frequency=template_habit.frequency,
+                selected_weekdays=template_habit.selected_weekdays,
+                start_date=timezone.localdate(),
+                is_active=True,
+            )
+        messages.success(request, f'Habit "{adopted_habit.name}" has been added to your habit list!')
+    except IntegrityError:
+        # Concurrent adoption collision caught by unique constraint
+        messages.info(request, f'You are already tracking "{template_habit.name}" in your habit list.')
 
-    messages.success(request, f'Habit "{adopted_habit.name}" has been added to your habit list!')
     return redirect("habit_list")
 
 

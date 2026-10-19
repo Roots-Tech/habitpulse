@@ -262,6 +262,13 @@ class Habit(models.Model):
         blank=True,
         help_text="Pixel score allotted for completing this habit (2 for User-Created, 5 for Predefined, 10 for Expert).",
     )
+    idempotency_key = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Unique client submission key to ensure idempotent creation.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -272,6 +279,18 @@ class Habit(models.Model):
             models.Index(fields=["tenant", "is_active"]),
             models.Index(fields=["tenant", "start_date"]),
             models.Index(fields=["is_template", "habit_type"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["idempotency_key"],
+                name="unique_habit_idempotency_key",
+                condition=models.Q(idempotency_key__isnull=False) & ~models.Q(idempotency_key=""),
+            ),
+            models.UniqueConstraint(
+                fields=["tenant", "template_source"],
+                name="unique_active_template_adoption_per_tenant",
+                condition=models.Q(is_active=True, template_source__isnull=False),
+            ),
         ]
 
     @property

@@ -1,3 +1,4 @@
+import uuid
 from django import forms
 from django.utils import timezone
 from .models import Habit, HabitCategory, HabitCompletion, RuleStrategy
@@ -126,11 +127,16 @@ class HabitForm(forms.ModelForm):
         label="Select Scheduled Days",
         help_text="Required when frequency is set to 'Selected Days of the Week'.",
     )
+    idempotency_key = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
 
     class Meta:
         model = Habit
         fields = [
             "name",
+            "idempotency_key",
             "habit_type",
             "is_template",
             "pixel_score",
@@ -215,6 +221,7 @@ class HabitForm(forms.ModelForm):
                 "placeholder": "e.g., mins, km, pages, liters, reps",
                 "id": "id_unit_label",
             }),
+            "idempotency_key": forms.HiddenInput(attrs={"id": "id_idempotency_key"}),
         }
 
     def __init__(self, *args, tenant=None, user=None, habit_type_initial=None, is_template_initial=None, **kwargs):
@@ -223,6 +230,9 @@ class HabitForm(forms.ModelForm):
         self.user = user
         if not self.tenant and self.instance and self.instance.pk and hasattr(self.instance, "tenant"):
             self.tenant = self.instance.tenant
+
+        if not self.instance.pk and not self.initial.get("idempotency_key"):
+            self.initial["idempotency_key"] = uuid.uuid4().hex
 
         self.fields["category_ref"].required = False
         self.fields["category"].required = False
@@ -315,6 +325,35 @@ class HabitForm(forms.ModelForm):
 
         if self.instance.pk and self.instance.selected_weekdays:
             self.initial["weekdays"] = [str(d) for d in self.instance.selected_weekdays]
+
+    def clean_name(self):
+        name = self.cleaned_data.get("name", "").strip()
+        if not name:
+            raise forms.ValidationError("Habit name cannot be empty.")
+        if self.tenant:
+            qs = Habit.objects.filter(
+                tenant=self.tenant,
+                name__iexact=name,
+                is_active=True,
+            )
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+
+            # If habit with same idempotency_key already exists in DB, this is an idempotent re-submission
+            idempotency_key = self.data.get("idempotency_key", "").strip() if hasattr(self, "data") else ""
+            if idempotency_key and qs.filter(idempotency_key=idempotency_key).exists():
+                return name
+
+            # Allow recent rapid submissions (within 15s) to pass through so the view can handle them idempotently
+            if qs.filter(created_at__gte=timezone.now() - timezone.timedelta(seconds=15)).exists():
+                return name
+
+            is_template = bool(self.cleaned_data.get("is_template") or self.initial.get("is_template"))
+            qs = qs.filter(is_template=is_template)
+            if qs.exists():
+                entity_label = "catalog template" if is_template else "active habit"
+                raise forms.ValidationError(f"An {entity_label} named '{name}' already exists in your workspace.")
+        return name
 
     def clean(self):
         cleaned_data = super().clean()
@@ -432,6 +471,10 @@ class HabitForm(forms.ModelForm):
             habit.validation_rule = habit.rule_strategy_ref.engine_type
         elif self.cleaned_data.get("validation_rule"):
             habit.validation_rule = self.cleaned_data["validation_rule"]
+
+        idempotency_key = self.cleaned_data.get("idempotency_key")
+        if idempotency_key and not habit.idempotency_key:
+            habit.idempotency_key = idempotency_key
 
         if commit:
             habit.save()

@@ -2093,3 +2093,9 @@ select.form-control option {
   transform: scale(1.12);
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

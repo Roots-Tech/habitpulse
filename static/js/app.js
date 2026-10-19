@@ -490,4 +490,37 @@ document.addEventListener("DOMContentLoaded", () => {
     handleUrlHash();
     window.addEventListener("hashchange", handleUrlHash);
   }
+
+  // 8. Idempotent Form Submission & Multi-Click Debouncing
+  document.querySelectorAll(".js-idempotent-form, #habit-form").forEach((form) => {
+    form.addEventListener("submit", function (e) {
+      if (form.dataset.submitting === "true") {
+        e.preventDefault();
+        return false;
+      }
+
+      const submitBtn = form.querySelector("button[type='submit']");
+      if (submitBtn) {
+        form.dataset.submitting = "true";
+        const originalText = submitBtn.innerHTML;
+        submitBtn.dataset.originalText = originalText;
+
+        let loadingText = "Saving...";
+        const lower = originalText.toLowerCase();
+        if (lower.includes("create")) {
+          loadingText = "Creating Habit...";
+        } else if (lower.includes("publish")) {
+          loadingText = "Publishing...";
+        } else if (lower.includes("add")) {
+          loadingText = "Adding...";
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = "0.75";
+        submitBtn.style.cursor = "not-allowed";
+        submitBtn.innerHTML = `<span style="display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: middle; margin-right: 6px; animation: spin 0.75s linear infinite;"></span>${loadingText}`;
+      }
+    });
+  });
 });
+
