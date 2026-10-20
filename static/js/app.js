@@ -536,5 +536,61 @@ document.addEventListener("DOMContentLoaded", () => {
   } catch (e) {
     // Graceful fallback if Intl API is unavailable
   }
+
+  // 10. Live Dynamic Time Window Status & Real-Time Activation
+  const updateTimeWindowHabits = () => {
+    const containers = document.querySelectorAll('.habit-action-container[data-has-time-window="true"]');
+    if (!containers.length) return;
+
+    const now = new Date();
+    const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+    containers.forEach((container) => {
+      const startStr = container.getAttribute("data-window-start");
+      const endStr = container.getAttribute("data-window-end");
+      const startDisplay = container.getAttribute("data-window-start-display") || startStr;
+      const endDisplay = container.getAttribute("data-window-end-display") || endStr;
+
+      if (!startStr || !endStr) return;
+
+      const [sh, sm, ss = 0] = startStr.split(":").map(Number);
+      const [eh, em, es = 0] = endStr.split(":").map(Number);
+
+      const startSeconds = sh * 3600 + sm * 60 + ss;
+      // Minute inclusive: if end time seconds is 0, include up to 59 seconds of that minute
+      const endSeconds = eh * 3600 + em * 60 + (es === 0 ? 59 : es);
+
+      const lockedBtn = container.querySelector(".time-window-locked-btn");
+      const statusText = container.querySelector(".time-window-status-text");
+      const activeAction = container.querySelector(".time-window-active-action");
+
+      if (currentSeconds < startSeconds) {
+        // Locked: too early
+        if (lockedBtn) {
+          lockedBtn.style.display = "inline-block";
+          if (statusText) statusText.textContent = `Locked until ${startDisplay}`;
+          lockedBtn.title = `Locked until ${startDisplay}`;
+        }
+        if (activeAction) activeAction.style.display = "none";
+      } else if (currentSeconds <= endSeconds) {
+        // Active: inside allowed window! Real-time activation without page reload
+        if (lockedBtn) lockedBtn.style.display = "none";
+        if (activeAction) activeAction.style.display = "inline-block";
+      } else {
+        // Expired: window closed
+        if (lockedBtn) {
+          lockedBtn.style.display = "inline-block";
+          if (statusText) statusText.textContent = `Window closed at ${endDisplay}`;
+          lockedBtn.title = `Window closed at ${endDisplay}`;
+        }
+        if (activeAction) activeAction.style.display = "none";
+      }
+    });
+  };
+
+  // Run on load and every second for instantaneous real-time UI transitions
+  updateTimeWindowHabits();
+  setInterval(updateTimeWindowHabits, 1000);
 });
+
 

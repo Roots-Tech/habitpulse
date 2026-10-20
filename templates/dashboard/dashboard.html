@@ -261,31 +261,68 @@
                 </button>
               </form>
             {% elif item.is_scheduled_today %}
-              {% if not item.time_allowed %}
-                <button type="button" class="btn btn-outline btn-sm" disabled style="font-size: 0.78rem; padding: 0.25rem 0.65rem; opacity: 0.65; cursor: not-allowed; border-color: rgba(239, 68, 68, 0.4); color: var(--danger);" title="{{ item.time_status }}">
-                  🔒 {{ item.time_status }}
-                </button>
-              {% elif item.habit.requires_modal %}
-                <button type="button"
-                        class="btn btn-success btn-sm open-completion-modal"
-                        style="font-size: 0.8rem; padding: 0.28rem 0.75rem;"
-                        data-habit-id="{{ item.habit.pk }}"
-                        data-habit-name="{{ item.habit.name }}"
-                        data-action-url="{% url 'habit_complete' item.habit.pk %}"
-                        data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
-                        data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
-                        data-target-value="{{ item.habit.target_value|default:'' }}"
-                        data-unit-label="{{ item.habit.unit_label|default:'' }}"
-                        data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% else %}Verify completion{% endif %}">
-                  ✓ Verify &amp; Complete
-                </button>
-              {% else %}
-                <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.8rem; padding: 0.28rem 0.75rem;">
-                    ✓ Mark Complete
+              {% if item.habit.has_time_window %}
+                <div class="habit-action-container"
+                     data-has-time-window="true"
+                     data-window-start="{{ item.habit.window_start_time|time:'H:i:s' }}"
+                     data-window-end="{{ item.habit.window_end_time|time:'H:i:s' }}"
+                     data-window-start-display="{{ item.habit.window_start_time|time:'h:i A' }}"
+                     data-window-end-display="{{ item.habit.window_end_time|time:'h:i A' }}">
+                  
+                  <button type="button" class="btn btn-outline btn-sm time-window-locked-btn" disabled
+                          style="font-size: 0.78rem; padding: 0.25rem 0.65rem; opacity: 0.65; cursor: not-allowed; border-color: rgba(239, 68, 68, 0.4); color: var(--danger); {% if item.time_allowed %}display: none;{% endif %}"
+                          title="{{ item.time_status }}">
+                    🔒 <span class="time-window-status-text">{{ item.time_status }}</span>
                   </button>
-                </form>
+
+                  <div class="time-window-active-action" style="display: {% if item.time_allowed %}inline-block{% else %}none{% endif %};">
+                    {% if item.habit.requires_modal %}
+                      <button type="button"
+                              class="btn btn-success btn-sm open-completion-modal"
+                              style="font-size: 0.8rem; padding: 0.28rem 0.75rem;"
+                              data-habit-id="{{ item.habit.pk }}"
+                              data-habit-name="{{ item.habit.name }}"
+                              data-action-url="{% url 'habit_complete' item.habit.pk %}"
+                              data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
+                              data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
+                              data-target-value="{{ item.habit.target_value|default:'' }}"
+                              data-unit-label="{{ item.habit.unit_label|default:'' }}"
+                              data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% else %}Verify completion{% endif %}">
+                        ✓ Verify &amp; Complete
+                      </button>
+                    {% else %}
+                      <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.8rem; padding: 0.28rem 0.75rem;">
+                          ✓ Mark Complete
+                        </button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </div>
+              {% else %}
+                {% if item.habit.requires_modal %}
+                  <button type="button"
+                          class="btn btn-success btn-sm open-completion-modal"
+                          style="font-size: 0.8rem; padding: 0.28rem 0.75rem;"
+                          data-habit-id="{{ item.habit.pk }}"
+                          data-habit-name="{{ item.habit.name }}"
+                          data-action-url="{% url 'habit_complete' item.habit.pk %}"
+                          data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
+                          data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
+                          data-target-value="{{ item.habit.target_value|default:'' }}"
+                          data-unit-label="{{ item.habit.unit_label|default:'' }}"
+                          data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% else %}Verify completion{% endif %}">
+                    ✓ Verify &amp; Complete
+                  </button>
+                {% else %}
+                  <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.8rem; padding: 0.28rem 0.75rem;">
+                      ✓ Mark Complete
+                    </button>
+                  </form>
+                {% endif %}
               {% endif %}
             {% else %}
               <span style="font-size: 0.78rem; color: var(--text-dim); font-style: italic;">Unscheduled today</span>
