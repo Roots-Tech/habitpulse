@@ -19,4 +19,7 @@ urlpatterns = [
     path("admin-panel/roles/<str:role_code>/permissions/", views.admin_role_permissions_update_view, name="admin_role_permissions_update"),
     path("admin-panel/roles/<int:user_id>/change/", views.admin_user_role_change_view, name="admin_user_role_change"),
     path("admin-panel/roles/user/<int:user_id>/permissions/", views.admin_user_permissions_update_view, name="admin_user_permissions_update"),
+
+    # Admin Panel - System Performance Meter & APM
+    path("admin-panel/performance/", views.admin_performance_meter_view, name="admin_performance_meter"),
 ]

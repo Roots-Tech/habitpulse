@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+from config.performance import profile_function
 from tenants.models import Tenant
 
 
@@ -409,6 +410,7 @@ class Habit(models.Model):
             return f"{self.window_start_time.strftime('%I:%M %p')} - {self.window_end_time.strftime('%I:%M %p')}"
         return ""
 
+    @profile_function("habits.models.Habit.is_time_window_active")
     def is_time_window_active(self, current_time=None):
         """
         Evaluates whether completion is allowed right now based on local time window.

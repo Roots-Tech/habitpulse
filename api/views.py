@@ -16,6 +16,7 @@ from habits.services import (
     calculate_user_pixel_wallet,
 )
 from habits.validators import HabitCompletionValidationEngine
+from config.performance import performance_tracker
 
 User = get_user_model()
 
@@ -375,3 +376,38 @@ def habit_status_api(request, pk):
         "current_streak": streaks["current_streak"],
         "longest_streak": streaks["longest_streak"],
     })
+
+
+@require_GET
+def admin_performance_api(request):
+    """
+    GET /api/v1/admin/performance/
+    Returns live APM metrics, endpoint latencies, SQL timings, function timings, and memory footprint.
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    if not (request.user.is_super_admin or getattr(request.user, "can_manage_users", False) or request.user.is_staff):
+        return JsonResponse({"error": "Forbidden", "detail": "Administrative privileges required."}, status=403)
+
+    metrics = performance_tracker.get_metrics()
+    return JsonResponse({"status": "success", "data": metrics})
+
+
+@require_POST
+def admin_performance_reset_api(request):
+    """
+    POST /api/v1/admin/performance/reset/
+    Flushes all in-memory performance metrics to restart a fresh profiling benchmark.
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    if not (request.user.is_super_admin or getattr(request.user, "can_manage_users", False) or request.user.is_staff):
+        return JsonResponse({"error": "Forbidden", "detail": "Administrative privileges required."}, status=403)
+
+    performance_tracker.reset()
+    return JsonResponse({"status": "success", "message": "Performance metrics reset successfully."})
+

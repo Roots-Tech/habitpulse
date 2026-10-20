@@ -1,0 +1,539 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}System Performance Meter - Admin Panel - HabitPulse{% endblock %}
+
+{% block container_class %}app-container container-wide{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+  <!-- Admin Toolbar -->
+  <div class="admin-toolbar" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">
+        &larr; Users Directory
+      </a>
+      <a href="{% url 'admin_roles_list' %}" class="btn btn-outline btn-sm">
+        🛡️ Roles &amp; Permissions
+      </a>
+      <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+        <span>⚡ System Performance Meter</span>
+      </h1>
+    </div>
+
+    <!-- Actions & Live Controls -->
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <label style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+        <input type="checkbox" id="live-refresh-toggle" checked style="accent-color: var(--primary); cursor: pointer;">
+        <span>Live Stream (5s)</span>
+      </label>
+      <button type="button" id="refresh-metrics-btn" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+        <span>🔄</span> Refresh Now
+      </button>
+      <button type="button" id="reset-metrics-btn" class="btn btn-danger btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+        <span>🗑️</span> Reset Metrics
+      </button>
+    </div>
+  </div>
+
+  <!-- Real-Time System Health KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <!-- System Health Index -->
+    <div class="card" style="padding: 1.1rem; border-left: 4px solid #10b981; background: var(--surface);">
+      <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Health Index</div>
+      <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 0.3rem;">
+        <span id="kpi-health-score" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">{{ metrics.health_score }}%</span>
+        <span id="kpi-health-label" class="badge" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">{{ metrics.health_label }}</span>
+      </div>
+      <div style="margin-top: 0.6rem; background: var(--surface-raised); border-radius: 4px; height: 6px; overflow: hidden;">
+        <div id="kpi-health-bar" style="background: #10b981; width: {{ metrics.health_score }}%; height: 100%; transition: width 0.4s ease;"></div>
+      </div>
+      <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem;">Based on latencies &amp; query bounds</div>
+    </div>
+
+    <!-- Avg & P95 Latency -->
+    <div class="card" style="padding: 1.1rem; border-left: 4px solid #3b82f6; background: var(--surface);">
+      <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Average Latency</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.3rem;">
+        <span id="kpi-avg-latency" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">{{ metrics.avg_latency_ms }}</span>
+        <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">ms</span>
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem;">
+        95th Percentile (p95): <strong id="kpi-p95-latency" style="color: var(--text-main);">{{ metrics.p95_latency_ms }} ms</strong>
+      </div>
+    </div>
+
+    <!-- Throughput & Total Requests -->
+    <div class="card" style="padding: 1.1rem; border-left: 4px solid #8b5cf6; background: var(--surface);">
+      <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Throughput</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.3rem;">
+        <span id="kpi-throughput" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">{{ metrics.throughput_per_min }}</span>
+        <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">req / min</span>
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem;">
+        Total requests profiled: <strong id="kpi-total-requests" style="color: var(--text-main);">{{ metrics.total_requests }}</strong>
+      </div>
+    </div>
+
+    <!-- SQL Query Efficiency -->
+    <div class="card" style="padding: 1.1rem; border-left: 4px solid #f59e0b; background: var(--surface);">
+      <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Database Queries</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.3rem;">
+        <span id="kpi-avg-queries" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">{{ metrics.avg_queries_per_req }}</span>
+        <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">avg / req</span>
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem;">
+        Slow queries (&gt;25ms): <strong id="kpi-slow-queries-count" style="color: {% if metrics.slow_queries %}#ef4444{% else %}var(--text-main){% endif %};">{{ metrics.slow_queries|length }}</strong>
+      </div>
+    </div>
+
+    <!-- Python Memory Usage -->
+    <div class="card" style="padding: 1.1rem; border-left: 4px solid #06b6d4; background: var(--surface);">
+      <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Heap Memory</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.3rem;">
+        <span id="kpi-curr-mem" style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">{{ metrics.memory.current_mb }}</span>
+        <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">MB</span>
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.45rem;">
+        Peak heap allocated: <strong id="kpi-peak-mem" style="color: var(--text-main);">{{ metrics.memory.peak_mb }} MB</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Optimization Advisor (High-Frequency & Recurring Call Warnings) -->
+  <div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: var(--radius-md);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.3rem;">💡</span>
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin: 0;">Optimization &amp; Architecture Advisor</h3>
+      </div>
+      <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #2563eb; font-weight: 600;">Automatic Bottleneck Analysis</span>
+    </div>
+
+    <div id="advisor-content">
+      {% if metrics.high_frequency %}
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.75rem;">
+          <strong style="color: #d97706; display: flex; align-items: center; gap: 0.4rem;">
+            <span>⚠️</span> High-Frequency Polling Detected (Potential Scalability Bottleneck)
+          </strong>
+          <ul style="margin: 0.4rem 0 0.2rem 1.25rem; font-size: 0.84rem; color: var(--text-body);">
+            {% for item in metrics.high_frequency %}
+              <li style="margin-bottom: 0.25rem;">
+                <code>{{ item.endpoint }}</code> is receiving <strong>{{ item.calls_last_60s }} calls / minute</strong> (avg latency: {{ item.avg_ms }}ms).
+                <br><span style="color: var(--text-muted);">&rarr; <strong>Technical Recommendation:</strong> {{ item.optimization_advice }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% else %}
+        <p style="font-size: 0.875rem; color: var(--text-body); margin: 0 0 0.5rem 0;">
+          ✅ <strong>No critical high-frequency polling bottlenecks detected.</strong> All endpoints are operating within normal concurrency parameters.
+        </p>
+      {% endif %}
+
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">
+        <strong>How to use this meter:</strong> Every function decorated with <code>@profile_function</code> and every view wrapped by <code>PerformanceMonitoringMiddleware</code> automatically reports latencies and SQL queries in real time. Use this dashboard to pinpoint which parts of the application require caching, query prefetching, or WebSocket optimization.
+      </p>
+    </div>
+  </div>
+
+  <!-- Performance Meter Sub-Navigation Tabs -->
+  <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid var(--border-subtle); margin-bottom: 1.25rem;">
+    <button type="button" class="perf-tab-btn active" data-tab="endpoints-tab" style="padding: 0.6rem 1.1rem; font-weight: 600; font-size: 0.875rem; background: none; border: none; border-bottom: 3px solid var(--primary); color: var(--primary); cursor: pointer;">
+      🌐 Endpoints &amp; Views ({{ metrics.endpoints|length }})
+    </button>
+    <button type="button" class="perf-tab-btn" data-tab="functions-tab" style="padding: 0.6rem 1.1rem; font-weight: 600; font-size: 0.875rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); cursor: pointer;">
+      ⚙️ Profiled Functions &amp; Services ({{ metrics.functions|length }})
+    </button>
+    <button type="button" class="perf-tab-btn" data-tab="queries-tab" style="padding: 0.6rem 1.1rem; font-weight: 600; font-size: 0.875rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); cursor: pointer;">
+      🗄️ Slow SQL Queries ({{ metrics.slow_queries|length }})
+    </button>
+    <button type="button" class="perf-tab-btn" data-tab="stream-tab" style="padding: 0.6rem 1.1rem; font-weight: 600; font-size: 0.875rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); cursor: pointer;">
+      📡 Live Request Stream (25)
+    </button>
+  </div>
+
+  <!-- Tab 1: Endpoints & Views Performance Breakdown -->
+  <div id="endpoints-tab" class="perf-tab-content">
+    <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-md);">
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; margin: 0; font-size: 0.85rem;">
+          <thead style="background: var(--surface-raised); border-bottom: 1px solid var(--border-strong);">
+            <tr>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Endpoint / Route</th>
+              <th style="padding: 0.75rem 1rem; text-align: left;">View Name</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Total Calls</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Calls / Min</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Avg Latency</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Min / Max</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Avg Queries</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">DB Time</th>
+              <th style="padding: 0.75rem 1rem; text-align: center;">Status</th>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Optimization Advice</th>
+            </tr>
+          </thead>
+          <tbody id="endpoints-table-body">
+            {% for ep in metrics.endpoints %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.75rem 1rem; font-weight: 600; font-family: monospace;">{{ ep.endpoint }}</td>
+                <td style="padding: 0.75rem 1rem; color: var(--text-muted);">{{ ep.view_name }}</td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 600;">{{ ep.calls }}</td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right;">
+                  {% if ep.calls_last_60s >= 10 %}
+                    <span style="color: #d97706; font-weight: 700;">{{ ep.calls_last_60s }}</span>
+                  {% else %}
+                    <span style="color: var(--text-muted);">{{ ep.calls_last_60s }}</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 700; color: {% if ep.avg_ms > 200 %}#ef4444{% elif ep.avg_ms > 100 %}#f59e0b{% else %}#10b981{% endif %};">
+                  {{ ep.avg_ms }} ms
+                </td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; color: var(--text-muted); font-size: 0.78rem;">
+                  {{ ep.min_ms }} / {{ ep.max_ms }} ms
+                </td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 600;">{{ ep.avg_db_queries }}</td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; color: var(--text-muted);">{{ ep.avg_db_ms }} ms</td>
+                <td style="padding: 0.75rem 1rem; text-align: center;">
+                  {% if ep.status == "OPTIMAL" %}
+                    <span class="badge" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">Optimal</span>
+                  {% elif ep.status == "ATTENTION" %}
+                    <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #d97706; font-weight: 700;">Attention</span>
+                  {% elif ep.status == "WARNING" %}
+                    <span class="badge" style="background-color: rgba(245, 158, 11, 0.25); color: #b45309; font-weight: 700;">High Queries</span>
+                  {% else %}
+                    <span class="badge" style="background-color: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;">Slow</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-muted); max-width: 280px;">
+                  {{ ep.recommendation }}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="10" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                  No request data collected yet. As you interact with the application, metrics will stream in automatically.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Profiled Functions & Services -->
+  <div id="functions-tab" class="perf-tab-content" style="display: none;">
+    <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-md);">
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; margin: 0; font-size: 0.85rem;">
+          <thead style="background: var(--surface-raised); border-bottom: 1px solid var(--border-strong);">
+            <tr>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Function &amp; Service</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Total Invocations</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Total Time (ms)</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Avg Time</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Min / Max</th>
+              <th style="padding: 0.75rem 1rem; text-align: center;">Status</th>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Optimization Advice</th>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Last Invoked</th>
+            </tr>
+          </thead>
+          <tbody id="functions-table-body">
+            {% for fn in metrics.functions %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.75rem 1rem; font-weight: 600; font-family: monospace; color: var(--primary);">
+                  {{ fn.function_name }}
+                </td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 600;">{{ fn.calls }}</td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right;">{{ fn.total_ms }} ms</td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 700; color: {% if fn.avg_ms > 50 %}#ef4444{% elif fn.avg_ms > 20 %}#f59e0b{% else %}#10b981{% endif %};">
+                  {{ fn.avg_ms }} ms
+                </td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; color: var(--text-muted); font-size: 0.78rem;">
+                  {{ fn.min_ms }} / {{ fn.max_ms }} ms
+                </td>
+                <td style="padding: 0.75rem 1rem; text-align: center;">
+                  {% if fn.status == "OPTIMAL" %}
+                    <span class="badge" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">Optimal</span>
+                  {% elif fn.status == "ATTENTION" %}
+                    <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #d97706; font-weight: 700;">Moderate</span>
+                  {% else %}
+                    <span class="badge" style="background-color: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;">Heavy</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-muted); max-width: 280px;">
+                  {{ fn.advice }}
+                </td>
+                <td style="padding: 0.75rem 1rem; font-size: 0.75rem; color: var(--text-muted);">
+                  {{ fn.last_called|default:"-" }}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                  No function profiling collected yet. Decorated calculations will appear here.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Slow SQL Queries Log -->
+  <div id="queries-tab" class="perf-tab-content" style="display: none;">
+    <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-md);">
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; margin: 0; font-size: 0.85rem;">
+          <thead style="background: var(--surface-raised); border-bottom: 1px solid var(--border-strong);">
+            <tr>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Timestamp</th>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Originating Endpoint</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Duration</th>
+              <th style="padding: 0.75rem 1rem; text-align: left;">SQL Statement</th>
+            </tr>
+          </thead>
+          <tbody id="queries-table-body">
+            {% for q in metrics.slow_queries %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.75rem; white-space: nowrap;">{{ q.timestamp }}</td>
+                <td style="padding: 0.75rem 1rem; font-weight: 600; font-family: monospace;">{{ q.endpoint }}</td>
+                <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 700; color: #ef4444; white-space: nowrap;">
+                  {{ q.duration_ms }} ms
+                </td>
+                <td style="padding: 0.75rem 1rem; font-family: monospace; font-size: 0.75rem; word-break: break-all; color: var(--text-muted); max-width: 600px;">
+                  <code>{{ q.sql }}</code>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+                  🎉 <strong>Excellent! No slow database queries (&gt;25ms) recorded.</strong>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 4: Live Request Stream -->
+  <div id="stream-tab" class="perf-tab-content" style="display: none;">
+    <div class="card" style="padding: 0; overflow: hidden; border-radius: var(--radius-md);">
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; margin: 0; font-size: 0.85rem;">
+          <thead style="background: var(--surface-raised); border-bottom: 1px solid var(--border-strong);">
+            <tr>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Timestamp</th>
+              <th style="padding: 0.75rem 0.5rem; text-align: center;">Method</th>
+              <th style="padding: 0.75rem 1rem; text-align: left;">Path</th>
+              <th style="padding: 0.75rem 0.5rem; text-align: center;">Status</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">Duration</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">DB Queries</th>
+              <th style="padding: 0.75rem 0.75rem; text-align: right;">DB Time</th>
+            </tr>
+          </thead>
+          <tbody id="stream-table-body">
+            {% for req in metrics.recent_requests %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.6rem 1rem; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">{{ req.timestamp }}</td>
+                <td style="padding: 0.6rem 0.5rem; text-align: center;">
+                  <span class="badge" style="font-size: 0.72rem; {% if req.method == 'POST' %}background: rgba(16, 185, 129, 0.15); color: #10b981;{% else %}background: rgba(59, 130, 246, 0.15); color: #2563eb;{% endif %}">
+                    {{ req.method }}
+                  </span>
+                </td>
+                <td style="padding: 0.6rem 1rem; font-family: monospace; font-size: 0.82rem; word-break: break-all;">{{ req.path }}</td>
+                <td style="padding: 0.6rem 0.5rem; text-align: center;">
+                  <span class="badge" style="font-size: 0.72rem; {% if req.status_code >= 400 %}background: rgba(239, 68, 68, 0.15); color: #ef4444;{% else %}background: rgba(16, 185, 129, 0.15); color: #10b981;{% endif %}">
+                    {{ req.status_code }}
+                  </span>
+                </td>
+                <td style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600; color: {% if req.duration_ms > 200 %}#ef4444{% elif req.duration_ms > 100 %}#f59e0b{% else %}#10b981{% endif %};">
+                  {{ req.duration_ms }} ms
+                </td>
+                <td style="padding: 0.6rem 0.75rem; text-align: right;">{{ req.query_count }}</td>
+                <td style="padding: 0.6rem 0.75rem; text-align: right; color: var(--text-muted);">{{ req.db_time_ms }} ms</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                  Stream buffer empty. Incoming requests will display here in real time.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Real-Time Auto-Refresh & Tab Switching Script -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // 1. Tab Switching
+  const tabButtons = document.querySelectorAll(".perf-tab-btn");
+  const tabContents = document.querySelectorAll(".perf-tab-content");
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      tabButtons.forEach(b => {
+        b.classList.remove("active");
+        b.style.color = "var(--text-muted)";
+        b.style.borderBottomColor = "transparent";
+      });
+      tabContents.forEach(c => c.style.display = "none");
+
+      btn.classList.add("active");
+      btn.style.color = "var(--primary)";
+      btn.style.borderBottomColor = "var(--primary)";
+
+      const targetId = btn.getAttribute("data-tab");
+      const targetContent = document.getElementById(targetId);
+      if (targetContent) targetContent.style.display = "block";
+    });
+  });
+
+  // 2. Live Polling Engine
+  const liveToggle = document.getElementById("live-refresh-toggle");
+  const refreshBtn = document.getElementById("refresh-metrics-btn");
+  const resetBtn = document.getElementById("reset-metrics-btn");
+
+  const fetchLiveMetrics = async () => {
+    try {
+      const response = await fetch("/api/v1/admin/performance/", {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      if (!response.ok) return;
+
+      const json = await response.json();
+      if (!json || json.status !== "success" || !json.data) return;
+
+      const data = json.data;
+
+      // Update KPI Cards
+      document.getElementById("kpi-health-score").textContent = data.health_score + "%";
+      document.getElementById("kpi-health-label").textContent = data.health_label;
+      document.getElementById("kpi-health-bar").style.width = data.health_score + "%";
+      document.getElementById("kpi-avg-latency").textContent = data.avg_latency_ms;
+      document.getElementById("kpi-p95-latency").textContent = data.p95_latency_ms + " ms";
+      document.getElementById("kpi-throughput").textContent = data.throughput_per_min;
+      document.getElementById("kpi-total-requests").textContent = data.total_requests;
+      document.getElementById("kpi-avg-queries").textContent = data.avg_queries_per_req;
+      document.getElementById("kpi-slow-queries-count").textContent = (data.slow_queries || []).length;
+      if (data.memory) {
+        document.getElementById("kpi-curr-mem").textContent = data.memory.current_mb;
+        document.getElementById("kpi-peak-mem").textContent = data.memory.peak_mb + " MB";
+      }
+
+      // Update Endpoints Table
+      const epBody = document.getElementById("endpoints-table-body");
+      if (epBody && data.endpoints && data.endpoints.length > 0) {
+        epBody.innerHTML = data.endpoints.map(ep => `
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="padding: 0.75rem 1rem; font-weight: 600; font-family: monospace;">${ep.endpoint}</td>
+            <td style="padding: 0.75rem 1rem; color: var(--text-muted);">${ep.view_name}</td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 600;">${ep.calls}</td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right;">
+              <span style="${ep.calls_last_60s >= 10 ? 'color: #d97706; font-weight: 700;' : 'color: var(--text-muted);'}">${ep.calls_last_60s}</span>
+            </td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 700; color: ${ep.avg_ms > 200 ? '#ef4444' : (ep.avg_ms > 100 ? '#f59e0b' : '#10b981')};">
+              ${ep.avg_ms} ms
+            </td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; color: var(--text-muted); font-size: 0.78rem;">
+              ${ep.min_ms} / ${ep.max_ms} ms
+            </td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 600;">${ep.avg_db_queries}</td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; color: var(--text-muted);">${ep.avg_db_ms} ms</td>
+            <td style="padding: 0.75rem 1rem; text-align: center;">
+              <span class="badge" style="${ep.status === 'OPTIMAL' ? 'background: rgba(16, 185, 129, 0.15); color: #10b981;' : (ep.status === 'ATTENTION' ? 'background: rgba(245, 158, 11, 0.15); color: #d97706;' : 'background: rgba(239, 68, 68, 0.15); color: #ef4444;')}; font-weight: 700;">
+                ${ep.status}
+              </span>
+            </td>
+            <td style="padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-muted); max-width: 280px;">${ep.recommendation}</td>
+          </tr>
+        `).join("");
+      }
+
+      // Update Functions Table
+      const fnBody = document.getElementById("functions-table-body");
+      if (fnBody && data.functions && data.functions.length > 0) {
+        fnBody.innerHTML = data.functions.map(fn => `
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="padding: 0.75rem 1rem; font-weight: 600; font-family: monospace; color: var(--primary);">${fn.function_name}</td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 600;">${fn.calls}</td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right;">${fn.total_ms} ms</td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; font-weight: 700; color: ${fn.avg_ms > 50 ? '#ef4444' : (fn.avg_ms > 20 ? '#f59e0b' : '#10b981')};">${fn.avg_ms} ms</td>
+            <td style="padding: 0.75rem 0.75rem; text-align: right; color: var(--text-muted); font-size: 0.78rem;">${fn.min_ms} / ${fn.max_ms} ms</td>
+            <td style="padding: 0.75rem 1rem; text-align: center;">
+              <span class="badge" style="${fn.status === 'OPTIMAL' ? 'background: rgba(16, 185, 129, 0.15); color: #10b981;' : 'background: rgba(245, 158, 11, 0.15); color: #d97706;'}; font-weight: 700;">${fn.status}</span>
+            </td>
+            <td style="padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-muted); max-width: 280px;">${fn.advice}</td>
+            <td style="padding: 0.75rem 1rem; font-size: 0.75rem; color: var(--text-muted);">${fn.last_called || '-'}</td>
+          </tr>
+        `).join("");
+      }
+
+      // Update Live Stream Table
+      const streamBody = document.getElementById("stream-table-body");
+      if (streamBody && data.recent_requests && data.recent_requests.length > 0) {
+        streamBody.innerHTML = data.recent_requests.map(req => `
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="padding: 0.6rem 1rem; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${req.timestamp}</td>
+            <td style="padding: 0.6rem 0.5rem; text-align: center;">
+              <span class="badge" style="font-size: 0.72rem; ${req.method === 'POST' ? 'background: rgba(16, 185, 129, 0.15); color: #10b981;' : 'background: rgba(59, 130, 246, 0.15); color: #2563eb;'}">${req.method}</span>
+            </td>
+            <td style="padding: 0.6rem 1rem; font-family: monospace; font-size: 0.82rem; word-break: break-all;">${req.path}</td>
+            <td style="padding: 0.6rem 0.5rem; text-align: center;">
+              <span class="badge" style="font-size: 0.72rem; ${req.status_code >= 400 ? 'background: rgba(239, 68, 68, 0.15); color: #ef4444;' : 'background: rgba(16, 185, 129, 0.15); color: #10b981;'}">${req.status_code}</span>
+            </td>
+            <td style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600; color: ${req.duration_ms > 200 ? '#ef4444' : (req.duration_ms > 100 ? '#f59e0b' : '#10b981')};">${req.duration_ms} ms</td>
+            <td style="padding: 0.6rem 0.75rem; text-align: right;">${req.query_count}</td>
+            <td style="padding: 0.6rem 0.75rem; text-align: right; color: var(--text-muted);">${req.db_time_ms} ms</td>
+          </tr>
+        `).join("");
+      }
+    } catch (e) {
+      console.debug("[Performance Meter Error]", e);
+    }
+  };
+
+  // Interval polling
+  let pollInterval = setInterval(() => {
+    if (liveToggle && liveToggle.checked) {
+      fetchLiveMetrics();
+    }
+  }, 5000);
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      fetchLiveMetrics();
+    });
+  }
+
+  // Reset metrics
+  if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to flush and reset all in-memory performance metrics?")) return;
+      try {
+        const csrfToken = document.cookie.match(/(?:^|; )csrftoken=([^;]*)/);
+        const res = await fetch("/api/v1/admin/performance/reset/", {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrfToken ? decodeURIComponent(csrfToken[1]) : "",
+          }
+        });
+        if (res.ok) {
+          fetchLiveMetrics();
+        }
+      } catch (e) {
+        alert("Failed to reset metrics.");
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

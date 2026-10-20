@@ -1,6 +1,7 @@
 import calendar
 from datetime import date, timedelta
 from django.utils import timezone
+from config.performance import profile_function
 from .models import Habit, HabitCompletion
 
 
@@ -25,6 +26,7 @@ def get_eligible_scheduled_dates(habit, start_date, end_date):
     return [d for d in daterange(effective_start, end_date) if habit.is_scheduled_for_date(d)]
 
 
+@profile_function("habits.services.calculate_completion_rate")
 def calculate_completion_rate(habit, start_date, end_date, today=None):
     """
     Calculates completion rate for a given window [start_date, end_date].
@@ -73,6 +75,7 @@ def calculate_completion_rate(habit, start_date, end_date, today=None):
     }
 
 
+@profile_function("habits.services.calculate_streaks")
 def calculate_streaks(habit, today=None):
     """
     Calculates the current streak and longest streak according to the habit's schedule.
@@ -333,6 +336,7 @@ def get_pending_days_in_month(habit=None, today=None):
     return max(0, total_days - start_day)
 
 
+@profile_function("habits.services.calculate_user_pixel_wallet")
 def calculate_user_pixel_wallet(user, tenant=None, today=None):
     """
     Computes the user's Pixel Wallet status:

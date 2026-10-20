@@ -9,4 +9,6 @@ urlpatterns = [
     path("habits/<int:pk>/undo/", views.habit_undo_api, name="habit_undo"),
     path("habits/<int:pk>/status/", views.habit_status_api, name="habit_status"),
     path("users/", views.users_list_api, name="users_list"),
+    path("admin/performance/", views.admin_performance_api, name="admin_performance"),
+    path("admin/performance/reset/", views.admin_performance_reset_api, name="admin_performance_reset"),
 ]

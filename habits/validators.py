@@ -4,6 +4,7 @@ from datetime import datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 from django.utils import timezone
+from config.performance import profile_function
 
 ALLOWED_EVIDENCE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".pdf"}
 MAX_EVIDENCE_FILE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -176,6 +177,7 @@ class HabitCompletionValidationEngine:
             validators.append(self.numeric_validator)
         return validators
 
+    @profile_function("habits.validators.HabitCompletionValidationEngine.validate")
     def validate(self, habit, data: dict, files: dict, current_dt=None) -> List[str]:
         """
         Runs all active validators and returns list of error messages (empty if completely valid).

@@ -1,11 +1,13 @@
 from functools import wraps
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from config.performance import performance_tracker
 from .decorators import super_admin_required, technical_or_admin_required
 from .forms import AdminUserCreateForm, AdminUserEditForm, UserLoginForm, UserRegistrationForm
 
@@ -521,3 +523,21 @@ def admin_user_role_change_view(request, user_id):
     target_user.save()
     messages.success(request, f'Updated role for "{target_user.username}" to {target_user.get_role_display()} successfully!')
     return redirect("admin_roles_list")
+
+
+@login_required
+def admin_performance_meter_view(request):
+    """
+    Admin Panel: System Performance Meter & Application Performance Monitoring (APM).
+    Displays real-time breakdown of endpoint latencies, SQL query efficiency,
+    service function computations, high-frequency polling load, and memory usage.
+    """
+    if not (request.user.is_super_admin or getattr(request.user, "can_manage_users", False) or request.user.is_staff):
+        raise PermissionDenied("You do not have administrative permission to view the Performance Meter.")
+
+    metrics = performance_tracker.get_metrics()
+    return render(request, "accounts/admin_performance_meter.html", {
+        "metrics": metrics,
+        "active_tab": "performance",
+    })
+
