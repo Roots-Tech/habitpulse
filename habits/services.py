@@ -1,4 +1,5 @@
 import calendar
+from collections import defaultdict
 from datetime import date, timedelta
 from django.utils import timezone
 from config.performance import profile_function
@@ -27,7 +28,7 @@ def get_eligible_scheduled_dates(habit, start_date, end_date):
 
 
 @profile_function("habits.services.calculate_completion_rate")
-def calculate_completion_rate(habit, start_date, end_date, today=None):
+def calculate_completion_rate(habit, start_date, end_date, today=None, completed_dates=None):
     """
     Calculates completion rate for a given window [start_date, end_date].
     Formula: completed eligible scheduled days / total eligible scheduled days * 100.
@@ -36,6 +37,7 @@ def calculate_completion_rate(habit, start_date, end_date, today=None):
     - Excludes future dates.
     - Excludes unscheduled days and dates before habit.start_date.
     - If total eligible days is 0, returns None for rate to avoid division by zero.
+    - Optional completed_dates set enables batch prefetching with zero DB queries.
     """
     if today is None:
         today = timezone.localdate()
@@ -61,10 +63,13 @@ def calculate_completion_rate(habit, start_date, end_date, today=None):
             "rate": None,
         }
 
-    completed_count = HabitCompletion.objects.filter(
-        habit=habit,
-        completion_date__in=eligible_dates,
-    ).count()
+    if completed_dates is not None:
+        completed_count = sum(1 for d in eligible_dates if d in completed_dates)
+    else:
+        completed_count = HabitCompletion.objects.filter(
+            habit=habit,
+            completion_date__in=eligible_dates,
+        ).count()
 
     rate = round((completed_count / total_eligible) * 100, 1)
 
@@ -76,7 +81,7 @@ def calculate_completion_rate(habit, start_date, end_date, today=None):
 
 
 @profile_function("habits.services.calculate_streaks")
-def calculate_streaks(habit, today=None):
+def calculate_streaks(habit, today=None, completed_dates=None):
     """
     Calculates the current streak and longest streak according to the habit's schedule.
     
@@ -89,6 +94,7 @@ def calculate_streaks(habit, today=None):
     
     Longest streak rules:
     - Maximum consecutive completed eligible scheduled days in the habit's entire history.
+    - Optional completed_dates set enables batch prefetching with zero DB queries.
     """
     if today is None:
         today = timezone.localdate()
@@ -99,14 +105,15 @@ def calculate_streaks(habit, today=None):
             "longest_streak": 0,
         }
 
-    # Fetch all completed dates
-    completed_dates = set(
-        HabitCompletion.objects.filter(
-            habit=habit,
-            completion_date__gte=habit.start_date,
-            completion_date__lte=today,
-        ).values_list("completion_date", flat=True)
-    )
+    # Fetch all completed dates if not passed in
+    if completed_dates is None:
+        completed_dates = set(
+            HabitCompletion.objects.filter(
+                habit=habit,
+                completion_date__gte=habit.start_date,
+                completion_date__lte=today,
+            ).values_list("completion_date", flat=True)
+        )
 
     # All eligible dates up to today in chronological order
     eligible_dates = [
@@ -337,13 +344,15 @@ def get_pending_days_in_month(habit=None, today=None):
 
 
 @profile_function("habits.services.calculate_user_pixel_wallet")
-def calculate_user_pixel_wallet(user, tenant=None, today=None):
+def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_habit=None, habits_qs=None):
     """
     Computes the user's Pixel Wallet status:
     1. Allocated Pixels: Credited for the month as Daily Score * Pending Days in Month.
     2. Lost Pixels: Deducted for each scheduled day missed prior to today.
     3. Current Balance: Allocated Pixels - Lost Pixels (energized balance).
     4. Health Percent: (Current Balance / Allocated Pixels) * 100.
+    Optional completions_by_habit dict enables batch prefetching with zero DB queries.
+    Optional habits_qs avoids redundant habit fetching.
     """
     if today is None:
         today = timezone.localdate()
@@ -354,12 +363,13 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None):
 
     from .models import Habit, HabitCompletion, PixelWallet
 
-    if tenant:
-        habits_qs = Habit.objects.filter(tenant=tenant, is_template=False, is_active=True).order_by("-is_active", "name")
-    elif user and hasattr(user, "pk") and user.pk:
-        habits_qs = Habit.objects.filter(created_by=user, is_template=False, is_active=True).order_by("-is_active", "name")
-    else:
-        habits_qs = Habit.objects.none()
+    if habits_qs is None:
+        if tenant:
+            habits_qs = list(Habit.objects.filter(tenant=tenant, is_template=False, is_active=True).select_related("category_ref", "rule_strategy_ref").order_by("-is_active", "name"))
+        elif user and hasattr(user, "pk") and user.pk:
+            habits_qs = list(Habit.objects.filter(created_by=user, is_template=False, is_active=True).select_related("category_ref", "rule_strategy_ref").order_by("-is_active", "name"))
+        else:
+            habits_qs = []
 
     pending_days = get_pending_days_in_month(None, today)
     habits_breakdown = []
@@ -368,6 +378,18 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None):
 
     month_start = date(today.year, today.month, 1)
 
+    # Batch prefetch all habit completions in one query if not passed
+    if completions_by_habit is None and habits_qs:
+        completions_by_habit = defaultdict(set)
+        h_ids = [h.id for h in habits_qs]
+        all_comp = HabitCompletion.objects.filter(
+            habit_id__in=h_ids,
+            completion_date__gte=month_start,
+            completion_date__lte=today,
+        ).values_list("habit_id", "completion_date")
+        for hid, cdate in all_comp:
+            completions_by_habit[hid].add(cdate)
+
     for h in habits_qs:
         daily_score = h.pixel_score or (2 if h.is_general else (5 if h.is_predefined_purpose else 10))
         h_pending_days = get_pending_days_in_month(h, today)
@@ -375,13 +397,19 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None):
 
         habit_active_start = max(month_start, h.start_date)
 
-        completed_dates = set(
-            HabitCompletion.objects.filter(
-                habit=h,
-                completion_date__gte=habit_active_start,
-                completion_date__lt=today,
-            ).values_list("completion_date", flat=True)
-        )
+        if completions_by_habit is not None:
+            all_h_completed = completions_by_habit.get(h.id, set())
+            completed_dates = {d for d in all_h_completed if habit_active_start <= d < today}
+            is_completed_today = (today in all_h_completed)
+        else:
+            completed_dates = set(
+                HabitCompletion.objects.filter(
+                    habit=h,
+                    completion_date__gte=habit_active_start,
+                    completion_date__lt=today,
+                ).values_list("completion_date", flat=True)
+            )
+            is_completed_today = HabitCompletion.objects.filter(habit=h, completion_date=today).exists()
 
         missed_days = 0
         curr_d = habit_active_start
@@ -395,7 +423,6 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None):
         h_retained = max(0, h_allocated - h_lost)
 
         is_scheduled_today = h.is_scheduled_for_date(today)
-        is_completed_today = HabitCompletion.objects.filter(habit=h, completion_date=today).exists()
 
         total_allocated += h_allocated
         total_lost += h_lost

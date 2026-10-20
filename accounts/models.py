@@ -139,11 +139,10 @@ class User(AbstractUser):
         """
         Evaluates whether user has access to a specific functional capability,
         checking user-level custom overrides first, then falling back to role-level permissions.
-        Super Admin always retains manage_roles access as a safeguard against lockout.
+        Super Admin always retains all permissions with zero database query overhead.
         """
         if self.is_superuser or self.role == self.Role.SUPER_ADMIN:
-            if perm_key in ["manage_roles", "manage_users"]:
-                return True
+            return True
 
         # Check user-level custom override
         try:
@@ -158,8 +157,6 @@ class User(AbstractUser):
             role_perm = RolePermission.get_for_role(self.role)
             return getattr(role_perm, perm_key, False)
         except Exception:
-            if self.is_superuser or self.role == self.Role.SUPER_ADMIN:
-                return True
             if self.role == self.Role.TECHNICAL_USER:
                 return perm_key in ["view_dashboard", "manage_habits", "manage_categories", "manage_rule_strategies"]
             return perm_key in ["view_dashboard", "manage_habits"]

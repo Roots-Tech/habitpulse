@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import timedelta
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
@@ -20,46 +21,46 @@ def dashboard_view(request):
         raise Http404("Workspace not found.")
 
     scope = request.GET.get("scope", "all" if request.user.is_super_admin else "my")
-    all_users_habits_count = Habit.objects.filter(is_template=False).count()
-    my_habits_count = Habit.objects.filter(tenant=tenant, is_template=False).count()
 
     if request.user.is_super_admin and scope != "my":
-        habits_qs = Habit.objects.filter(is_template=False).select_related("created_by", "tenant")
+        habits_qs = Habit.objects.filter(is_template=False).select_related("created_by", "tenant", "category_ref", "rule_strategy_ref")
+        all_habits = list(habits_qs.order_by("name"))
+        all_users_habits_count = len(all_habits)
+        my_habits_count = Habit.objects.filter(tenant=tenant, is_template=False).count()
     else:
-        habits_qs = Habit.objects.filter(tenant=tenant, is_template=False)
+        habits_qs = Habit.objects.filter(tenant=tenant, is_template=False).select_related("created_by", "tenant", "category_ref", "rule_strategy_ref")
+        all_habits = list(habits_qs.order_by("name"))
+        my_habits_count = len(all_habits)
+        all_users_habits_count = Habit.objects.filter(is_template=False).count() if request.user.is_super_admin else 0
 
-    if habits_qs.count() == 0:
+    if not all_habits:
         if request.user.is_super_admin and all_users_habits_count > 0:
             return redirect(f"{reverse('dashboard')}?scope=all")
         return redirect("onboarding")
 
     today = timezone.localdate()
-    active_habits = habits_qs.filter(is_active=True).order_by("name")
+    active_habits = [h for h in all_habits if h.is_active]
+    active_habit_ids = [h.id for h in active_habits]
+
+    # Batch-prefetch all completions in a single database query
+    completions_by_habit = defaultdict(set)
+    if active_habit_ids:
+        all_comp_qs = HabitCompletion.objects.filter(
+            habit_id__in=active_habit_ids,
+        ).values_list("habit_id", "completion_date")
+        for hid, cdate in all_comp_qs:
+            completions_by_habit[hid].add(cdate)
 
     today_habit_cards = []
     scheduled_today_count = 0
     completed_today_count = 0
 
-    # Prefetch today's completions for efficiency
-    if request.user.is_super_admin and scope != "my":
-        today_completed_habit_ids = set(
-            HabitCompletion.objects.filter(
-                completion_date=today,
-            ).values_list("habit_id", flat=True)
-        )
-    else:
-        today_completed_habit_ids = set(
-            HabitCompletion.objects.filter(
-                tenant=tenant,
-                completion_date=today,
-            ).values_list("habit_id", flat=True)
-        )
-
     for habit in active_habits:
+        habit_comp_dates = completions_by_habit.get(habit.id, set())
         is_scheduled = habit.is_scheduled_for_date(today)
-        is_completed = habit.id in today_completed_habit_ids
-        streaks = calculate_streaks(habit, today)
-        rate_7d = calculate_completion_rate(habit, today - timedelta(days=6), today, today)
+        is_completed = today in habit_comp_dates
+        streaks = calculate_streaks(habit, today, completed_dates=habit_comp_dates)
+        rate_7d = calculate_completion_rate(habit, today - timedelta(days=6), today, today, completed_dates=habit_comp_dates)
 
         if is_scheduled:
             scheduled_today_count += 1
@@ -82,7 +83,7 @@ def dashboard_view(request):
         })
 
     all_completed_today = (scheduled_today_count > 0 and scheduled_today_count == completed_today_count)
-    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today, completions_by_habit=completions_by_habit, habits_qs=active_habits)
 
     context = {
         "today": today,

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 import json
@@ -51,27 +52,32 @@ def dashboard_api(request):
     today = timezone.localdate()
 
     if request.user.is_super_admin and scope != "my":
-        habits_qs = Habit.objects.filter(is_template=False).select_related("tenant", "category_ref", "rule_strategy_ref")
-        today_completed_habit_ids = set(
-            HabitCompletion.objects.filter(completion_date=today).values_list("habit_id", flat=True)
-        )
+        habits_qs = Habit.objects.filter(is_template=False).select_related("created_by", "tenant", "category_ref", "rule_strategy_ref")
     else:
-        habits_qs = Habit.objects.filter(tenant=tenant, is_template=False).select_related("tenant", "category_ref", "rule_strategy_ref")
-        today_completed_habit_ids = set(
-            HabitCompletion.objects.filter(tenant=tenant, completion_date=today).values_list("habit_id", flat=True)
-        )
+        habits_qs = Habit.objects.filter(tenant=tenant, is_template=False).select_related("created_by", "tenant", "category_ref", "rule_strategy_ref")
 
-    active_habits = habits_qs.filter(is_active=True).order_by("name")
+    active_habits = list(habits_qs.filter(is_active=True).order_by("name"))
+    active_habit_ids = [h.id for h in active_habits]
+
+    # Batch-prefetch all completions in a single database query
+    completions_by_habit = defaultdict(set)
+    if active_habit_ids:
+        all_comp_qs = HabitCompletion.objects.filter(
+            habit_id__in=active_habit_ids,
+        ).values_list("habit_id", "completion_date")
+        for hid, cdate in all_comp_qs:
+            completions_by_habit[hid].add(cdate)
 
     habit_cards = []
     scheduled_count = 0
     completed_count = 0
 
     for habit in active_habits:
+        habit_comp_dates = completions_by_habit.get(habit.id, set())
         is_scheduled = habit.is_scheduled_for_date(today)
-        is_completed = habit.id in today_completed_habit_ids
-        streaks = calculate_streaks(habit, today)
-        rate_7d = calculate_completion_rate(habit, today - timedelta(days=6), today, today)
+        is_completed = today in habit_comp_dates
+        streaks = calculate_streaks(habit, today, completed_dates=habit_comp_dates)
+        rate_7d = calculate_completion_rate(habit, today - timedelta(days=6), today, today, completed_dates=habit_comp_dates)
         time_allowed, time_status = habit.is_time_window_active()
 
         if is_scheduled:
@@ -107,7 +113,7 @@ def dashboard_api(request):
             "unit_label": habit.unit_label,
         })
 
-    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today, completions_by_habit=completions_by_habit, habits_qs=active_habits)
 
     return JsonResponse({
         "status": "success",
