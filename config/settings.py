@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "tenants.apps.TenantsConfig",
     "habits.apps.HabitsConfig",
     "dashboard.apps.DashboardConfig",
+    "api.apps.ApiConfig",
 ]
 
 MIDDLEWARE = [

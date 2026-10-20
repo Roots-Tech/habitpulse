@@ -155,7 +155,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const formData = new FormData(form);
-        const response = await fetch(form.action, {
+        let apiUrl = form.action;
+        const completeMatch = form.action.match(/\/habits\/(\d+)\/complete\/?/);
+        const undoMatch = form.action.match(/\/habits\/(\d+)\/undo\/?/);
+        if (completeMatch) {
+          apiUrl = `/api/v1/habits/${completeMatch[1]}/complete/`;
+        } else if (undoMatch) {
+          apiUrl = `/api/v1/habits/${undoMatch[1]}/undo/`;
+        }
+
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
             "X-Requested-With": "XMLHttpRequest",
@@ -164,12 +173,14 @@ document.addEventListener("DOMContentLoaded", () => {
           body: formData,
         });
 
-        if (response.ok) {
-          // Reload current page state seamlessly to refresh calendar & streak widgets
+        const result = await response.json().catch(() => null);
+        if (response.ok && result && result.success) {
+          console.info("[HabitPulse REST API] Success:", apiUrl, result);
           window.location.reload();
         } else {
-          // Fallback to normal form submit on error
-          form.submit();
+          const errMsg = (result && result.error) ? result.error : "Failed to update habit.";
+          alert(errMsg);
+          if (submitBtn) submitBtn.disabled = false;
         }
       } catch (err) {
         form.submit();
@@ -285,7 +296,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
           const formData = new FormData(modalForm);
-          const response = await fetch(modalForm.action, {
+          let apiUrl = modalForm.action;
+          const completeMatch = modalForm.action.match(/\/habits\/(\d+)\/complete\/?/);
+          if (completeMatch) {
+            apiUrl = `/api/v1/habits/${completeMatch[1]}/complete/`;
+          }
+          const response = await fetch(apiUrl, {
             method: "POST",
             headers: {
               "X-Requested-With": "XMLHttpRequest",
@@ -591,6 +607,38 @@ document.addEventListener("DOMContentLoaded", () => {
   // Run on load and every second for instantaneous real-time UI transitions
   updateTimeWindowHabits();
   setInterval(updateTimeWindowHabits, 1000);
+// 11. Dashboard Live API Telemetry & Network Diagnostics
+  if (window.location.pathname === "/" || window.location.pathname.startsWith("/dashboard")) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const scope = urlParams.get("scope") || "";
+    const apiUrl = `/api/v1/dashboard/${scope ? `?scope=${encodeURIComponent(scope)}` : ""}`;
+    fetch(apiUrl, {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.info("[HabitPulse API] Dashboard synchronized via Network:", data);
+      })
+      .catch((err) => {
+        console.debug("[HabitPulse API] Dashboard sync idle", err);
+      });
+  }
+
+  // 12. Users Directory API Telemetry
+  if (window.location.pathname.includes("/admin-panel/users")) {
+    fetch("/api/v1/users/", {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.info("[HabitPulse API] User directory synchronized via Network:", data);
+      })
+      .catch((err) => {
+        console.debug("[HabitPulse API] Users sync idle", err);
+      });
+  }
 });
-
-
