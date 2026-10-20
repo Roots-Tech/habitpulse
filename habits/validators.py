@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass, field
+from datetime import datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 from django.utils import timezone
@@ -35,12 +36,24 @@ class TimeWindowValidator(BaseCompletionValidator):
 
         if current_dt is None:
             current_dt = timezone.localtime()
+            current_time = current_dt.time()
+        elif isinstance(current_dt, time):
+            current_time = current_dt
+        elif isinstance(current_dt, datetime):
+            if timezone.is_aware(current_dt):
+                current_dt = timezone.localtime(current_dt)
+            current_time = current_dt.time()
+        else:
+            current_time = current_dt.time()
 
-        current_time = current_dt.time()
         start = habit.window_start_time
         end = habit.window_end_time
 
-        if start <= current_time <= end:
+        effective_end = end
+        if effective_end.second == 0 and effective_end.microsecond == 0:
+            effective_end = effective_end.replace(second=59, microsecond=999999)
+
+        if start <= current_time <= effective_end:
             return ValidationResult(is_valid=True)
 
         curr_fmt = current_time.strftime("%I:%M %p")

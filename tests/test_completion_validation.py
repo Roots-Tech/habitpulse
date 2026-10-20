@@ -232,3 +232,74 @@ class CompletionValidationViewsIntegrationTestCase(TestCase):
         with patch("django.utils.timezone.localtime", return_value=evening_dt):
             response = self.client.post(url, follow=True)
             self.assertEqual(HabitCompletion.objects.filter(habit=habit).count(), 1)
+
+    def test_minute_inclusivity_in_time_window(self):
+        """
+        Verify that a window from 23:31 to 23:32 remains active throughout
+        the entire 23:32 minute (until 23:32:59.999999).
+        """
+        habit = Habit.objects.create(
+            tenant=self.tenant,
+            created_by=self.user,
+            name="Drink 5 l water",
+            validation_rule=Habit.ValidationRule.TIME_WINDOW,
+            window_start_time=time(23, 31),
+            window_end_time=time(23, 32),
+            start_date=self.today,
+        )
+        validator = TimeWindowValidator()
+
+        # At 23:30:59 -> Locked
+        self.assertFalse(habit.is_time_window_active(time(23, 30, 59))[0])
+        self.assertFalse(validator.validate(habit, {}, {}, current_dt=time(23, 30, 59)).is_valid)
+
+        # At 23:31:00 -> Open
+        self.assertTrue(habit.is_time_window_active(time(23, 31, 0))[0])
+        self.assertTrue(validator.validate(habit, {}, {}, current_dt=time(23, 31, 0)).is_valid)
+
+        # At 23:32:00 -> Still Open
+        self.assertTrue(habit.is_time_window_active(time(23, 32, 0))[0])
+        self.assertTrue(validator.validate(habit, {}, {}, current_dt=time(23, 32, 0)).is_valid)
+
+        # At 23:32:45 -> Still Open
+        self.assertTrue(habit.is_time_window_active(time(23, 32, 45))[0])
+        self.assertTrue(validator.validate(habit, {}, {}, current_dt=time(23, 32, 45)).is_valid)
+
+        # At 23:32:59 -> Still Open
+        self.assertTrue(habit.is_time_window_active(time(23, 32, 59))[0])
+        self.assertTrue(validator.validate(habit, {}, {}, current_dt=time(23, 32, 59)).is_valid)
+
+        # At 23:33:00 -> Closed
+        self.assertFalse(habit.is_time_window_active(time(23, 33, 0))[0])
+        self.assertFalse(validator.validate(habit, {}, {}, current_dt=time(23, 33, 0)).is_valid)
+
+    def test_timezone_middleware_activation(self):
+        """
+        Verify that TimezoneMiddleware activates the user's timezone from cookie.
+        """
+        from tenants.middleware import TimezoneMiddleware
+        from django.test import RequestFactory
+        import zoneinfo
+
+        rf = RequestFactory()
+        middleware = TimezoneMiddleware(get_response=lambda req: timezone.get_current_timezone_name())
+
+        # With no cookie -> default timezone (Asia/Kolkata)
+        req1 = rf.get("/")
+        tz1 = middleware(req1)
+        self.assertEqual(tz1, "Asia/Kolkata")
+
+        # With valid cookie -> activates specified timezone
+        req2 = rf.get("/")
+        req2.COOKIES["django_timezone"] = "Asia/Kolkata"
+        tz2 = middleware(req2)
+        self.assertEqual(tz2, "Asia/Kolkata")
+
+        req3 = rf.get("/")
+        req3.COOKIES["django_timezone"] = "America/New_York"
+        tz3 = middleware(req3)
+        self.assertEqual(tz3, "America/New_York")
+
+        # Clean up timezone to default
+        timezone.deactivate()
+

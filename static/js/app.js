@@ -522,5 +522,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // 9. Client Timezone Synchronization for Accurate Time Window Validation
+  try {
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (clientTz) {
+      const match = document.cookie.match(/(?:^|; )django_timezone=([^;]*)/);
+      const currentTzCookie = match ? decodeURIComponent(match[1]) : null;
+      if (currentTzCookie !== clientTz) {
+        document.cookie = `django_timezone=${encodeURIComponent(clientTz)}; path=/; max-age=31536000; SameSite=Lax`;
+      }
+    }
+  } catch (e) {
+    // Graceful fallback if Intl API is unavailable
+  }
 });
 

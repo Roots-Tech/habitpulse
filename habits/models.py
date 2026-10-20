@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, time
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -418,8 +419,17 @@ class Habit(models.Model):
 
         if current_time is None:
             current_time = timezone.localtime().time()
+        elif isinstance(current_time, datetime):
+            if timezone.is_aware(current_time):
+                current_time = timezone.localtime(current_time).time()
+            else:
+                current_time = current_time.time()
 
-        if self.window_start_time <= current_time <= self.window_end_time:
+        effective_end = self.window_end_time
+        if effective_end.second == 0 and effective_end.microsecond == 0:
+            effective_end = effective_end.replace(second=59, microsecond=999999)
+
+        if self.window_start_time <= current_time <= effective_end:
             return (True, f"Open until {self.window_end_time.strftime('%I:%M %p')}")
         elif current_time < self.window_start_time:
             return (False, f"Locked until {self.window_start_time.strftime('%I:%M %p')}")
