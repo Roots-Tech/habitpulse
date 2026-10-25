@@ -360,10 +360,58 @@ document.addEventListener("DOMContentLoaded", () => {
     closeAllDropdowns();
   });
 
+  // 4b. Mobile Sidebar Drawer Toggle
+  const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+  const sidebarCloseBtn = document.getElementById("sidebarCloseBtn");
+  const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+  const appSidebar = document.getElementById("appSidebar");
+
+  const toggleSidebar = (shouldOpen) => {
+    if (!appSidebar) return;
+    const isCurrentlyOpen = appSidebar.classList.contains("sidebar-open");
+    const open = shouldOpen !== undefined ? shouldOpen : !isCurrentlyOpen;
+    if (open) {
+      appSidebar.classList.add("sidebar-open");
+      if (sidebarBackdrop) sidebarBackdrop.classList.add("active");
+      document.body.classList.add("sidebar-locked");
+    } else {
+      appSidebar.classList.remove("sidebar-open");
+      if (sidebarBackdrop) sidebarBackdrop.classList.remove("active");
+      document.body.classList.remove("sidebar-locked");
+    }
+  };
+
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleSidebar();
+    });
+  }
+  if (sidebarCloseBtn) {
+    sidebarCloseBtn.addEventListener("click", () => toggleSidebar(false));
+  }
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener("click", () => toggleSidebar(false));
+  }
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       closeAllDropdowns();
+      toggleSidebar(false);
     }
+  });
+
+  // 4c. Sidebar Dropdown Accordion Toggle
+  document.querySelectorAll(".sidebar-dropdown-toggle").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const parentItem = btn.closest(".sidebar-dropdown-item");
+      if (parentItem) {
+        const isOpen = parentItem.classList.contains("open");
+        parentItem.classList.toggle("open");
+        btn.setAttribute("aria-expanded", !isOpen);
+      }
+    });
   });
 
   // 5. Theme Switcher System
@@ -640,5 +688,65 @@ document.addEventListener("DOMContentLoaded", () => {
       .catch((err) => {
         console.debug("[HabitPulse API] Users sync idle", err);
       });
+  }
+
+  // 13. Foldable & Expandable Pixel Score Allocation Section
+  const pixelSection = document.getElementById("pixel-score-section");
+  const pixelToggleHeader = document.getElementById("pixel-score-header-toggle");
+  const pixelToggleBtn = document.getElementById("pixel-score-toggle-btn");
+  const pixelContent = document.getElementById("pixel-score-content");
+
+  if (pixelSection && pixelContent) {
+    const btnText = pixelSection.querySelector(".pixel-score-btn-text");
+    const btnChevron = pixelSection.querySelector(".pixel-score-btn-chevron");
+    const statusBadge = pixelSection.querySelector(".pixel-score-status-badge");
+
+    const setExpanded = (isExpanded, savePreference = true) => {
+      if (isExpanded) {
+        pixelContent.style.display = "block";
+        if (pixelToggleHeader) pixelToggleHeader.setAttribute("aria-expanded", "true");
+        if (btnText) btnText.textContent = "Fold";
+        if (btnChevron) btnChevron.style.transform = "rotate(180deg)";
+        if (statusBadge) {
+          statusBadge.textContent = "Expanded";
+          statusBadge.style.color = "var(--success, #10b981)";
+        }
+      } else {
+        pixelContent.style.display = "none";
+        if (pixelToggleHeader) pixelToggleHeader.setAttribute("aria-expanded", "false");
+        if (btnText) btnText.textContent = "Expand";
+        if (btnChevron) btnChevron.style.transform = "rotate(0deg)";
+        if (statusBadge) {
+          statusBadge.textContent = "Foldable";
+          statusBadge.style.color = "var(--primary)";
+        }
+      }
+      if (savePreference) {
+        localStorage.setItem("habitpulse_pixel_alloc_expanded", isExpanded ? "true" : "false");
+      }
+    };
+
+    // By default keep folded (collapsed) unless the user previously explicitly expanded it
+    const savedState = localStorage.getItem("habitpulse_pixel_alloc_expanded");
+    setExpanded(savedState === "true", false);
+
+    const toggle = (e) => {
+      e.stopPropagation();
+      const isCurrentlyExpanded = pixelContent.style.display === "block";
+      setExpanded(!isCurrentlyExpanded, true);
+    };
+
+    if (pixelToggleHeader) {
+      pixelToggleHeader.addEventListener("click", toggle);
+      pixelToggleHeader.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle(e);
+        }
+      });
+    }
+    if (pixelToggleBtn) {
+      pixelToggleBtn.addEventListener("click", toggle);
+    }
   }
 });

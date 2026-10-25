@@ -7,7 +7,7 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>{% block title %}HabitPulse - Build Better Habits{% endblock %}</title>
   <link rel="icon" type="image/png" href="{% static 'images/habit_icon.png' %}">
-  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20261017_2">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20261025_7">
   <script>
     (function() {
       var savedTheme = localStorage.getItem('habitpulse_theme') || 'ice';
@@ -16,21 +16,30 @@
   </script>
   {% block extra_head %}{% endblock %}
 </head>
-<body>
-  {% include 'includes/navbar.html' %}
+<body class="{% if user.is_authenticated %}has-sidebar{% else %}is-anonymous{% endif %}">
+  <div class="app-shell {% if not user.is_authenticated %}app-shell-public{% endif %}">
+    {% if user.is_authenticated %}
+      {% include 'includes/sidebar.html' %}
+      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    {% endif %}
 
-  <main class="{% block container_class %}app-container{% endblock %}">
-    {% include 'includes/messages.html' %}
-    {% block content %}{% endblock %}
-  </main>
+    <div class="app-main-layout">
+      {% include 'includes/topbar.html' %}
 
-  <footer class="site-footer">
-    <div style="max-width: 1120px; margin: 0 auto; padding: 0 1.25rem;">
-      <p>&copy; {% now "Y" %} HabitPulse. Multi-tenant daily habit & progress tracker.</p>
+      <main class="app-main-content {% block container_class %}app-container{% endblock %}">
+        {% include 'includes/messages.html' %}
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="site-footer">
+        <div style="max-width: 1400px; margin: 0 auto; padding: 0 1.25rem;">
+          <p>&copy; {% now "Y" %} HabitPulse. Multi-tenant daily habit & progress tracker.</p>
+        </div>
+      </footer>
     </div>
-  </footer>
+  </div>
 
-  <script src="{% static 'js/app.js' %}?v=20261020_2"></script>
+  <script src="{% static 'js/app.js' %}?v=20261025_4"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

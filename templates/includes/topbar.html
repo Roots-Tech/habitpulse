@@ -1,0 +1,154 @@
+{% load static %}
+<header class="app-topbar">
+  <div class="topbar-left">
+    {% if user.is_authenticated %}
+      <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" aria-label="Toggle vertical navigation menu" title="Toggle navigation">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+
+      <!-- User Account & Workspace Interactive Pill Button (Positioned on top header) -->
+      <a href="{% url 'profile' %}" class="tenant-badge tenant-badge-btn {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" role="button" title="View Workspace & Access Profile: {{ current_tenant.name|default:'Personal Workspace' }}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span class="tenant-badge-text">{{ current_tenant.name|default:"Personal Workspace" }}</span>
+        {% if user.role %}
+          <span class="tenant-role-tag">#{{ user.get_role_display|default:user.role }}</span>
+        {% endif %}
+      </a>
+    {% else %}
+      <a href="{% url 'login' %}" class="navbar-brand">
+        <img src="{% static 'images/habit_icon.png' %}" alt="HabitPulse Logo" style="width: 28px; height: 28px; border-radius: 7px; object-fit: cover;">
+        <span>HabitPulse</span>
+      </a>
+    {% endif %}
+  </div>
+
+  <div class="topbar-right">
+    {% if user.is_authenticated %}
+      {# Top Row: Actions #}
+      <div class="topbar-actions-row">
+        {# Admin Panel Dropdown #}
+        {% if user.can_access_admin_panel %}
+        <div class="dropdown topbar-admin-dropdown">
+          <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="adminDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Administrative Access & Configurations">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <span>Admin Panel</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdownBtn" style="min-width: 220px;">
+            {% if user.can_manage_roles or user.can_manage_users %}
+            <div class="dropdown-header">Access &amp; Roles</div>
+            {% if user.can_manage_roles %}
+            <a href="{% url 'admin_roles_list' %}" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              User Roles
+            </a>
+            {% endif %}
+            {% if user.can_manage_users %}
+            <a href="{% url 'admin_users_list' %}" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              Users Directory
+            </a>
+            <a href="{% url 'admin_performance_meter' %}" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
+              Performance Meter
+            </a>
+            {% endif %}
+            {% endif %}
+
+            {% if user.can_manage_categories or user.can_manage_rule_strategies %}
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-header">Master Data</div>
+            {% if user.can_manage_categories %}
+            <a href="{% url 'category_list' %}" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              Habit Categories
+            </a>
+            {% endif %}
+            {% if user.can_manage_rule_strategies %}
+            <a href="{% url 'rule_strategy_list' %}" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              Rule Strategies
+            </a>
+            {% endif %}
+            {% endif %}
+
+            {% if user.can_access_django_admin %}
+            <div class="dropdown-divider"></div>
+            <a href="{% url 'admin:index' %}" class="dropdown-item" target="_blank" style="color: var(--text-muted); font-size: 0.8rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              Django Admin
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% elif user.can_manage_categories or user.can_manage_rule_strategies %}
+        <div class="dropdown topbar-admin-dropdown">
+          <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="masterDataDropdownBtn" aria-haspopup="true" aria-expanded="false">
+            Master Data <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="masterDataDropdownBtn" style="min-width: 220px;">
+            <div class="dropdown-header">Master Data</div>
+            {% if user.can_manage_categories %}
+            <a href="{% url 'category_list' %}" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              Habit Categories
+            </a>
+            {% endif %}
+            {% if user.can_manage_rule_strategies %}
+            <a href="{% url 'rule_strategy_list' %}" class="dropdown-item">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              Rule Strategies
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Logout button -->
+        <a href="{% url 'logout' %}" class="btn btn-outline btn-sm btn-logout" title="Log out of HabitPulse">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Log out</span>
+        </a>
+      </div>
+
+      {# Bottom Row: Theme Controls #}
+      <div class="topbar-theme-row">
+        <span class="theme-label" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span class="theme-icon">❄️</span>
+          <span>Theme:</span>
+        </span>
+        <select class="theme-select-control topbar-theme-select" aria-label="Theme Selection" title="Select theme">
+          <option value="ice">❄️ Cool Ice</option>
+          <option value="light">☀️ Clean Light</option>
+          <option value="rose">🌸 Pale Rose</option>
+          <option value="dark">🌙 Obsidian Dark</option>
+        </select>
+      </div>
+    {% else %}
+      <!-- Visitor controls -->
+      <div class="topbar-actions-row">
+        <div class="dropdown theme-dropdown">
+          <button type="button" class="btn btn-outline btn-sm dropdown-toggle theme-btn" id="topbarThemeDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Switch Theme">
+            <span class="theme-icon">❄️</span> <span class="theme-label" style="margin-left: 2px;">Theme</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+          </button>
+          <div class="dropdown-menu theme-menu dropdown-menu-end" aria-labelledby="topbarThemeDropdownBtn">
+            <div class="dropdown-header">Appearance</div>
+            <button type="button" class="dropdown-item theme-option" data-theme-value="ice">
+              <span>❄️ Cool Ice</span> <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="dropdown-item theme-option" data-theme-value="light">
+              <span>☀️ Clean Light</span> <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="dropdown-item theme-option" data-theme-value="rose">
+              <span>🌸 Pale Rose</span> <span class="theme-check">✓</span>
+            </button>
+            <button type="button" class="dropdown-item theme-option" data-theme-value="dark">
+              <span>🌙 Obsidian Dark</span> <span class="theme-check">✓</span>
+            </button>
+          </div>
+        </div>
+        <a href="{% url 'login' %}" class="btn btn-ghost btn-sm">Log In</a>
+        <a href="{% url 'register' %}" class="btn btn-primary btn-sm">Get Started</a>
+      </div>
+    {% endif %}
+  </div>
+</header>
