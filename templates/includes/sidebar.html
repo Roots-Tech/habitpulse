@@ -29,9 +29,19 @@
         </li>
         {% endif %}
 
+        <!-- Pixel Wallet: Placed before Habits -->
+        <li class="sidebar-menu-item">
+          <a href="{% url 'pixel_wallet' %}" class="sidebar-menu-link {% if request.resolver_match.url_name == 'pixel_wallet' or request.resolver_match.url_name == 'profile' and request.GET.tab == 'pixels' %}active{% endif %}">
+            <span class="sidebar-menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"></path><path d="M18 12h4v4h-4z"></path></svg>
+            </span>
+            <span class="sidebar-menu-label">Pixel Wallet</span>
+          </a>
+        </li>
+
         {% if user.can_manage_habits %}
         <li class="sidebar-menu-item">
-          <a href="{% url 'habit_list' %}" class="sidebar-menu-link {% if 'habit' in request.resolver_match.url_name and request.resolver_match.url_name != 'habit_create' %}active{% endif %}">
+          <a href="{% url 'habit_list' %}" class="sidebar-menu-link {% if 'habit' in request.resolver_match.url_name and request.resolver_match.url_name != 'habit_create' and request.resolver_match.url_name != 'pixel_wallet' %}active{% endif %}">
             <span class="sidebar-menu-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
             </span>
@@ -49,6 +59,7 @@
             <span class="sidebar-menu-label">General Settings</span>
           </a>
         </li>
+      
       </ul>
     </div>
   </div>

@@ -68,6 +68,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "tenants.context_processors.current_tenant",
+                "habits.context_processors.habit_notifications",
             ],
         },
     },

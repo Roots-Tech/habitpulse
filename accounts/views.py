@@ -116,8 +116,10 @@ def admin_users_list_view(request):
         else:
             users_qs = users_qs.filter(role=role_filter, is_superuser=False)
 
-    from habits.models import Habit
+    from habits.models import Habit, PixelWallet
     from django.db.models import Sum
+    from django.utils import timezone
+    today = timezone.localdate()
 
     users_data = []
     for user in users_qs:
@@ -136,6 +138,10 @@ def admin_users_list_view(request):
 
         display_name = user.get_full_name() or user.username
 
+        wallet = PixelWallet.objects.filter(user=user, year=today.year, month=today.month).first()
+        bonus_pixels = wallet.bonus_pixels if wallet else 0
+        wallet_balance = wallet.current_balance if wallet else total_pixels
+
         users_data.append({
             "id": user.id,
             "user": user,
@@ -148,6 +154,8 @@ def admin_users_list_view(request):
             "role": membership.role if membership else "Owner",
             "habits_count": habits_count,
             "total_pixels": total_pixels,
+            "bonus_pixels": bonus_pixels,
+            "wallet_balance": wallet_balance,
             "role_badge": role_badge,
             "system_role": user.role,
             "is_active": user.is_active,
@@ -155,6 +163,9 @@ def admin_users_list_view(request):
 
     total_count = User.objects.count()
     filtered_count = len(users_data)
+    super_admins_count = User.objects.filter(Q(role=User.Role.SUPER_ADMIN) | Q(is_superuser=True)).count()
+    technical_users_count = User.objects.filter(role=User.Role.TECHNICAL_USER, is_superuser=False).count()
+    regular_users_count = User.objects.filter(role=User.Role.REGULAR_USER, is_superuser=False).count()
 
     context = {
         "users": users_data,
@@ -162,6 +173,9 @@ def admin_users_list_view(request):
         "role_filter": role_filter,
         "total_count": total_count,
         "filtered_count": filtered_count,
+        "super_admins_count": super_admins_count,
+        "technical_users_count": technical_users_count,
+        "regular_users_count": regular_users_count,
         "role_choices": User.Role.choices,
     }
     return render(request, "accounts/admin_users_list.html", context)
@@ -343,6 +357,118 @@ def admin_user_delete_view(request, user_id):
     username = target_user.username
     target_user.delete()
     messages.success(request, f'User "{username}" and their workspace data were permanently deleted.')
+    return redirect("admin_users_list")
+
+
+@require_POST
+@login_required
+@super_admin_required
+def admin_allocate_pixels_view(request):
+    """
+    Allocates additional bonus pixels to a specific user, selected users, or an entire user group.
+    Strictly restricted to Super Admins.
+    """
+    if not request.user.is_super_admin:
+        raise PermissionDenied("Access Denied: Only Super Admins can allocate additional pixels.")
+
+    target_type = request.POST.get("target_type", "individual").strip()
+    amount_str = request.POST.get("amount", "").strip()
+    reason = request.POST.get("reason", "").strip()
+
+    try:
+        amount = int(amount_str)
+        if amount <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        messages.error(request, "Please enter a valid positive number of pixels to allocate.")
+        return redirect("admin_users_list")
+
+    from django.utils import timezone
+    today = timezone.localdate()
+    from habits.models import PixelWallet, PixelAllocation
+    from tenants.utils import get_active_tenant_for_user, create_personal_workspace_for_user
+    from django.db import transaction
+
+    target_users = []
+    if target_type == "individual":
+        user_id = request.POST.get("user_id")
+        user = get_object_or_404(User, id=user_id)
+        target_users = [user]
+        log_target = PixelAllocation.TargetType.INDIVIDUAL
+    elif target_type == "selected":
+        raw_ids = request.POST.get("user_ids", "")
+        if isinstance(raw_ids, str) and raw_ids:
+            ids = [i.strip() for i in raw_ids.split(",") if i.strip().isdigit()]
+        else:
+            ids = request.POST.getlist("user_ids")
+        target_users = list(User.objects.filter(id__in=ids))
+        log_target = PixelAllocation.TargetType.SELECTED
+    elif target_type == "group_regular":
+        target_users = list(User.objects.filter(role=User.Role.REGULAR_USER, is_superuser=False))
+        log_target = PixelAllocation.TargetType.GROUP_REGULAR
+    elif target_type == "group_technical":
+        target_users = list(User.objects.filter(role=User.Role.TECHNICAL_USER, is_superuser=False))
+        log_target = PixelAllocation.TargetType.GROUP_TECHNICAL
+    elif target_type == "group_super":
+        target_users = list(User.objects.filter(Q(role=User.Role.SUPER_ADMIN) | Q(is_superuser=True)))
+        log_target = PixelAllocation.TargetType.GROUP_SUPER
+    elif target_type == "group_all":
+        target_users = list(User.objects.all())
+        log_target = PixelAllocation.TargetType.GROUP_ALL
+    else:
+        messages.error(request, f"Unknown target audience '{target_type}'.")
+        return redirect("admin_users_list")
+
+    if not target_users:
+        messages.warning(request, "No users were found matching the selected target criteria.")
+        return redirect("admin_users_list")
+
+    allocated_count = 0
+    with transaction.atomic():
+        for target_user in target_users:
+            tenant = get_active_tenant_for_user(target_user)
+            if not tenant:
+                tenant, _ = create_personal_workspace_for_user(target_user)
+
+            wallet, created = PixelWallet.objects.get_or_create(
+                tenant=tenant,
+                user=target_user,
+                year=today.year,
+                month=today.month,
+                defaults={
+                    "allocated_pixels": amount,
+                    "lost_pixels": 0,
+                    "current_balance": amount,
+                    "bonus_pixels": amount,
+                }
+            )
+            if not created:
+                wallet.bonus_pixels = (wallet.bonus_pixels or 0) + amount
+                wallet.allocated_pixels = (wallet.allocated_pixels or 0) + amount
+                wallet.current_balance = (wallet.current_balance or 0) + amount
+                wallet.save(update_fields=["bonus_pixels", "allocated_pixels", "current_balance", "updated_at"])
+
+            PixelAllocation.objects.create(
+                admin_user=request.user,
+                recipient_user=target_user,
+                tenant=tenant,
+                amount=amount,
+                target_type=log_target,
+                reason=reason,
+            )
+            allocated_count += 1
+
+    group_label_map = {
+        "individual": f'user "{target_users[0].username}"',
+        "selected": f"{allocated_count} selected user(s)",
+        "group_regular": f"all {allocated_count} Regular Users",
+        "group_technical": f"all {allocated_count} Technical Users",
+        "group_super": f"all {allocated_count} Super Admins",
+        "group_all": f"all {allocated_count} users",
+    }
+    label = group_label_map.get(target_type, f"{allocated_count} users")
+    reason_note = f' (Reason: "{reason}")' if reason else ""
+    messages.success(request, f"⚡ Successfully allocated +{amount} pixels to {label}!{reason_note}")
     return redirect("admin_users_list")
 
 

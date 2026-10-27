@@ -13,6 +13,10 @@
       <a href="{% url 'admin_user_create' %}" class="btn btn-primary" style="padding: 0.45rem 1rem; font-size: 0.875rem;">
         + New User
       </a>
+      <button type="button" class="btn btn-secondary" id="btn-toolbar-allocate" onclick="window.openAllocateModal && window.openAllocateModal(); return false;" style="padding: 0.45rem 1rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;" title="Allocate additional pixels to any specific user or user group at once">
+        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels" style="width: 15px; height: 15px; object-fit: contain;">
+        <span>Allocate Pixels</span>
+      </button>
       <a href="{% url 'admin_roles_list' %}" class="btn btn-outline" style="padding: 0.45rem 1rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.35rem;">
         <span>🛡️</span> Manage Roles
       </a>
@@ -59,21 +63,37 @@
       All Users ({{ total_count }})
     </a>
     <a href="{% url 'admin_users_list' %}?role=SUPER_ADMIN" class="btn btn-sm {% if role_filter == 'SUPER_ADMIN' %}btn-secondary{% else %}btn-outline{% endif %}">
-      👑 Super Admins
+      👑 Super Admins ({{ super_admins_count }})
     </a>
     <a href="{% url 'admin_users_list' %}?role=TECHNICAL_USER" class="btn btn-sm {% if role_filter == 'TECHNICAL_USER' %}btn-secondary{% else %}btn-outline{% endif %}">
-      🛠️ Technical Users
+      🛠️ Technical Users ({{ technical_users_count }})
     </a>
     <a href="{% url 'admin_users_list' %}?role=REGULAR_USER" class="btn btn-sm {% if role_filter == 'REGULAR_USER' %}btn-secondary{% else %}btn-outline{% endif %}">
-      👤 Regular Users
+      👤 Regular Users ({{ regular_users_count }})
     </a>
   </div>
 
   <!-- Role Hierarchy Reference (Admin Panel Only) -->
   <div style="background-color: var(--surface-raised); border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 0.85rem 1rem; font-size: 0.825rem; color: var(--text-muted); display: grid; gap: 0.4rem; margin-bottom: 1.25rem;">
-    <div>👑 <strong>Super Admin:</strong> Unrestricted access across frontend, backend, Admin Panel, database, and user credentials.</div>
+    <div>👑 <strong>Super Admin:</strong> Unrestricted access across frontend, backend, Admin Panel, database, user credentials, and <strong>pixel allocations</strong>.</div>
     <div>🛠️ <strong>Technical User:</strong> Developer access to application features, habits, and master data (Categories & Rules); no database or admin panel.</div>
     <div>👤 <strong>Regular User:</strong> Standard access restricted strictly to their personal dashboard and habits.</div>
+  </div>
+
+  <!-- Floating / Interactive Bulk Action Bar (appears when 1 or more users selected) -->
+  <div id="bulkActionBar" style="display: none; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.12) 100%); border: 1.5px solid rgba(99, 102, 241, 0.35); border-radius: var(--radius-sm); padding: 0.65rem 1.15rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; align-items: center; gap: 0.65rem; font-size: 0.875rem; font-weight: 600; color: var(--text-main);">
+      <span>⚡ <strong id="selectedCountText" style="color: var(--primary);">0</strong> user(s) selected</span>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <button type="button" class="btn btn-primary btn-sm" id="btn-allocate-selected" onclick="window.openAllocateModalForSelected && window.openAllocateModalForSelected(); return false;" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; padding: 0.35rem 0.85rem; cursor: pointer;">
+        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels" style="width: 14px; height: 14px;">
+        <span>Allocate Pixels to Selected (<span id="selectedCountBtn">0</span>)</span>
+      </button>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-clear-selection" style="font-size: 0.78rem; padding: 0.35rem 0.65rem; cursor: pointer;">
+        Clear Selection
+      </button>
+    </div>
   </div>
 
   <!-- Users Data Table (Matching ERP style) -->
@@ -82,20 +102,25 @@
       <thead>
         <tr>
           <th style="width: 36px; text-align: center;">
-            <input type="checkbox" aria-label="Select all users" style="cursor: pointer;">
+            <input type="checkbox" id="selectAllUsersCheckbox" aria-label="Select all users" style="cursor: pointer;">
           </th>
           <th>Name</th>
           <th>Login / Email</th>
           <th style="text-align: center;">System Access Role</th>
           <th style="text-align: center;">Pixel Score</th>
-          <th style="text-align: center; width: 140px;">Actions</th>
+          <th style="text-align: center; min-width: 200px;">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for u in users %}
           <tr>
             <td style="text-align: center;">
-              <input type="checkbox" aria-label="Select user {{ u.login }}" style="cursor: pointer;">
+              <input type="checkbox" class="user-row-checkbox" value="{{ u.id }}"
+                     data-username="{{ u.login }}"
+                     data-displayname="{{ u.display_name }}"
+                     data-role="{{ u.role_badge.label }}"
+                     aria-label="Select user {{ u.login }}"
+                     style="cursor: pointer;">
             </td>
             <td>
               <div style="display: flex; align-items: center; gap: 0.6rem;">
@@ -121,27 +146,50 @@
               </span>
             </td>
             <td style="text-align: center;">
-              <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.28); font-size: 0.8rem; font-weight: 800; padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 0.35rem;" title="Total daily pixel score for this user's active habits">
+              <span class="badge" style="background: rgba(99, 102, 241, 0.12); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.28); font-size: 0.8rem; font-weight: 800; padding: 0.25rem 0.65rem; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: 0.35rem;" title="Daily Baseline: {{ u.total_pixels }} Px | Active Wallet Balance: {{ u.wallet_balance }} Px{% if u.bonus_pixels > 0 %} (includes +{{ u.bonus_pixels }} Bonus Px){% endif %}">
                 <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels">
                 <span>{{ u.total_pixels }}</span> Px
+                {% if u.bonus_pixels > 0 %}
+                  <span style="font-size: 0.68rem; background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.08rem 0.35rem; border-radius: 999px; margin-left: 2px;" title="+{{ u.bonus_pixels }} Pixels allocated by Super Admin">
+                    +{{ u.bonus_pixels }}
+                  </span>
+                {% endif %}
               </span>
             </td>
             <td style="text-align: center; white-space: nowrap;">
-              <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
-                <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Edit User & Permissions">
+              <div style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                <!-- Edit Option -->
+                <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-secondary btn-sm" style="padding: 0.25rem 0.55rem; font-size: 0.8rem;" title="Edit User & Permissions">
                   Edit
                 </a>
+
+                <!-- Allocate Pixels Option (Super Admin Exclusive) -->
+                <button type="button" class="btn btn-outline btn-sm btn-allocate-single"
+                        data-user-id="{{ u.id }}"
+                        data-username="{{ u.login }}"
+                        data-displayname="{{ u.display_name }}"
+                        data-role="{{ u.role_badge.label }}"
+                        data-total-pixels="{{ u.total_pixels }}"
+                        data-wallet-balance="{{ u.wallet_balance }}"
+                        onclick="openAllocateModalForUser('{{ u.id }}', '{{ u.display_name|escapejs }}', '{{ u.login|escapejs }}'); return false;"
+                        style="padding: 0.25rem 0.55rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.25rem; border-color: rgba(99, 102, 241, 0.4); color: var(--primary); cursor: pointer;"
+                        title="Allocate more pixels to {{ u.display_name }}">
+                  <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels" style="width: 12px; height: 12px;">
+                  <span>Allocate</span>
+                </button>
+
+                <!-- Delete Option -->
                 {% if u.id != request.user.id %}
                   <form method="post" action="{% url 'admin_user_delete' u.id %}"
                         onsubmit="return confirm('Delete user &quot;{{ u.login }}&quot;? All their habits and data will be removed.');"
                         style="display: inline; margin: 0;">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-danger-outline btn-sm" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" title="Delete User">
+                    <button type="submit" class="btn btn-danger-outline btn-sm" style="padding: 0.25rem 0.55rem; font-size: 0.8rem;" title="Delete User">
                       Delete
                     </button>
                   </form>
                 {% else %}
-                  <span class="badge" style="background-color: var(--gray-100); color: var(--gray-500); font-size: 0.7rem;">You</span>
+                  <span class="badge" style="background-color: var(--gray-100); color: var(--gray-500); font-size: 0.7rem; padding: 0.25rem 0.45rem;">You</span>
                 {% endif %}
               </div>
             </td>
@@ -160,4 +208,367 @@
     </table>
   </div>
 </div>
+
+<style>
+  #allocate-pixels-modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+  }
+  #allocate-pixels-modal.open {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  #allocate-pixels-modal.open .modal-dialog {
+    transform: translateY(0) scale(1) !important;
+  }
+</style>
+
+<!-- ========================================================================= -->
+<!-- ALLOCATE PIXELS MODAL (SUPER ADMIN ONLY)                                  -->
+<!-- ========================================================================= -->
+<div id="allocate-pixels-modal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal-dialog" style="max-width: 540px; width: 92%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 1.5px solid var(--border);">
+    <!-- Modal Header -->
+    <div style="border-bottom: 1.5px solid var(--border); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; background: var(--surface-raised);">
+      <div style="display: flex; align-items: center; gap: 0.65rem;">
+        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels" style="width: 26px; height: 26px; object-fit: contain;">
+        <div>
+          <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0; line-height: 1.2;">
+            Allocate Pixels
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0.15rem 0 0 0;">
+            Super Admin exclusive: grant bonus pixels to a specific user or user group
+          </p>
+        </div>
+      </div>
+      <button type="button" id="close-alloc-modal-btn" onclick="window.closeAllocateModal && window.closeAllocateModal(); return false;" aria-label="Close modal" style="font-size: 1.5rem; background: transparent; border: none; cursor: pointer; color: var(--text-muted); line-height: 1;">&times;</button>
+    </div>
+
+    <!-- Modal Form -->
+    <form method="post" action="{% url 'admin_allocate_pixels' %}" id="allocatePixelsForm" style="display: flex; flex-direction: column; flex: 1; margin: 0;">
+      {% csrf_token %}
+      <input type="hidden" name="user_ids" id="allocUserIdsInput" value="">
+
+      <div style="padding: 1.25rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 1.15rem;">
+        <!-- Target Selection -->
+        <div>
+          <label for="allocTargetType" style="display: block; font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+            🎯 Target Recipient / Group
+          </label>
+          <select name="target_type" id="allocTargetType" class="form-control" style="width: 100%; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-main); font-size: 0.875rem;">
+            <option value="individual">👤 Specific User</option>
+            <option value="selected" id="optTargetSelected" disabled>✨ Selected Users in Table (0)</option>
+            <option value="group_regular">👥 All Regular Users ({{ regular_users_count }})</option>
+            <option value="group_technical">🛠️ All Technical Users ({{ technical_users_count }})</option>
+            <option value="group_super">👑 All Super Admins ({{ super_admins_count }})</option>
+            <option value="group_all">🌐 All Users at Once ({{ total_count }})</option>
+          </select>
+        </div>
+
+        <!-- Specific User Dropdown (Visible only when target_type == 'individual') -->
+        <div id="individualUserContainer">
+          <label for="allocUserIdSelect" style="display: block; font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+            Select Specific User
+          </label>
+          <select name="user_id" id="allocUserIdSelect" class="form-control" style="width: 100%; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-main); font-size: 0.875rem;">
+            {% for u in users %}
+              <option value="{{ u.id }}" data-username="{{ u.login }}" data-displayname="{{ u.display_name }}">
+                {{ u.display_name }} (@{{ u.login }}) — {{ u.role_badge.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Target Summary Callout Box -->
+        <div id="targetSummaryBox" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 0.9rem; font-size: 0.825rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.25rem;">ℹ️</span>
+          <div id="targetSummaryText" style="line-height: 1.4;">
+            Pixels will be added directly to the selected user's active Pixel Wallet.
+          </div>
+        </div>
+
+        <!-- Pixels Amount Input -->
+        <div>
+          <label for="allocAmountInput" style="display: block; font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+            ⚡ Number of Pixels to Allocate
+          </label>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="number" name="amount" id="allocAmountInput" min="1" max="10000" value="10" required
+                   style="flex: 1; padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1.5px solid rgba(99, 102, 241, 0.4); background: var(--surface); color: var(--text-main); font-size: 1.1rem; font-weight: 800;">
+            <span style="font-size: 0.95rem; font-weight: 700; color: var(--primary);">Pixels</span>
+          </div>
+
+          <!-- Quick Increment Buttons -->
+          <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm quick-amt-btn" data-amt="5" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;">+5 Px</button>
+            <button type="button" class="btn btn-outline btn-sm quick-amt-btn" data-amt="10" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;">+10 Px</button>
+            <button type="button" class="btn btn-outline btn-sm quick-amt-btn" data-amt="25" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;">+25 Px</button>
+            <button type="button" class="btn btn-outline btn-sm quick-amt-btn" data-amt="50" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;">+50 Px</button>
+            <button type="button" class="btn btn-outline btn-sm quick-amt-btn" data-amt="100" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;">+100 Px</button>
+          </div>
+        </div>
+
+        <!-- Optional Reason / Note -->
+        <div>
+          <label for="allocReasonInput" style="display: block; font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+            📝 Reason / Memo <span style="font-weight: 400; color: var(--text-muted);">(Optional)</span>
+          </label>
+          <input type="text" name="reason" id="allocReasonInput" placeholder="e.g. Monthly reward, Challenge winner, Welcome bonus"
+                 style="width: 100%; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-main); font-size: 0.85rem;">
+        </div>
+
+        <!-- Super Admin Security Notice -->
+        <div style="padding: 0.6rem 0.85rem; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
+          <span>🔒</span>
+          <span><strong>Protected Action:</strong> Only Super Admins can allocate additional pixels. All grants are recorded with an audit trail.</span>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.6rem; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface-raised);">
+        <button type="button" class="btn btn-outline btn-sm" id="cancel-alloc-modal-btn" onclick="window.closeAllocateModal && window.closeAllocateModal(); return false;" style="padding: 0.45rem 0.9rem; font-size: 0.85rem; cursor: pointer;">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.45rem 1.15rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+          <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels" style="width: 14px; height: 14px;">
+          <span>Confirm Allocation</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  function getSelectedUserIds() {
+    const ids = [];
+    document.querySelectorAll(".user-row-checkbox").forEach(function(cb) {
+      if (cb.checked) ids.push(cb.value);
+    });
+    return ids;
+  }
+
+  window.updateTargetUI = function() {
+    const targetTypeSelect = document.getElementById("allocTargetType");
+    const individualContainer = document.getElementById("individualUserContainer");
+    const userIdSelect = document.getElementById("allocUserIdSelect");
+    const targetSummaryText = document.getElementById("targetSummaryText");
+    if (!targetTypeSelect) return;
+
+    const val = targetTypeSelect.value;
+    if (val === "individual") {
+      if (individualContainer) individualContainer.style.display = "block";
+      if (userIdSelect && targetSummaryText) {
+        const selOpt = userIdSelect.options[userIdSelect.selectedIndex];
+        targetSummaryText.textContent = selOpt 
+          ? "Allocating pixels to " + selOpt.text + "."
+          : "Select a user to receive additional pixels.";
+      }
+    } else {
+      if (individualContainer) individualContainer.style.display = "none";
+      if (targetSummaryText) {
+        if (val === "selected") {
+          const count = getSelectedUserIds().length;
+          targetSummaryText.textContent = "Allocating pixels to " + count + " selected user(s) in the table.";
+        } else if (val === "group_regular") {
+          targetSummaryText.textContent = "Allocating pixels to ALL Regular Users in the workspace.";
+        } else if (val === "group_technical") {
+          targetSummaryText.textContent = "Allocating pixels to ALL Technical Users.";
+        } else if (val === "group_super") {
+          targetSummaryText.textContent = "Allocating pixels to ALL Super Admins.";
+        } else if (val === "group_all") {
+          targetSummaryText.textContent = "Allocating pixels to ALL active users across the platform.";
+        }
+      }
+    }
+  };
+
+  window.openAllocateModal = function(targetType, userId) {
+    const modal = document.getElementById("allocate-pixels-modal");
+    if (!modal) return;
+    const targetTypeSelect = document.getElementById("allocTargetType");
+    const userIdSelect = document.getElementById("allocUserIdSelect");
+
+    if (targetType && targetTypeSelect) targetTypeSelect.value = targetType;
+    if (userId && userIdSelect) userIdSelect.value = userId;
+
+    if (window.updateTargetUI) window.updateTargetUI();
+
+    modal.style.display = "flex";
+    void modal.offsetHeight;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  };
+
+  window.openAllocateModalForUser = function(userId, displayName, username) {
+    window.openAllocateModal("individual", userId);
+  };
+
+  window.openAllocateModalForSelected = function() {
+    const selected = getSelectedUserIds();
+    const userIdsHidden = document.getElementById("allocUserIdsInput");
+    const targetTypeSelect = document.getElementById("allocTargetType");
+    if (userIdsHidden) userIdsHidden.value = selected.join(",");
+    if (targetTypeSelect) {
+      targetTypeSelect.value = selected.length > 0 ? "selected" : "individual";
+    }
+    window.openAllocateModal();
+  };
+
+  window.closeAllocateModal = function() {
+    const modal = document.getElementById("allocate-pixels-modal");
+    if (!modal) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    setTimeout(function() {
+      if (!modal.classList.contains("open")) {
+        modal.style.display = "none";
+      }
+    }, 200);
+  };
+
+  document.addEventListener("DOMContentLoaded", function() {
+    const modal = document.getElementById("allocate-pixels-modal");
+    const closeBtn = document.getElementById("close-alloc-modal-btn");
+    const cancelBtn = document.getElementById("cancel-alloc-modal-btn");
+    const toolbarBtn = document.getElementById("btn-toolbar-allocate");
+    const targetTypeSelect = document.getElementById("allocTargetType");
+    const userIdSelect = document.getElementById("allocUserIdSelect");
+    const amountInput = document.getElementById("allocAmountInput");
+
+    // Selection Checkbox Elements
+    const selectAllCheckbox = document.getElementById("selectAllUsersCheckbox");
+    const rowCheckboxes = document.querySelectorAll(".user-row-checkbox");
+    const bulkBar = document.getElementById("bulkActionBar");
+    const selectedCountText = document.getElementById("selectedCountText");
+    const selectedCountBtn = document.getElementById("selectedCountBtn");
+    const btnAllocateSelected = document.getElementById("btn-allocate-selected");
+    const btnClearSelection = document.getElementById("btn-clear-selection");
+    const optSelected = document.getElementById("optTargetSelected");
+
+    if (closeBtn) closeBtn.addEventListener("click", window.closeAllocateModal);
+    if (cancelBtn) cancelBtn.addEventListener("click", window.closeAllocateModal);
+    if (modal) {
+      modal.addEventListener("click", function(e) {
+        if (e.target === modal) window.closeAllocateModal();
+      });
+    }
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape" && modal && modal.classList.contains("open")) {
+        window.closeAllocateModal();
+      }
+    });
+
+    if (targetTypeSelect) {
+      targetTypeSelect.addEventListener("change", window.updateTargetUI);
+    }
+    if (userIdSelect) {
+      userIdSelect.addEventListener("change", function() {
+        if (targetTypeSelect && targetTypeSelect.value === "individual") {
+          window.updateTargetUI();
+        }
+      });
+    }
+
+    // Quick Amount Buttons
+    document.querySelectorAll(".quick-amt-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        if (amountInput) amountInput.value = this.getAttribute("data-amt");
+      });
+    });
+
+    // Update selection UI bar
+    function updateSelectionState() {
+      const selected = getSelectedUserIds();
+      const count = selected.length;
+
+      if (bulkBar && selectedCountText && selectedCountBtn && optSelected) {
+        if (count > 0) {
+          bulkBar.style.display = "flex";
+          selectedCountText.textContent = count;
+          selectedCountBtn.textContent = count;
+          optSelected.disabled = false;
+          optSelected.textContent = "✨ Selected Users in Table (" + count + ")";
+        } else {
+          bulkBar.style.display = "none";
+          optSelected.disabled = true;
+          optSelected.textContent = "✨ Selected Users in Table (0)";
+          if (targetTypeSelect && targetTypeSelect.value === "selected") {
+            targetTypeSelect.value = "individual";
+            window.updateTargetUI();
+          }
+        }
+      }
+
+      if (selectAllCheckbox) {
+        selectAllCheckbox.checked = (count === rowCheckboxes.length && rowCheckboxes.length > 0);
+        selectAllCheckbox.indeterminate = (count > 0 && count < rowCheckboxes.length);
+      }
+    }
+
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener("change", function() {
+        const isChecked = this.checked;
+        rowCheckboxes.forEach(function(cb) { cb.checked = isChecked; });
+        updateSelectionState();
+      });
+    }
+
+    rowCheckboxes.forEach(function(cb) {
+      cb.addEventListener("change", updateSelectionState);
+    });
+
+    if (btnClearSelection) {
+      btnClearSelection.addEventListener("click", function() {
+        rowCheckboxes.forEach(function(cb) { cb.checked = false; });
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        updateSelectionState();
+      });
+    }
+
+    if (toolbarBtn) {
+      toolbarBtn.addEventListener("click", function() {
+        const selected = getSelectedUserIds();
+        const userIdsHidden = document.getElementById("allocUserIdsInput");
+        if (selected.length > 0) {
+          if (targetTypeSelect) targetTypeSelect.value = "selected";
+          if (userIdsHidden) userIdsHidden.value = selected.join(",");
+        } else {
+          if (targetTypeSelect) targetTypeSelect.value = "individual";
+        }
+        window.openAllocateModal();
+      });
+    }
+
+    if (btnAllocateSelected) {
+      btnAllocateSelected.addEventListener("click", window.openAllocateModalForSelected);
+    }
+
+    // Per-row Allocate click event listeners (in addition to inline onclick)
+    document.querySelectorAll(".btn-allocate-single").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        const userId = this.getAttribute("data-user-id");
+        window.openAllocateModalForUser(userId);
+      });
+    });
+
+    updateSelectionState();
+    window.updateTargetUI();
+  });
+})();
+</script>
 {% endblock %}

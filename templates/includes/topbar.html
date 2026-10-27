@@ -103,6 +103,12 @@
         </div>
         {% endif %}
 
+                <!-- PWA Install App Button -->
+        <button type="button" class="btn btn-outline btn-sm pwa-install-btn" id="pwaInstallBtn" style="display: none;" title="Install HabitPulse to your device">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span>Install App</span>
+        </button>
+
         <!-- Logout button -->
         <a href="{% url 'logout' %}" class="btn btn-outline btn-sm btn-logout" title="Log out of HabitPulse">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -110,18 +116,229 @@
         </a>
       </div>
 
-      {# Bottom Row: Theme Controls #}
-      <div class="topbar-theme-row">
-        <span class="theme-label" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem;">
-          <span class="theme-icon">❄️</span>
-          <span>Theme:</span>
-        </span>
-        <select class="theme-select-control topbar-theme-select" aria-label="Theme Selection" title="Select theme">
-          <option value="ice">❄️ Cool Ice</option>
-          <option value="light">☀️ Clean Light</option>
-          <option value="rose">🌸 Pale Rose</option>
-          <option value="dark">🌙 Obsidian Dark</option>
-        </select>
+            {# Bottom Row: Alarms & Theme Controls #}
+      <div class="topbar-controls-row">
+        <!-- Habit Consistency & Action Alarms Bell Button & Flyout Menu -->
+        <div class="dropdown habit-notifications-dropdown" id="habitNotificationWrap">
+          <button type="button" class="btn dropdown-toggle habit-bell-btn" id="habitBellBtn" aria-haspopup="true" aria-expanded="false" title="Habit Notifications ({{ unread_alarms_count }} pending action{{ unread_alarms_count|pluralize }})">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="habit-bell-icon">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            {% if unread_alarms_count > 0 %}
+              <span class="habit-bell-badge {% if has_urgent_alarms %}urgent-pulse{% endif %}">{{ unread_alarms_count }}</span>
+            {% endif %}
+          </button>
+          
+          <div class="dropdown-menu dropdown-menu-end habit-notification-menu" aria-labelledby="habitBellBtn" id="habitNotificationMenu">
+            <!-- Header (matching reference UI) -->
+            <div class="habit-notif-header">
+              <div class="habit-notif-header-left">
+                <h3 class="habit-notif-title">Your notifications</h3>
+                {% if unread_alarms_count > 0 %}
+                  <span class="habit-notif-count-pill">{{ unread_alarms_count }} new</span>
+                {% endif %}
+              </div>
+              <button type="button" class="habit-notif-mark-read" id="habitMarkAllReadBtn">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Mark all as read</span>
+              </button>
+            </div>
+
+            <!-- Segmented Filter Pills (matching reference UI) -->
+            <div class="habit-notif-tabs-bar">
+              <div class="habit-notif-tabs-pill-box" id="habitNotifTabs">
+                <button type="button" class="habit-notif-tab active" data-filter="all">
+                  <span>View all</span>
+                  <span class="tab-badge">{{ habit_notifications|length }}</span>
+                </button>
+                {% if open_alarms_count > 0 %}
+                <button type="button" class="habit-notif-tab" data-filter="open">
+                  <span>⚡ Open Now</span>
+                  <span class="tab-badge">{{ open_alarms_count }}</span>
+                </button>
+                {% endif %}
+                {% if upcoming_alarms_count > 0 %}
+                <button type="button" class="habit-notif-tab" data-filter="upcoming">
+                  <span>⏰ Upcoming</span>
+                  <span class="tab-badge">{{ upcoming_alarms_count }}</span>
+                </button>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Notifications Body with point-by-point layout -->
+            <div class="habit-notif-body" id="habitNotifBody">
+              {% if habit_notifications %}
+                {% for notif in habit_notifications %}
+                  <div class="habit-notif-row status-{{ notif.status }} {% if notif.action_required %}is-unread{% endif %}" data-status="pending" data-filter-type="{% if notif.status == 'open' or notif.status == 'due_today' %}open{% elif notif.status == 'upcoming' %}upcoming{% else %}other{% endif %}">
+                    
+                    <!-- Left: Circular Avatar with Habit category icon & Status Sub-badge -->
+                    <div class="habit-notif-avatar-wrap">
+                      <div class="habit-notif-avatar">
+                        {% if "water" in notif.habit_name|lower %}
+                          💧
+                        {% elif "read" in notif.habit_name|lower or "book" in notif.habit_name|lower %}
+                          📖
+                        {% elif "run" in notif.habit_name|lower or "walk" in notif.habit_name|lower or "exercise" in notif.habit_name|lower %}
+                          🏃
+                        {% elif notif.has_time_window %}
+                          ⏰
+                        {% else %}
+                          🎯
+                        {% endif %}
+                      </div>
+                      <span class="habit-notif-sub-badge badge-{{ notif.status }}">
+                        {% if notif.status == 'open' %}
+                          ⚡
+                        {% elif notif.status == 'upcoming' %}
+                          🕒
+                        {% elif notif.status == 'completed' %}
+                          ✓
+                        {% else %}
+                          📌
+                        {% endif %}
+                      </span>
+                    </div>
+
+                    <!-- Middle & Right: Notification Content -->
+                    <div class="habit-notif-main-col">
+                      <!-- Top row: Habit title, Action type, Unread dot & Time -->
+                      <div class="habit-notif-top-line">
+                        <div class="habit-notif-meta">
+                          <span class="habit-notif-actor">@{{ notif.habit_name }}</span>
+                          <span class="habit-notif-action-type">
+                            {% if notif.status == 'open' %}
+                              action window open now
+                            {% elif notif.status == 'upcoming' %}
+                              upcoming action alarm
+                            {% elif notif.status == 'completed' %}
+                              verified completed today
+                            {% else %}
+                              scheduled for today
+                            {% endif %}
+                          </span>
+                        </div>
+                        
+                        <div class="habit-notif-timing-col">
+                          {% if notif.action_required %}
+                            <span class="habit-unread-dot" title="Action pending"></span>
+                          {% endif %}
+                          <span class="habit-notif-time-ago">
+                            {% if notif.start_time_str %}
+                              {{ notif.start_time_str }}
+                            {% else %}
+                              Today
+                            {% endif %}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Subline: Time range, Pixels, Status Tag -->
+                      <div class="habit-notif-subline">
+                        {% if notif.start_time_str %}
+                          <span class="habit-notif-time-range">🕒 {{ notif.start_time_str }} - {{ notif.end_time_str }}</span>
+                          <span class="dot-sep">•</span>
+                        {% endif %}
+                        <span class="habit-notif-pixel-pill">💎 {{ notif.pixel_score }} Pixels</span>
+                        <span class="dot-sep">•</span>
+                        <span class="habit-status-tag tag-{{ notif.status }}">{{ notif.badge_text }}</span>
+                      </div>
+
+                      <!-- Point 1: Action Requirement Bubble (matching reference speech bubble) -->
+                      <div class="habit-notif-bubble">
+                        <div class="bubble-point-label">Point 1 • Action &amp; Login Window</div>
+                        <p class="bubble-text">{{ notif.message }}</p>
+                      </div>
+
+                      <!-- Point 2: Streak & Wallet Consequence Warning Bubble -->
+                      {% if notif.consequence %}
+                      <div class="habit-notif-bubble bubble-consequence">
+                        <div class="bubble-point-label">Point 2 • Streak &amp; Pixel Wallet Risk</div>
+                        <p class="bubble-text">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline-warn-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                          {{ notif.consequence }}
+                        </p>
+                      </div>
+                      {% endif %}
+
+                      <!-- Point 3: Interactive Action Buttons / Next Step (matching reference Accept/Decline) -->
+                      <div class="habit-notif-actions-row">
+                        {% if notif.can_complete_now %}
+                          <a href="{% url 'dashboard' %}#habit-{{ notif.habit_id }}" class="btn btn-sm btn-primary notif-btn-accept">
+                            Confirm Action Now &rarr;
+                          </a>
+                          <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline notif-btn-decline">
+                            View Routine
+                          </a>
+                        {% elif notif.status == 'upcoming' %}
+                          <span class="notif-prep-chip">
+                            ⏳ Login 5 mins before (by <strong>{{ notif.prep_time_str }}</strong>) to confirm
+                          </span>
+                        {% elif notif.status == 'completed' %}
+                          <span class="notif-success-chip">
+                            ✓ Consistency Streak Preserved (+{{ notif.pixel_score }} Pixels)
+                          </span>
+                        {% else %}
+                          <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline notif-btn-decline">
+                            View Details
+                          </a>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                  </div>
+                {% endfor %}
+              {% else %}
+                {% if completed_today_count > 0 %}
+                <div class="habit-notif-completed-all">
+                  <div class="completed-all-icon">🎉</div>
+                  <div class="completed-all-title">All Habits Completed for Today!</div>
+                  <p class="completed-all-desc">
+                    You've successfully confirmed all {{ completed_today_count }} scheduled habit{{ completed_today_count|pluralize }} for today. Your consistency streak is preserved and your wallet pixels are secure!
+                  </p>
+                  <div class="completed-all-rollover-notice">
+                    <span>⏰ At midnight (00:00:00), your next day's scheduled habits will automatically appear here as fresh pending alarms.</span>
+                  </div>
+                  <div>
+                    <a href="{% url 'pixel_wallet' %}" class="btn btn-sm btn-primary" style="margin-top: 0.95rem; border-radius: 9999px;">
+                      View Pixel Wallet &amp; Consistency Trajectory &rarr;
+                    </a>
+                  </div>
+                </div>
+                {% else %}
+                <div class="habit-notif-empty">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); margin-bottom: 0.65rem;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                  <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">No habits scheduled for today</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px;">Configure your habit routines to start tracking consistency.</div>
+                </div>
+                {% endif %}
+              {% endif %}
+            </div>
+
+            <!-- Footer (matching reference style) -->
+            <div class="habit-notif-footer">
+              <a href="{% url 'pixel_wallet' %}" class="habit-notif-footer-link">
+                <span>View Full Pixel Wallet &amp; Consistency Trajectory</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {# Theme Selector Pill #}
+        <div class="topbar-theme-row">
+          <span class="theme-label" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem;">
+            <span class="theme-icon">❄️</span>
+            <span>Theme:</span>
+          </span>
+          <select class="theme-select-control topbar-theme-select" aria-label="Theme Selection" title="Select theme">
+            <option value="ice">❄️ Cool Ice</option>
+            <option value="light">☀️ Clean Light</option>
+            <option value="rose">🌸 Pale Rose</option>
+            <option value="dark">🌙 Obsidian Dark</option>
+          </select>
+        </div>
       </div>
     {% else %}
       <!-- Visitor controls -->
@@ -151,4 +368,510 @@
       </div>
     {% endif %}
   </div>
+
+<style>
+/* Instant Reference UI styles for Habit Notifications */
+.habit-bell-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  border: 1px solid var(--border-subtle) !important;
+  background-color: var(--surface-raised) !important;
+  color: var(--text-main) !important;
+  cursor: pointer !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.habit-bell-btn:hover,
+.habit-bell-btn:focus,
+.habit-notifications-dropdown.show .habit-bell-btn {
+  border-color: var(--primary-border) !important;
+  background-color: var(--surface-hover) !important;
+  color: var(--primary) !important;
+  box-shadow: 0 0 0 2px var(--primary-light) !important;
+}
+.habit-bell-icon {
+  width: 17px !important;
+  height: 17px !important;
+}
+.habit-bell-badge {
+  position: absolute !important;
+  top: -4px !important;
+  right: -4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 17px !important;
+  height: 17px !important;
+  padding: 0 4px !important;
+  border-radius: 9999px !important;
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: #ffffff !important;
+  background: #3b82f6 !important;
+  box-shadow: 0 2px 5px rgba(59, 130, 246, 0.4), 0 0 0 2px var(--surface) !important;
+}
+.habit-bell-badge.urgent-pulse {
+  background: #ef4444 !important;
+  animation: urgentGlow 1.8s infinite ease-in-out !important;
+}
+
+.habit-notification-menu {
+  width: 560px !important;
+  max-width: calc(100vw - 1.5rem) !important;
+  padding: 0 !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--border-subtle) !important;
+  background-color: var(--surface) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-subtle) !important;
+  z-index: 1050 !important;
+  margin-top: 0.65rem !important;
+  overflow: hidden !important;
+}
+.habit-notif-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 1rem 1.35rem 0.85rem !important;
+  background-color: var(--surface) !important;
+}
+.habit-notif-header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+}
+.habit-notif-title {
+  margin: 0 !important;
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  color: var(--text-main) !important;
+  letter-spacing: -0.02em !important;
+}
+.habit-notif-count-pill {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  padding: 0.15rem 0.55rem !important;
+  border-radius: 9999px !important;
+  background-color: var(--primary-light) !important;
+  color: var(--primary) !important;
+}
+.habit-notif-mark-read {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--primary) !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  padding: 0.3rem 0.5rem !important;
+  border-radius: 6px !important;
+  transition: all 0.15s ease !important;
+}
+.habit-notif-mark-read:hover {
+  background-color: var(--surface-raised) !important;
+}
+
+.habit-notif-tabs-bar {
+  padding: 0 1.35rem 0.75rem !important;
+  background-color: var(--surface) !important;
+}
+.habit-notif-tabs-pill-box {
+  display: inline-flex !important;
+  background-color: var(--surface-raised) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important;
+  padding: 3px !important;
+  gap: 2px !important;
+}
+.habit-notif-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  padding: 0.38rem 0.85rem !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+.habit-notif-tab:hover {
+  color: var(--text-main) !important;
+}
+.habit-notif-tab.active {
+  background-color: var(--surface) !important;
+  color: var(--text-main) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12) !important;
+}
+.habit-notif-tab .tab-badge {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  padding: 0.1rem 0.4rem !important;
+  border-radius: 6px !important;
+  background-color: var(--surface-raised) !important;
+  color: var(--text-muted) !important;
+}
+.habit-notif-tab.active .tab-badge {
+  background-color: var(--primary-light) !important;
+  color: var(--primary) !important;
+}
+
+.habit-notif-body {
+  max-height: 440px !important;
+  overflow-y: auto !important;
+  padding: 0.5rem 1.35rem 1rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.95rem !important;
+}
+.habit-notif-row {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.85rem !important;
+  padding: 0.95rem 1.05rem !important;
+  border-radius: 12px !important;
+  background-color: var(--surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+}
+.habit-notif-row:hover,
+.habit-notif-row.is-unread {
+  background-color: var(--surface-raised) !important;
+}
+.habit-notif-avatar-wrap {
+  position: relative !important;
+  flex-shrink: 0 !important;
+}
+.habit-notif-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--border-subtle) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1.35rem !important;
+}
+.habit-notif-sub-badge {
+  position: absolute !important;
+  bottom: -2px !important;
+  right: -2px !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.65rem !important;
+  background-color: var(--surface) !important;
+  border: 1.5px solid var(--surface) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+.habit-notif-main-col {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+.habit-notif-top-line {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  margin-bottom: 0.2rem !important;
+}
+.habit-notif-meta {
+  font-size: 0.88rem !important;
+  line-height: 1.35 !important;
+}
+.habit-notif-actor {
+  font-weight: 700 !important;
+  color: var(--text-main) !important;
+}
+.habit-notif-action-type {
+  color: var(--text-muted) !important;
+  margin-left: 0.25rem !important;
+}
+.habit-notif-timing-col {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  flex-shrink: 0 !important;
+}
+.habit-unread-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background-color: #3b82f6 !important;
+}
+.habit-notif-time-ago {
+  font-size: 0.74rem !important;
+  color: var(--text-muted) !important;
+}
+.habit-notif-subline {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  font-size: 0.76rem !important;
+  color: var(--text-muted) !important;
+  margin-bottom: 0.55rem !important;
+  flex-wrap: wrap !important;
+}
+.habit-notif-subline .dot-sep {
+  opacity: 0.4 !important;
+}
+.habit-notif-pixel-pill {
+  font-weight: 700 !important;
+  color: var(--primary) !important;
+}
+.habit-status-tag {
+  font-size: 0.7rem !important;
+  font-weight: 600 !important;
+  padding: 0.1rem 0.45rem !important;
+  border-radius: 4px !important;
+}
+.tag-open {
+  background-color: var(--danger-light) !important;
+  color: var(--danger) !important;
+}
+.tag-upcoming {
+  background-color: var(--warning-light) !important;
+  color: var(--warning) !important;
+}
+.tag-completed {
+  background-color: var(--success-light) !important;
+  color: var(--success) !important;
+}
+
+/* Point-by-point Speech / Content Bubbles matching reference */
+.habit-notif-bubble {
+  padding: 0.65rem 0.85rem !important;
+  border-radius: 9px !important;
+  background-color: var(--surface-raised) !important;
+  border: 1px solid var(--border-subtle) !important;
+  margin-bottom: 0.45rem !important;
+}
+.habit-notif-bubble.bubble-consequence {
+  background-color: var(--danger-light) !important;
+  border-color: var(--danger-border) !important;
+}
+.bubble-point-label {
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: var(--text-muted) !important;
+  margin-bottom: 0.25rem !important;
+}
+.bubble-consequence .bubble-point-label {
+  color: var(--danger) !important;
+}
+.bubble-text {
+  margin: 0 !important;
+  font-size: 0.8rem !important;
+  line-height: 1.45 !important;
+  color: var(--text-main) !important;
+}
+.bubble-consequence .bubble-text {
+  color: var(--danger) !important;
+}
+.inline-warn-icon {
+  vertical-align: -2px !important;
+  margin-right: 2px !important;
+}
+
+/* Action Buttons Row */
+.habit-notif-actions-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  margin-top: 0.45rem !important;
+}
+.notif-btn-accept {
+  padding: 0.35rem 0.85rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  border-radius: 7px !important;
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+.notif-btn-decline {
+  padding: 0.35rem 0.75rem !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  border-radius: 7px !important;
+}
+.notif-prep-chip {
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  color: var(--warning) !important;
+}
+.notif-success-chip {
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  color: var(--success) !important;
+}
+
+.habit-notif-footer {
+  padding: 0.75rem 1.35rem !important;
+  background-color: var(--surface-raised) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  text-align: center !important;
+}
+.habit-notif-footer-link {
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  color: var(--primary) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  text-decoration: none !important;
+}
+.habit-notif-footer-link:hover {
+  text-decoration: underline !important;
+}
+.habit-notif-empty {
+  padding: 2.5rem 1rem !important;
+  text-align: center !important;
+}
+
+.habit-notif-completed-all {
+  padding: 2.5rem 1.5rem !important;
+  text-align: center !important;
+}
+.completed-all-icon {
+  font-size: 2.8rem !important;
+  margin-bottom: 0.5rem !important;
+}
+.completed-all-title {
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  color: var(--text-main) !important;
+  margin-bottom: 0.45rem !important;
+}
+.completed-all-desc {
+  font-size: 0.84rem !important;
+  color: var(--text-muted) !important;
+  line-height: 1.5 !important;
+  max-width: 440px !important;
+  margin: 0 auto 0.85rem auto !important;
+}
+.completed-all-rollover-notice {
+  font-size: 0.76rem !important;
+  color: var(--primary) !important;
+  background-color: var(--primary-light) !important;
+  border: 1px solid var(--primary-border) !important;
+  padding: 0.45rem 0.85rem !important;
+  border-radius: 8px !important;
+  display: inline-block !important;
+}
+
+
+.topbar-actions-row .btn,
+.topbar-admin-dropdown .btn,
+.pwa-install-btn,
+.btn-logout {
+  border-radius: var(--radius-pill) !important;
+  font-size: 0.835rem !important;
+  font-weight: 600 !important;
+  padding: 0.38rem 0.95rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.pwa-install-btn {
+  background-color: var(--surface-raised) !important;
+  color: var(--primary) !important;
+  border: 1px solid var(--primary-border) !important;
+  cursor: pointer !important;
+}
+
+.pwa-install-btn:hover {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+  border-color: var(--primary) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.28) !important;
+}
+
+.pwa-install-btn:hover svg {
+  stroke: #ffffff !important;
+}
+
+@media all and (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+  .pwa-install-btn,
+  #pwaInstallBtn {
+    display: none !important;
+  }
+}
+
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const tabs = document.querySelectorAll(".habit-notif-tab");
+  tabs.forEach(function(tab) {
+    tab.addEventListener("click", function(e) {
+      e.stopPropagation();
+      tabs.forEach(function(t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      const filter = tab.dataset.filter;
+      const rows = document.querySelectorAll(".habit-notif-row");
+      rows.forEach(function(row) {
+        if (filter === "all") {
+          row.style.display = "";
+        } else if (filter === "open") {
+          row.style.display = row.dataset.filterType === "open" ? "" : "none";
+        } else if (filter === "upcoming") {
+          row.style.display = row.dataset.filterType === "upcoming" ? "" : "none";
+        }
+      });
+    });
+  });
+
+  const markAllBtn = document.getElementById("habitMarkAllReadBtn");
+  if (markAllBtn) {
+    markAllBtn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      document.querySelectorAll(".habit-unread-dot").forEach(function(dot) {
+        dot.style.display = "none";
+      });
+      document.querySelectorAll(".habit-notif-row.is-unread").forEach(function(row) {
+        row.classList.remove("is-unread");
+      });
+      const badge = document.querySelector(".habit-bell-badge");
+      if (badge) {
+        badge.style.display = "none";
+      }
+      const pill = document.querySelector(".habit-notif-count-pill");
+      if (pill) {
+        pill.textContent = "0 new";
+      }
+    });
+  }
+
+  const menu = document.getElementById("habitNotificationMenu");
+  if (menu) {
+    menu.addEventListener("click", function(e) {
+      if (!e.target.closest("a")) {
+        e.stopPropagation();
+      }
+    });
+  }
+});
+</script>
+
 </header>

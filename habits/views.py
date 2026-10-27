@@ -1,10 +1,13 @@
+import calendar
+from collections import defaultdict
 from datetime import date
 from decimal import Decimal, InvalidOperation
+import json
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -25,6 +28,8 @@ from .models import (
     Habit,
     HabitCategory,
     HabitCompletion,
+    PixelAllocation,
+    PixelWallet,
     RuleStrategy,
     seed_default_catalog_habits,
     seed_default_master_data_for_tenant,
@@ -32,6 +37,7 @@ from .models import (
 from .services import (
     calculate_completion_rate,
     calculate_streaks,
+    calculate_user_pixel_wallet,
     generate_monthly_calendar_data,
     get_habit_statistics,
 )
@@ -55,6 +61,309 @@ def onboarding_view(request):
             return redirect("dashboard")
 
     return render(request, "habits/onboarding.html")
+
+
+@login_required
+def pixel_wallet_view(request):
+    """
+    Dedicated view for the user's Pixel Wallet and Pixels Plan, featuring 2 sections:
+    1. Pixel Wallet:
+       - Monthly pixel allocation, current energized balance, and health percentage
+       - Daily risk outcome and dynamic outcome projection
+       - Habit-by-habit pixel score and cycle breakdown
+       - Gamification mechanics and streak preservation guidelines
+    2. Pixels Plan:
+       - Forward-looking capacity planner & strategic horizon
+       - Weekly day-of-week commitment distribution schedule
+       - Category allocation & strategic focus distribution
+       - Milestone targets & pixel progression ranks
+       - Interactive goal calculator & simulator
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        membership = request.user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+        tenant = membership.tenant if membership else None
+
+    today = timezone.localdate()
+
+    if tenant:
+        user_habits_qs = Habit.objects.filter(tenant=tenant, is_template=False).order_by("-is_active", "name")
+    else:
+        user_habits_qs = Habit.objects.filter(created_by=request.user, is_template=False).order_by("-is_active", "name")
+
+    habits_count = user_habits_qs.count()
+    active_habits = [h for h in user_habits_qs if h.is_active]
+    total_pixels = sum(h.pixel_score for h in active_habits)
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today, habits_qs=user_habits_qs)
+
+    # -------------------------------------------------------------
+    # Pixels Plan Data Computations
+    # -------------------------------------------------------------
+    # 1. Day of Week Planning Distribution (0=Mon, ..., 6=Sun)
+    weekday_labels = [
+        ("Monday", "Mon", 0),
+        ("Tuesday", "Tue", 1),
+        ("Wednesday", "Wed", 2),
+        ("Thursday", "Thu", 3),
+        ("Friday", "Fri", 4),
+        ("Saturday", "Sat", 5),
+        ("Sunday", "Sun", 6),
+    ]
+    weekly_plan = []
+    for full_name, short_name, day_idx in weekday_labels:
+        day_habits = [
+            h for h in active_habits
+            if (h.frequency == Habit.Frequency.DAILY or 
+                (h.frequency == Habit.Frequency.WEEKDAYS and day_idx in (h.selected_weekdays or [])))
+        ]
+        day_pixels = sum(h.pixel_score for h in day_habits)
+        weekly_plan.append({
+            "full_name": full_name,
+            "short_name": short_name,
+            "day_idx": day_idx,
+            "habits_count": len(day_habits),
+            "pixels": day_pixels,
+            "is_today": today.weekday() == day_idx,
+            "habits": day_habits,
+        })
+
+    # 2. Category Distribution Plan
+    category_plan_dict = defaultdict(lambda: {"pixels": 0, "habits_count": 0, "habits": []})
+    for h in active_habits:
+        cat_name = h.category or (h.category_ref.name if getattr(h, "category_ref", None) else "General")
+        category_plan_dict[cat_name]["pixels"] += h.pixel_score
+        category_plan_dict[cat_name]["habits_count"] += 1
+        category_plan_dict[cat_name]["habits"].append(h)
+
+    category_plan = [
+        {
+            "name": k,
+            "pixels": v["pixels"],
+            "habits_count": v["habits_count"],
+            "habits": v["habits"],
+            "percent": round((v["pixels"] / total_pixels * 100), 1) if total_pixels > 0 else 0,
+        }
+        for k, v in category_plan_dict.items()
+    ]
+    category_plan.sort(key=lambda x: x["pixels"], reverse=True)
+
+    # 3. Monthly & Annual Projections for Pixels Plan
+    days_in_month = calendar.monthrange(today.year, today.month)[1]
+    monthly_plan_capacity = total_pixels * days_in_month
+    annual_plan_capacity = total_pixels * 365
+
+    # 4. Next Routined Allocation Date & Projections
+    if today.month == 12:
+        next_cycle_year = today.year + 1
+        next_cycle_month = 1
+    else:
+        next_cycle_year = today.year
+        next_cycle_month = today.month + 1
+
+    next_allocation_date = date(next_cycle_year, next_cycle_month, 1)
+    days_until_next_allocation = (next_allocation_date - today).days
+    days_in_next_month = calendar.monthrange(next_cycle_year, next_cycle_month)[1]
+    supposed_allocation_pixels = total_pixels * days_in_next_month
+    current_preserved_pixels = wallet_data.get("current_balance", 0)
+    projected_rollover_if_100_percent = wallet_data.get("allocated_pixels", 0) + supposed_allocation_pixels
+    projected_rollover_current = current_preserved_pixels + supposed_allocation_pixels
+
+    # 5. Detailed Pixel Allocation Sources Ledger (How, Why & When each pixel was allocated)
+    # Note: User is not supposed to know if it was individual admin allocation, just say 'Habit Bonus'
+    allocation_sources = []
+    for item in wallet_data.get("habits_breakdown", []):
+        h = item["habit"]
+        cat_name = h.category or (h.category_ref.name if getattr(h, "category_ref", None) else "General")
+        allocation_sources.append({
+            "source_type": "Habit Allocation",
+            "icon": "📋",
+            "title": h.name,
+            "amount": item["allocated_pixels"],
+            "daily_score": item["daily_score"],
+            "pending_days": item["pending_days"],
+            "how": f"{item['daily_score']} Px/day × {item['pending_days']} cycle days credited at habit registration",
+            "why": f"{h.get_habit_type_display()} routine in {cat_name} category",
+            "when": getattr(h, "created_at", None),
+            "when_date": h.start_date,
+            "badge_color": "var(--primary)",
+            "status": f"{item['retained_pixels']} Px Retained ({item['missed_days']} missed)",
+        })
+
+    # Bonus allocations (abstracted as Habit Bonus)
+    admin_alloc_qs = PixelAllocation.objects.filter(recipient_user=request.user)
+    if tenant:
+        admin_alloc_qs = admin_alloc_qs.filter(tenant=tenant)
+    admin_alloc_qs = admin_alloc_qs.order_by("-created_at")
+
+    for alloc in admin_alloc_qs:
+        allocation_sources.append({
+            "source_type": "Habit Bonus",
+            "icon": "✨",
+            "title": "Habit Bonus",
+            "amount": alloc.amount,
+            "daily_score": None,
+            "pending_days": None,
+            "how": "Bonus pixel allocation credited to your active wallet balance",
+            "why": alloc.reason or "Habit achievement & consistency bonus",
+            "when": alloc.created_at,
+            "when_date": alloc.created_at.date() if alloc.created_at else today,
+            "badge_color": "#10b981",
+            "status": "Credited to Wallet",
+        })
+
+    total_gross_allocated = sum(s["amount"] for s in allocation_sources)
+
+    # 6. Daily Pixel Progress Graph Data
+    month_start = date(today.year, today.month, 1)
+    month_completions = HabitCompletion.objects.filter(
+        habit__in=active_habits,
+        completion_date__gte=month_start,
+        completion_date__lte=today,
+    ).values("habit_id", "completion_date")
+
+    completed_by_date = defaultdict(set)
+    for c in month_completions:
+        completed_by_date[c["completion_date"]].add(c["habit_id"])
+
+    daily_progress_graph = []
+    max_day_pixels = max(total_pixels, 1)
+    month_earned_pixels = 0
+    month_missed_pixels = 0
+    running_earned = 0
+    running_scheduled = 0
+    running_missed = 0
+
+    for d_num in range(1, days_in_month + 1):
+        d = date(today.year, today.month, d_num)
+        is_past = d < today
+        is_current = d == today
+        is_future = d > today
+
+        scheduled_habits = [h for h in active_habits if h.is_scheduled_for_date(d)]
+        scheduled_px = sum(h.pixel_score for h in scheduled_habits)
+        if scheduled_px > max_day_pixels:
+            max_day_pixels = scheduled_px
+
+        running_scheduled += scheduled_px
+
+        if not is_future:
+            completed_ids = completed_by_date.get(d, set())
+            completed_px = sum(h.pixel_score for h in scheduled_habits if h.id in completed_ids)
+            missed_px = max(0, scheduled_px - completed_px)
+            month_earned_pixels += completed_px
+            month_missed_pixels += missed_px
+            running_earned += completed_px
+            running_missed += missed_px
+            cum_earned = running_earned
+            cum_missed = running_missed
+        else:
+            completed_px = 0
+            missed_px = 0
+            cum_earned = None
+            cum_missed = None
+
+        # Percentage heights for visual stacked bar
+        completed_pct = round((completed_px / max_day_pixels * 100), 1) if max_day_pixels > 0 else 0
+        missed_pct = round((missed_px / max_day_pixels * 100), 1) if max_day_pixels > 0 else 0
+        scheduled_pct = round((scheduled_px / max_day_pixels * 100), 1) if max_day_pixels > 0 else 0
+
+        daily_progress_graph.append({
+            "day": d_num,
+            "date": d,
+            "date_str": d.strftime("%b %d"),
+            "weekday_short": d.strftime("%a")[:2],
+            "scheduled_px": scheduled_px,
+            "completed_px": completed_px,
+            "missed_px": missed_px,
+            "cum_earned": cum_earned,
+            "cum_scheduled": running_scheduled,
+            "cum_missed": cum_missed,
+            "is_past": is_past,
+            "is_today": is_current,
+            "is_future": is_future,
+            "completed_pct": completed_pct,
+            "missed_pct": missed_pct,
+            "scheduled_pct": scheduled_pct,
+            "status": "completed" if (completed_px == scheduled_px and scheduled_px > 0) else ("partial" if completed_px > 0 else ("missed" if missed_px > 0 else "rest")),
+        })
+
+    progress_graph_json = json.dumps([
+        {
+            "day": item["day"],
+            "date_str": item["date_str"],
+            "weekday": item["weekday_short"],
+            "scheduled_px": item["scheduled_px"],
+            "completed_px": item["completed_px"],
+            "missed_px": item["missed_px"],
+            "cum_earned": item["cum_earned"],
+            "cum_scheduled": item["cum_scheduled"],
+            "cum_missed": item["cum_missed"],
+            "is_past": item["is_past"],
+            "is_today": item["is_today"],
+            "is_future": item["is_future"],
+            "status": item["status"],
+        }
+        for item in daily_progress_graph
+    ])
+
+    # 7. Milestone Ranks
+    current_balance = wallet_data.get("current_balance", 0)
+    milestones = [
+        {"name": "Bronze Pioneer", "target": 100, "icon": "🥉", "desc": "Establish basic habit rhythm"},
+        {"name": "Silver Builder", "target": 300, "icon": "🥈", "desc": "Solid monthly consistency"},
+        {"name": "Gold Master", "target": 600, "icon": "🥇", "desc": "High energy discipline"},
+        {"name": "Diamond Legend", "target": 1200, "icon": "💎", "desc": "Unstoppable habit mastery"},
+    ]
+    for m in milestones:
+        m["completed"] = current_balance >= m["target"]
+        m["progress_percent"] = min(100, round((current_balance / m["target"]) * 100, 1)) if m["target"] > 0 else 100
+
+    active_section = request.GET.get("section", "wallet")
+    if active_section not in ["wallet", "plan"]:
+        active_section = "wallet"
+
+    raw_tab = request.GET.get("tab", "1")
+    try:
+        active_tab = int(raw_tab)
+        if active_tab < 1 or active_tab > 6:
+            active_tab = 1
+    except (ValueError, TypeError):
+        active_tab = 1
+
+    context = {
+        "tenant": tenant,
+        "habits_count": habits_count,
+        "active_habits_count": len(active_habits),
+        "total_pixels": total_pixels,
+        "user_habits": user_habits_qs,
+        "wallet_data": wallet_data,
+        "today": today,
+        "days_in_month": days_in_month,
+        "monthly_plan_capacity": monthly_plan_capacity,
+        "annual_plan_capacity": annual_plan_capacity,
+        "weekly_plan": weekly_plan,
+        "category_plan": category_plan,
+        "milestones": milestones,
+        "next_allocation_date": next_allocation_date,
+        "days_until_next_allocation": days_until_next_allocation,
+        "days_in_next_month": days_in_next_month,
+        "supposed_allocation_pixels": supposed_allocation_pixels,
+        "next_cycle_pixels": supposed_allocation_pixels,
+        "current_preserved_pixels": current_preserved_pixels,
+        "projected_rollover_if_100_percent": projected_rollover_if_100_percent,
+        "projected_rollover_current": projected_rollover_current,
+        "projected_rollover_balance": projected_rollover_current,
+        "allocation_sources": allocation_sources,
+        "total_gross_allocated": total_gross_allocated,
+        "daily_progress_graph": daily_progress_graph,
+        "progress_graph_json": progress_graph_json,
+        "max_day_pixels": max_day_pixels,
+        "month_earned_pixels": month_earned_pixels,
+        "month_missed_pixels": month_missed_pixels,
+        "active_section": active_section,
+        "active_tab": active_tab,
+    }
+    return render(request, "habits/pixel_wallet.html", context)
 
 
 @login_required

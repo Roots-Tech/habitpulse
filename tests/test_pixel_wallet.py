@@ -316,5 +316,171 @@ class PixelWalletTests(TestCase):
         self.assertEqual(w_all["today_scheduled_pixels"], 7)
         self.assertEqual(w_all["today_completed_pixels"], 7)
         self.assertEqual(w_all["today_pending_pixels"], 0)
-        self.assertEqual(w_all["projected_balance_if_failed"], 84)
+        self.assertEqual(w_all["today_projected_balance_if_failed" if "today_projected_balance_if_failed" in w_all else "projected_balance_if_failed"], 84)
         self.assertIn("All 7 pixels secured for today", w_all["daily_outcome_text"])
+
+    def test_pixel_wallet_sidebar_menu_before_habits(self):
+        """
+        Verify that Pixel Wallet appears as a navigation menu item before Habits in the sidebar.
+        """
+        today = timezone.localdate()
+        Habit.objects.create(
+            name="Daily Meditation",
+            tenant=self.tenant,
+            created_by=self.user,
+            habit_type=Habit.HabitType.GENERAL,
+            pixel_score=2,
+            start_date=today,
+            is_template=False,
+        )
+        self.client.login(username="shrinath_wallet", password="Password123!")
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode("utf-8")
+        self.assertIn("Pixel Wallet", content)
+        self.assertIn("Habits", content)
+
+        idx_pixel_wallet = content.find('span class="sidebar-menu-label">Pixel Wallet</span>')
+        idx_habits = content.find('span class="sidebar-menu-label">Habits</span>')
+
+        self.assertNotEqual(idx_pixel_wallet, -1, "Pixel Wallet menu label not found in sidebar")
+        self.assertNotEqual(idx_habits, -1, "Habits menu label not found in sidebar")
+        self.assertLess(
+            idx_pixel_wallet,
+            idx_habits,
+            "Pixel Wallet menu item should appear before Habits in the navigation sidebar",
+        )
+
+    def test_pixel_wallet_dedicated_view(self):
+        """
+        Verify that the dedicated /pixel-wallet/ endpoint renders 200 OK with wallet stats and breakdown.
+        """
+        today = timezone.localdate()
+        Habit.objects.create(
+            name="Daily Running",
+            tenant=self.tenant,
+            created_by=self.user,
+            habit_type=Habit.HabitType.GENERAL,
+            pixel_score=2,
+            start_date=today,
+            is_template=False,
+        )
+
+        self.client.login(username="shrinath_wallet", password="Password123!")
+        response = self.client.get(reverse("pixel_wallet"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Pixel Wallet")
+        self.assertContains(response, "Current Pixel Balance")
+        self.assertContains(response, "Habit Allocations &amp; Wallet Breakdown")
+        self.assertContains(response, "Daily Running")
+        # Check active class in sidebar
+        content = response.content.decode("utf-8")
+        self.assertIn('class="sidebar-menu-link active"', content)
+
+        # Check 2 section toggle buttons just below header (Chevron Pipeline)
+        self.assertContains(response, 'id="btn-section-pixel-wallet"')
+        self.assertContains(response, 'id="btn-section-pixels-plan"')
+        self.assertContains(response, "Pixel Wallet")
+        self.assertContains(response, "Pixel Plan")
+
+        # Check both section containers exist
+        self.assertContains(response, 'id="section-pixel-wallet"')
+        self.assertContains(response, 'id="section-pixels-plan"')
+
+        # Check all 6 distinct sections of Pixels Plan
+        self.assertContains(response, "1. Next Allocation Details")
+        self.assertContains(response, "2. Source of Each Allocation")
+        self.assertContains(response, "3. Pixel Progress Graph")
+        self.assertContains(response, "4. Habit Allocations &amp; Wallet Breakdown")
+        self.assertContains(response, "5. Weekly Day-by-Day Commitment Schedule")
+        self.assertContains(response, "6. How Your Pixel Wallet Works")
+
+    def test_pixel_wallet_section_plan_param(self):
+        """
+        Verify that accessing ?section=plan displays Pixels Plan as active.
+        """
+        today = timezone.localdate()
+        Habit.objects.create(
+            name="Evening Reading",
+            tenant=self.tenant,
+            created_by=self.user,
+            habit_type=Habit.HabitType.GENERAL,
+            start_date=today,
+            is_template=False,
+        )
+
+        self.client.login(username="shrinath_wallet", password="Password123!")
+        response = self.client.get(reverse("pixel_wallet") + "?section=plan")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="section-pixels-plan"')
+        self.assertContains(response, "2 Px/Day")
+        self.assertContains(response, "Evening Reading")
+        self.assertContains(response, "1. Next Allocation Details")
+        self.assertContains(response, "2. Source of Each Allocation")
+        self.assertContains(response, "3. Pixel Progress Graph")
+        self.assertContains(response, "4. Habit Allocations &amp; Wallet Breakdown")
+        self.assertContains(response, "5. Weekly Day-by-Day Commitment Schedule")
+        self.assertContains(response, "6. How Your Pixel Wallet Works")
+
+    def test_pixel_allocation_sources_and_next_routined_date(self):
+        """
+        Verify that Pixels Plan tab displays:
+        1. Source of each pixel allocation (how, why, when) for both habits and admin grants (abstracted as Habit Bonus).
+        2. Next routined allocation date with calculated rollover projections.
+        """
+        today = timezone.localdate()
+        from habits.models import PixelAllocation
+        admin = User.objects.create_user(
+            username="admin_planner",
+            email="admin_planner@example.com",
+            password="Password123!",
+            is_staff=True,
+            is_superuser=True,
+        )
+
+        # Habit allocation source
+        h = Habit.objects.create(
+            name="Morning Yoga",
+            tenant=self.tenant,
+            created_by=self.user,
+            habit_type=Habit.HabitType.GENERAL,
+            start_date=today,
+            is_template=False,
+        )
+
+        # Admin grant source
+        PixelAllocation.objects.create(
+            admin_user=admin,
+            recipient_user=self.user,
+            tenant=self.tenant,
+            amount=20,
+            target_type=PixelAllocation.TargetType.INDIVIDUAL,
+            reason="Excellence in habit consistency",
+        )
+
+        self.client.login(username="shrinath_wallet", password="Password123!")
+        response = self.client.get(reverse("pixel_wallet"))
+        self.assertEqual(response.status_code, 200)
+
+        # Pixel Wallet tab: Just displays current pixel balance
+        self.assertContains(response, 'id="section-pixel-wallet"')
+        self.assertContains(response, "Current Pixel Balance")
+
+        # Pixels Plan - Section 1: Next Allocation Details
+        self.assertContains(response, "1. Next Allocation Details")
+        self.assertContains(response, "Next Allocation Date")
+        self.assertContains(response, "Supposed Pixels to be Allocated")
+        self.assertContains(response, "Current Preserved Pixel")
+        self.assertContains(response, "Projected Rollover Pixel if 100% Retained")
+        self.assertContains(response, "Projected Rollover Pixels (Current Status)")
+
+        # Pixels Plan - Section 2: Source of each pixel allocation
+        self.assertContains(response, "2. Source of Each Allocation")
+        self.assertContains(response, "Morning Yoga")
+        self.assertContains(response, "Habit Bonus")
+        self.assertContains(response, "Excellence in habit consistency")
+        self.assertContains(response, "+20 Px")
+        # Ensure user is NOT informed that it was individual user allocation or admin user
+        self.assertNotContains(response, "@admin_planner")
+        self.assertNotContains(response, "individual user allocation")

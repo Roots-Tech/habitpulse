@@ -749,4 +749,114 @@ document.addEventListener("DOMContentLoaded", () => {
       pixelToggleBtn.addEventListener("click", toggle);
     }
   }
+
+  // 4d. Habit Notifications Bell Dropdown & Filtering
+  const habitNotifTabs = document.querySelectorAll(".habit-notif-tab");
+  if (habitNotifTabs.length > 0) {
+    habitNotifTabs.forEach((tab) => {
+      tab.addEventListener("click", (e) => {
+        e.stopPropagation();
+        habitNotifTabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        const filter = tab.dataset.filter;
+        const items = document.querySelectorAll(".habit-notif-item");
+        items.forEach((item) => {
+          if (filter === "all") {
+            item.style.display = "";
+          } else if (filter === "pending") {
+            item.style.display = item.dataset.status === "pending" ? "" : "none";
+          } else if (filter === "completed") {
+            item.style.display = item.dataset.status === "completed" ? "" : "none";
+          }
+        });
+      });
+    });
+  }
+
+  // Prevent dropdown closing when clicking inside the notification menu (tabs, scrollbar, content)
+  const habitNotifMenu = document.getElementById("habitNotificationMenu");
+  if (habitNotifMenu) {
+    habitNotifMenu.addEventListener("click", (e) => {
+      // Allow link navigation to proceed normally without stopping
+      if (!e.target.closest("a")) {
+        e.stopPropagation();
+      }
+    });
+  }
+
+
+  // 7. Progressive Web App (PWA) Install Prompt Handler
+  let deferredInstallPrompt = null;
+  const pwaInstallBtn = document.getElementById("pwaInstallBtn");
+
+  const isAppInstalledOnDevice = () => {
+    // 1. Running in standalone display mode (installed app window)
+    if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) {
+      return true;
+    }
+    // 2. Previously marked as installed in localStorage for this device
+    if (localStorage.getItem("habitpulse_installed") === "true") {
+      return true;
+    }
+    return false;
+  };
+
+  // If already installed on this device, hide the button immediately
+  if (isAppInstalledOnDevice() && pwaInstallBtn) {
+    pwaInstallBtn.style.display = "none";
+  }
+
+  // Check getInstalledRelatedApps API if supported by browser
+  if ("getInstalledRelatedApps" in navigator) {
+    navigator.getInstalledRelatedApps().then((relatedApps) => {
+      if (relatedApps && relatedApps.length > 0) {
+        localStorage.setItem("habitpulse_installed", "true");
+        if (pwaInstallBtn) pwaInstallBtn.style.display = "none";
+      }
+    }).catch(() => {});
+  }
+
+  // Listen for beforeinstallprompt event (fired by browser only when app is not installed)
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+
+    // Reveal the single stylish install button if not installed
+    if (!isAppInstalledOnDevice() && pwaInstallBtn) {
+      pwaInstallBtn.style.display = "inline-flex";
+    }
+  });
+
+  const triggerPwaInstall = async (e) => {
+    if (e) e.preventDefault();
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === "accepted") {
+      localStorage.setItem("habitpulse_installed", "true");
+      if (pwaInstallBtn) pwaInstallBtn.style.display = "none";
+    }
+    deferredInstallPrompt = null;
+  };
+
+  if (pwaInstallBtn) {
+    pwaInstallBtn.addEventListener("click", triggerPwaInstall);
+  }
+
+  // When app finishes installation on this device, remember and hide permanently
+  window.addEventListener("appinstalled", () => {
+    localStorage.setItem("habitpulse_installed", "true");
+    if (pwaInstallBtn) pwaInstallBtn.style.display = "none";
+    deferredInstallPrompt = null;
+    console.log("[PWA] HabitPulse installed on this device; install button permanently hidden.");
+  });
+
+  // Also listen for display-mode changes
+  window.matchMedia("(display-mode: standalone)").addEventListener("change", (e) => {
+    if (e.matches) {
+      localStorage.setItem("habitpulse_installed", "true");
+      if (pwaInstallBtn) pwaInstallBtn.style.display = "none";
+    }
+  });
+
 });

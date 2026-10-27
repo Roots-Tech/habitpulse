@@ -1,0 +1,2600 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pixel Wallet & Plan - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 1.25rem auto;">
+
+  <style>
+    /* ========================================================================== */
+    /* SHARED CHEVRON STEPPER PIPELINE STYLES                                     */
+    /* Synchronized with HabitPulse Multi-Theme Design System                     */
+    /* (Obsidian Dark, Cool Ice, Pale Rose, Clean Light)                          */
+    /* ========================================================================== */
+
+    /* -------------------------------------------------------------------------- */
+    /* 1. TOP MAIN SECTION PIPELINE (Pixel Wallet ⇄ Pixels Plan)                  */
+    /* -------------------------------------------------------------------------- */
+    .main-section-nav-wrap {
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+
+    .main-section-pipeline {
+      display: flex;
+      align-items: stretch;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      transition: all 0.25s ease;
+    }
+
+    .main-chevron-item {
+      position: relative;
+      flex: 1 1 0;
+      min-width: 260px;
+      background: none;
+      border: none;
+      padding: 1.15rem 1.75rem 1.15rem 1.75rem;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      min-height: 92px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      outline: none;
+    }
+
+    #btn-section-pixel-wallet {
+      padding-left: 1.65rem;
+      padding-right: 2.75rem;
+      z-index: 5;
+    }
+
+    #btn-section-pixels-plan {
+      margin-left: -22px;
+      padding-left: 2.85rem;
+      padding-right: 1.65rem;
+      z-index: 4;
+    }
+
+    .main-chevron-item .chevron-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      transition: all 0.25s ease;
+      filter: drop-shadow(4px 0 6px rgba(0, 0, 0, 0.25));
+    }
+
+    #btn-section-pixel-wallet .chevron-bg {
+      clip-path: polygon(0% 0%, calc(100% - 24px) 0%, 100% 50%, calc(100% - 24px) 100%, 0% 100%);
+    }
+
+    #btn-section-pixels-plan .chevron-bg {
+      clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 24px 50%);
+    }
+
+    /* Floating Center Junction Marker (Always On Top & Centered at the Seam) */
+    .main-chevron-junction {
+      position: absolute;
+      top: 50%;
+      left: calc(50% + 11px);
+      transform: translate(-50%, -50%);
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .main-chevron-node {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      font-weight: 800;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .main-chevron-junction:hover .main-chevron-node {
+      transform: scale(1.15);
+    }
+
+    .main-chevron-content {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      pointer-events: none;
+    }
+
+    .main-chevron-left {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    .main-chevron-icon {
+      font-size: 1.85rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .main-chevron-text-col {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-chevron-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      transition: color 0.2s ease;
+    }
+
+    .main-chevron-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      line-height: 1.25;
+    }
+
+    .main-chevron-badge {
+      font-size: 0.925rem;
+      font-weight: 800;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .main-chevron-item.active::before {
+      content: "ACTIVE";
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      font-size: 0.55rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      padding: 1px 7px;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .main-chevron-item:hover:not(.active) .chevron-bg {
+      filter: brightness(1.08) drop-shadow(4px 0 8px rgba(0, 0, 0, 0.3));
+    }
+    .main-chevron-item:hover:not(.active) .main-chevron-node {
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /* 2. PLAN DOMAINS NAVIGATOR (6-Domain Chevron Pipeline)                      */
+    /* -------------------------------------------------------------------------- */
+    .plan-domains-nav-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 1.25rem 1.15rem 1.25rem;
+      margin-bottom: 1.75rem;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+
+    .chevron-pipeline-scroll-wrap {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 8px 4px 12px 4px;
+      margin-top: 0.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary-border) transparent;
+    }
+    .chevron-pipeline-scroll-wrap::-webkit-scrollbar {
+      height: 6px;
+    }
+    .chevron-pipeline-scroll-wrap::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+    }
+    .chevron-pipeline-scroll-wrap::-webkit-scrollbar-thumb {
+      background: var(--primary-border);
+      border-radius: 999px;
+    }
+
+    .chevron-pipeline {
+      display: flex;
+      align-items: stretch;
+      min-width: 980px;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+      position: relative;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+    }
+
+    .chevron-item {
+      position: relative;
+      flex: 1 1 0;
+      min-width: 165px;
+      background: none;
+      border: none;
+      padding: 1.15rem 1rem 1.1rem 2.35rem;
+      cursor: pointer;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 125px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      outline: none;
+    }
+
+    .chevron-item:first-child {
+      padding-left: 1.25rem;
+      padding-right: 1.75rem;
+    }
+
+    .chevron-item:last-child {
+      padding-right: 1.25rem;
+    }
+
+    .chevron-item:not(:first-child) {
+      margin-left: -22px;
+    }
+
+    .chevron-item[data-step="1"] { z-index: 6; }
+    .chevron-item[data-step="2"] { z-index: 5; }
+    .chevron-item[data-step="3"] { z-index: 4; }
+    .chevron-item[data-step="4"] { z-index: 3; }
+    .chevron-item[data-step="5"] { z-index: 2; }
+    .chevron-item[data-step="6"] { z-index: 1; }
+
+    .chevron-bg {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 1;
+      transition: all 0.25s ease;
+      filter: drop-shadow(4px 0 6px rgba(0, 0, 0, 0.22));
+    }
+
+    .chevron-item[data-step="1"] .chevron-bg {
+      clip-path: polygon(0% 0%, calc(100% - 24px) 0%, 100% 50%, calc(100% - 24px) 100%, 0% 100%);
+    }
+    .chevron-item[data-step="2"] .chevron-bg,
+    .chevron-item[data-step="3"] .chevron-bg,
+    .chevron-item[data-step="4"] .chevron-bg,
+    .chevron-item[data-step="5"] .chevron-bg {
+      clip-path: polygon(0% 0%, calc(100% - 24px) 0%, 100% 50%, calc(100% - 24px) 100%, 0% 100%, 24px 50%);
+    }
+    .chevron-item[data-step="6"] .chevron-bg {
+      clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 24px 50%);
+    }
+
+    .chevron-node {
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+    .chevron-item[data-step="6"] .chevron-node {
+      display: none;
+    }
+
+    .chevron-content {
+      position: relative;
+      z-index: 5;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .chevron-top-icon {
+      font-size: 1.35rem;
+      line-height: 1;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .chevron-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      line-height: 1.25;
+      text-align: center;
+      margin-bottom: 0.35rem;
+      letter-spacing: -0.01em;
+      transition: color 0.2s ease;
+    }
+
+    .chevron-meta {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      line-height: 1.2;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .chevron-item:hover:not(.active) .chevron-bg {
+      filter: brightness(1.08) drop-shadow(4px 0 8px rgba(0, 0, 0, 0.3));
+    }
+    .chevron-item:hover:not(.active) .chevron-node {
+      transform: translateY(-50%) scale(1.12);
+    }
+
+    .chevron-item.active .chevron-node,
+    .chevron-node.active-highlight,
+    .chevron-node:hover {
+      transform: translateY(-50%) scale(1.18);
+    }
+
+    .chevron-item.active::before {
+      content: "ACTIVE";
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      font-size: 0.55rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      padding: 1px 6px;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .plan-domain-pane {
+      animation: fadeInDomain 0.25s ease-out;
+    }
+
+    @keyframes fadeInDomain {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /* 3. DYNAMIC MULTI-THEME COLOR SYNCHRONIZATION                               */
+    /* -------------------------------------------------------------------------- */
+
+    /* === THEME 1: OBSIDIAN DARK (Amber/Mild Gold Rim) === */
+    [data-theme="dark"] .main-section-pipeline {
+      background: #0d111a;
+      border-color: rgba(223, 193, 135, 0.28);
+      box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.7);
+    }
+    [data-theme="dark"] .plan-domains-nav-card {
+      background: #141824;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    [data-theme="dark"] .chevron-pipeline {
+      background: #0d111a;
+      border-color: rgba(223, 193, 135, 0.22);
+    }
+
+    [data-theme="dark"] #btn-section-pixel-wallet .chevron-bg {
+      background: linear-gradient(135deg, #1c2233 0%, #141824 100%);
+    }
+    [data-theme="dark"] #btn-section-pixels-plan .chevron-bg {
+      background: linear-gradient(135deg, #181d2c 0%, #101420 100%);
+    }
+    [data-theme="dark"] .main-chevron-item.active .chevron-bg {
+      background: linear-gradient(135deg, #2b2317 0%, #1e1911 100%);
+      filter: brightness(1.15) drop-shadow(0 0 12px rgba(223, 193, 135, 0.5));
+    }
+    [data-theme="dark"] .main-chevron-title {
+      color: #ffffff;
+    }
+    [data-theme="dark"] .main-chevron-item.active .main-chevron-title {
+      color: #dfc187;
+    }
+    [data-theme="dark"] .main-chevron-badge {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    [data-theme="dark"] .main-chevron-badge.plan-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    [data-theme="dark"] .main-chevron-item.active .main-chevron-badge {
+      background: rgba(223, 193, 135, 0.22);
+      color: #dfc187;
+      border: 1px solid rgba(223, 193, 135, 0.45);
+    }
+    [data-theme="dark"] .main-chevron-node {
+      background: #dfc187;
+      color: #0b0e14;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 3px #dfc187, 0 4px 14px rgba(223, 193, 135, 0.55);
+    }
+    [data-theme="dark"] .main-chevron-junction:hover .main-chevron-node {
+      box-shadow: 0 0 0 4px #dfc187, 0 6px 18px rgba(223, 193, 135, 0.75);
+    }
+    [data-theme="dark"] .main-chevron-item.active::before {
+      background: #dfc187;
+      color: #0b0e14;
+    }
+
+    [data-theme="dark"] .chevron-item[data-step="1"] .chevron-bg {
+      background: linear-gradient(135deg, #2d2417 0%, #201a11 100%);
+    }
+    [data-theme="dark"] .chevron-item[data-step="2"] .chevron-bg {
+      background: linear-gradient(135deg, #242b3e 0%, #191f2e 100%);
+    }
+    [data-theme="dark"] .chevron-item[data-step="3"] .chevron-bg {
+      background: linear-gradient(135deg, #1f2536 0%, #151a26 100%);
+    }
+    [data-theme="dark"] .chevron-item[data-step="4"] .chevron-bg {
+      background: linear-gradient(135deg, #1a202f 0%, #121621 100%);
+    }
+    [data-theme="dark"] .chevron-item[data-step="5"] .chevron-bg {
+      background: linear-gradient(135deg, #151a27 0%, #0e111a 100%);
+    }
+    [data-theme="dark"] .chevron-item[data-step="6"] .chevron-bg {
+      background: linear-gradient(135deg, #111420 0%, #090b12 100%);
+    }
+    [data-theme="dark"] .chevron-item .chevron-content {
+      color: #ffffff;
+    }
+    [data-theme="dark"] .chevron-item.active .chevron-title {
+      color: #dfc187;
+    }
+    [data-theme="dark"] .chevron-meta {
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    [data-theme="dark"] .chevron-item.active .chevron-meta {
+      background: rgba(223, 193, 135, 0.22);
+      color: #dfc187;
+      border: 1px solid rgba(223, 193, 135, 0.45);
+    }
+    [data-theme="dark"] .chevron-item .chevron-node {
+      background: #141824;
+      color: #dfc187;
+      border: 2px solid rgba(223, 193, 135, 0.4);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+    [data-theme="dark"] .chevron-item.active .chevron-node,
+    [data-theme="dark"] .chevron-node.active-highlight,
+    [data-theme="dark"] .chevron-node:hover {
+      background: #dfc187;
+      color: #0b0e14;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 3px #dfc187, 0 4px 14px rgba(223, 193, 135, 0.65);
+    }
+    [data-theme="dark"] .chevron-item.active .chevron-bg {
+      filter: brightness(1.22) drop-shadow(0 0 12px rgba(223, 193, 135, 0.6));
+    }
+    [data-theme="dark"] .chevron-item.active::before {
+      background: #dfc187;
+      color: #0b0e14;
+    }
+
+    /* === THEME 2: COOL ICE (Default Glacial Cyan & Ocean Blues) === */
+    :root, [data-theme="ice"] {
+      --stepper-primary: #38bdf8;
+      --stepper-primary-text: #082f49;
+    }
+    .main-section-pipeline,
+    [data-theme="ice"] .main-section-pipeline {
+      background: #0d2737;
+      border-color: rgba(186, 230, 253, 0.22);
+      box-shadow: 0 10px 30px -4px rgba(10, 28, 40, 0.5);
+    }
+    .plan-domains-nav-card,
+    [data-theme="ice"] .plan-domains-nav-card {
+      background: #1e4660;
+      border-color: rgba(186, 230, 253, 0.2);
+    }
+    .chevron-pipeline,
+    [data-theme="ice"] .chevron-pipeline {
+      background: #0d2737;
+      border-color: rgba(186, 230, 253, 0.2);
+    }
+
+    #btn-section-pixel-wallet .chevron-bg,
+    [data-theme="ice"] #btn-section-pixel-wallet .chevron-bg {
+      background: linear-gradient(135deg, #1e4660 0%, #16364c 100%);
+    }
+    #btn-section-pixels-plan .chevron-bg,
+    [data-theme="ice"] #btn-section-pixels-plan .chevron-bg {
+      background: linear-gradient(135deg, #18384f 0%, #122b3f 100%);
+    }
+    .main-chevron-item.active .chevron-bg,
+    [data-theme="ice"] .main-chevron-item.active .chevron-bg {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      filter: brightness(1.15) drop-shadow(0 0 12px rgba(56, 189, 248, 0.5));
+    }
+    .main-chevron-title,
+    [data-theme="ice"] .main-chevron-title {
+      color: #ffffff;
+    }
+    .main-chevron-item.active .main-chevron-title,
+    [data-theme="ice"] .main-chevron-item.active .main-chevron-title {
+      color: #7dd3fc;
+    }
+    .main-chevron-badge,
+    [data-theme="ice"] .main-chevron-badge {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+    .main-chevron-badge.plan-badge,
+    [data-theme="ice"] .main-chevron-badge.plan-badge {
+      background: rgba(16, 185, 129, 0.18);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .main-chevron-item.active .main-chevron-badge,
+    [data-theme="ice"] .main-chevron-item.active .main-chevron-badge {
+      background: rgba(56, 189, 248, 0.25);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+    }
+    .main-chevron-node,
+    [data-theme="ice"] .main-chevron-node {
+      background: #38bdf8;
+      color: #082f49;
+      border: 2px solid #e0f2fe;
+      box-shadow: 0 0 0 3px #38bdf8, 0 4px 14px rgba(56, 189, 248, 0.6);
+    }
+    .main-chevron-junction:hover .main-chevron-node,
+    [data-theme="ice"] .main-chevron-junction:hover .main-chevron-node {
+      box-shadow: 0 0 0 4px #38bdf8, 0 6px 18px rgba(56, 189, 248, 0.8);
+    }
+    .main-chevron-item.active::before,
+    [data-theme="ice"] .main-chevron-item.active::before {
+      background: #38bdf8;
+      color: #082f49;
+    }
+
+    .chevron-item[data-step="1"] .chevron-bg,
+    [data-theme="ice"] .chevron-item[data-step="1"] .chevron-bg {
+      background: linear-gradient(135deg, #24587a 0%, #1a425c 100%);
+    }
+    .chevron-item[data-step="2"] .chevron-bg,
+    [data-theme="ice"] .chevron-item[data-step="2"] .chevron-bg {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    }
+    .chevron-item[data-step="3"] .chevron-bg,
+    [data-theme="ice"] .chevron-item[data-step="3"] .chevron-bg {
+      background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+    }
+    .chevron-item[data-step="4"] .chevron-bg,
+    [data-theme="ice"] .chevron-item[data-step="4"] .chevron-bg {
+      background: linear-gradient(135deg, #075985 0%, #0c4a6e 100%);
+    }
+    .chevron-item[data-step="5"] .chevron-bg,
+    [data-theme="ice"] .chevron-item[data-step="5"] .chevron-bg {
+      background: linear-gradient(135deg, #0c4a6e 0%, #14354a 100%);
+    }
+    .chevron-item[data-step="6"] .chevron-bg,
+    [data-theme="ice"] .chevron-item[data-step="6"] .chevron-bg {
+      background: linear-gradient(135deg, #14354a 0%, #0d2737 100%);
+    }
+    .chevron-content,
+    [data-theme="ice"] .chevron-content {
+      color: #ffffff;
+    }
+    .chevron-item.active .chevron-title,
+    [data-theme="ice"] .chevron-item.active .chevron-title {
+      color: #7dd3fc;
+    }
+    .chevron-meta,
+    [data-theme="ice"] .chevron-meta {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+    .chevron-item.active .chevron-meta,
+    [data-theme="ice"] .chevron-item.active .chevron-meta {
+      background: rgba(56, 189, 248, 0.25);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+    }
+    .chevron-item .chevron-node,
+    [data-theme="ice"] .chevron-item .chevron-node {
+      background: #1e4660;
+      color: #7dd3fc;
+      border: 2px solid rgba(56, 189, 248, 0.45);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+    .chevron-item.active .chevron-node,
+    .chevron-node.active-highlight,
+    .chevron-node:hover,
+    [data-theme="ice"] .chevron-item.active .chevron-node,
+    [data-theme="ice"] .chevron-node.active-highlight,
+    [data-theme="ice"] .chevron-node:hover {
+      background: #38bdf8;
+      color: #082f49;
+      border: 2px solid #e0f2fe;
+      box-shadow: 0 0 0 3px #38bdf8, 0 4px 14px rgba(56, 189, 248, 0.65);
+    }
+    .chevron-item.active .chevron-bg,
+    [data-theme="ice"] .chevron-item.active .chevron-bg {
+      filter: brightness(1.15) drop-shadow(0 0 12px rgba(56, 189, 248, 0.7));
+    }
+    .chevron-item.active::before,
+    [data-theme="ice"] .chevron-item.active::before {
+      background: #38bdf8;
+      color: #082f49;
+    }
+
+    /* === THEME 3: PALE ROSE (Warm Umber & Rose) === */
+    [data-theme="rose"] .main-section-pipeline {
+      background: #120e0d;
+      border-color: rgba(214, 173, 173, 0.22);
+      box-shadow: 0 10px 30px -4px rgba(18, 12, 11, 0.7);
+    }
+    [data-theme="rose"] .plan-domains-nav-card {
+      background: #241c1a;
+      border-color: rgba(214, 173, 173, 0.18);
+    }
+    [data-theme="rose"] .chevron-pipeline {
+      background: #120e0d;
+      border-color: rgba(214, 173, 173, 0.2);
+    }
+
+    [data-theme="rose"] #btn-section-pixel-wallet .chevron-bg {
+      background: linear-gradient(135deg, #312624 0%, #241c1a 100%);
+    }
+    [data-theme="rose"] #btn-section-pixels-plan .chevron-bg {
+      background: linear-gradient(135deg, #2a201e 0%, #1c1514 100%);
+    }
+    [data-theme="rose"] .main-chevron-item.active .chevron-bg {
+      background: linear-gradient(135deg, #463432 0%, #352624 100%);
+      filter: brightness(1.15) drop-shadow(0 0 12px rgba(214, 173, 173, 0.5));
+    }
+    [data-theme="rose"] .main-chevron-title {
+      color: #ffffff;
+    }
+    [data-theme="rose"] .main-chevron-item.active .main-chevron-title {
+      color: #d6adad;
+    }
+    [data-theme="rose"] .main-chevron-badge {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ebd9d8;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    [data-theme="rose"] .main-chevron-badge.plan-badge {
+      background: rgba(107, 163, 123, 0.18);
+      color: #6ba37b;
+      border: 1px solid rgba(107, 163, 123, 0.35);
+    }
+    [data-theme="rose"] .main-chevron-item.active .main-chevron-badge {
+      background: rgba(214, 173, 173, 0.2);
+      color: #d6adad;
+      border: 1px solid rgba(214, 173, 173, 0.45);
+    }
+    [data-theme="rose"] .main-chevron-node {
+      background: #d6adad;
+      color: #261b19;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 3px #d6adad, 0 4px 14px rgba(214, 173, 173, 0.55);
+    }
+    [data-theme="rose"] .main-chevron-junction:hover .main-chevron-node {
+      box-shadow: 0 0 0 4px #d6adad, 0 6px 18px rgba(214, 173, 173, 0.75);
+    }
+    [data-theme="rose"] .main-chevron-item.active::before {
+      background: #d6adad;
+      color: #261b19;
+    }
+
+    [data-theme="rose"] .chevron-item[data-step="1"] .chevron-bg {
+      background: linear-gradient(135deg, #483533 0%, #362725 100%);
+    }
+    [data-theme="rose"] .chevron-item[data-step="2"] .chevron-bg {
+      background: linear-gradient(135deg, #3d2d2b 0%, #2f2220 100%);
+    }
+    [data-theme="rose"] .chevron-item[data-step="3"] .chevron-bg {
+      background: linear-gradient(135deg, #342624 0%, #281d1b 100%);
+    }
+    [data-theme="rose"] .chevron-item[data-step="4"] .chevron-bg {
+      background: linear-gradient(135deg, #2b1f1d 0%, #201716 100%);
+    }
+    [data-theme="rose"] .chevron-item[data-step="5"] .chevron-bg {
+      background: linear-gradient(135deg, #231918 0%, #191211 100%);
+    }
+    [data-theme="rose"] .chevron-item[data-step="6"] .chevron-bg {
+      background: linear-gradient(135deg, #1b1312 0%, #110c0b 100%);
+    }
+    [data-theme="rose"] .chevron-item .chevron-content {
+      color: #ffffff;
+    }
+    [data-theme="rose"] .chevron-item.active .chevron-title {
+      color: #d6adad;
+    }
+    [data-theme="rose"] .chevron-meta {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ebd9d8;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    [data-theme="rose"] .chevron-item.active .chevron-meta {
+      background: rgba(214, 173, 173, 0.22);
+      color: #d6adad;
+      border: 1px solid rgba(214, 173, 173, 0.45);
+    }
+    [data-theme="rose"] .chevron-item .chevron-node {
+      background: #241c1a;
+      color: #d6adad;
+      border: 2px solid rgba(214, 173, 173, 0.45);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+    [data-theme="rose"] .chevron-item.active .chevron-node,
+    [data-theme="rose"] .chevron-node.active-highlight,
+    [data-theme="rose"] .chevron-node:hover {
+      background: #d6adad;
+      color: #261b19;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 3px #d6adad, 0 4px 14px rgba(214, 173, 173, 0.65);
+    }
+    [data-theme="rose"] .chevron-item.active .chevron-bg {
+      filter: brightness(1.2) drop-shadow(0 0 12px rgba(214, 173, 173, 0.55));
+    }
+    [data-theme="rose"] .chevron-item.active::before {
+      background: #d6adad;
+      color: #261b19;
+    }
+
+    /* === THEME 4: CLEAN LIGHT (Default White & Royal Blue) === */
+    [data-theme="light"] .main-section-pipeline {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    [data-theme="light"] .plan-domains-nav-card {
+      background: #ffffff;
+      border-color: #e2e8f0;
+    }
+    [data-theme="light"] .chevron-pipeline {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+    }
+
+    [data-theme="light"] #btn-section-pixel-wallet .chevron-bg {
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    }
+    [data-theme="light"] #btn-section-pixels-plan .chevron-bg {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+    [data-theme="light"] .main-chevron-item.active .chevron-bg {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      filter: brightness(1.05) drop-shadow(0 0 10px rgba(37, 99, 235, 0.35));
+    }
+    [data-theme="light"] .main-chevron-title {
+      color: #0f172a;
+    }
+    [data-theme="light"] .main-chevron-item.active .main-chevron-title {
+      color: #2563eb;
+    }
+    [data-theme="light"] .main-chevron-desc {
+      color: #64748b;
+    }
+    [data-theme="light"] .main-chevron-badge {
+      background: rgba(37, 99, 235, 0.08);
+      color: #2563eb;
+      border: 1px solid rgba(37, 99, 235, 0.25);
+    }
+    [data-theme="light"] .main-chevron-badge.plan-badge {
+      background: rgba(16, 185, 129, 0.12);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    [data-theme="light"] .main-chevron-item.active .main-chevron-badge {
+      background: rgba(37, 99, 235, 0.18);
+      color: #1d4ed8;
+      border: 1px solid rgba(37, 99, 235, 0.45);
+    }
+    [data-theme="light"] .main-chevron-node {
+      background: #2563eb;
+      color: #ffffff;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 3px #2563eb, 0 4px 14px rgba(37, 99, 235, 0.45);
+    }
+    [data-theme="light"] .main-chevron-junction:hover .main-chevron-node {
+      box-shadow: 0 0 0 4px #2563eb, 0 6px 18px rgba(37, 99, 235, 0.65);
+    }
+    [data-theme="light"] .main-chevron-item.active::before {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    [data-theme="light"] .chevron-item[data-step="1"] .chevron-bg {
+      background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    }
+    [data-theme="light"] .chevron-item[data-step="2"] .chevron-bg {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+    [data-theme="light"] .chevron-item[data-step="3"] .chevron-bg {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+    [data-theme="light"] .chevron-item[data-step="4"] .chevron-bg {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    }
+    [data-theme="light"] .chevron-item[data-step="5"] .chevron-bg {
+      background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+    }
+    [data-theme="light"] .chevron-item[data-step="6"] .chevron-bg {
+      background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+    }
+    [data-theme="light"] .chevron-item[data-step="1"] .chevron-content {
+      color: #0369a1;
+    }
+    [data-theme="light"] .chevron-item:not([data-step="1"]) .chevron-content {
+      color: #ffffff;
+    }
+    [data-theme="light"] .chevron-item[data-step="1"] .chevron-node {
+      background: #ffffff;
+      color: #0369a1;
+      border: 2px solid #bae6fd;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    [data-theme="light"] .chevron-item:not([data-step="1"]) .chevron-node {
+      background: #2563eb;
+      color: #ffffff;
+      border: 2px solid #93c5fd;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    }
+    [data-theme="light"] .chevron-item.active .chevron-node,
+    [data-theme="light"] .chevron-node.active-highlight,
+    [data-theme="light"] .chevron-node:hover {
+      background: #2563eb;
+      color: #ffffff;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 3px #2563eb, 0 4px 14px rgba(37, 99, 235, 0.5);
+    }
+    [data-theme="light"] .chevron-item[data-step="1"] .chevron-meta {
+      background: rgba(2, 132, 199, 0.12);
+      color: #0369a1;
+      border: 1px solid rgba(2, 132, 199, 0.28);
+    }
+    [data-theme="light"] .chevron-item:not([data-step="1"]) .chevron-meta {
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    [data-theme="light"] .chevron-item.active .chevron-meta {
+      background: rgba(37, 99, 235, 0.25);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    [data-theme="light"] .chevron-item.active .chevron-bg {
+      filter: brightness(1.1) drop-shadow(0 0 10px rgba(37, 99, 235, 0.5));
+    }
+    [data-theme="light"] .chevron-item.active::before {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /* PIXEL PROGRESS LINE GRAPH ANIMATIONS & STYLING                             */
+    /* -------------------------------------------------------------------------- */
+    @keyframes pulseRing {
+      0% { r: 6px; opacity: 0.85; stroke-width: 2px; }
+      50% { r: 13px; opacity: 0.15; stroke-width: 1px; }
+      100% { r: 6px; opacity: 0.85; stroke-width: 2px; }
+    }
+
+    #pixel-graph-container svg text {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /* 4. RESPONSIVE BREAKPOINTS                                                  */
+    /* -------------------------------------------------------------------------- */
+    @media (max-width: 680px) {
+      .main-section-pipeline {
+        flex-direction: column;
+        gap: 0.65rem;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        overflow: visible;
+      }
+      .main-chevron-item {
+        min-height: auto;
+        padding: 0.95rem 1.15rem !important;
+        margin-left: 0 !important;
+        border-radius: var(--radius-md) !important;
+        border: 1.5px solid var(--border);
+      }
+      .main-chevron-item .chevron-bg {
+        clip-path: none !important;
+        border-radius: var(--radius-md);
+      }
+      .main-chevron-junction {
+        display: none !important;
+      }
+    }
+  </style>
+
+  <!-- ============================================================== -->
+  <!-- 1. TOP NAVIGATION & HEADER (Common to entire page)             -->
+  <!-- ============================================================== -->
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.25rem;">
+        <span style="font-size: 1.75rem; line-height: 1;">👛</span>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin: 0;">
+          Pixel Wallet &amp; Plan
+        </h1>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.925rem; margin: 0;">
+        Track your active pixel reserve, audit allocations, and plan your habit commitments.
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+      <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+        &larr; <span>Dashboard</span>
+      </a>
+      <a href="{% url 'habit_list' %}" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+        <span>📋 Habits Hub</span>
+      </a>
+      <a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+        <span>+</span> <span>New Habit</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 2. MAIN SECTION SELECTOR (PROCESS CHEVRON PIPELINE RIBBON)     -->
+  <!-- Pixel Wallet ⇄ Pixel Plan (Theme Synchronized, No "1, 2")     -->
+  <!-- ============================================================== -->
+  <div class="main-section-nav-wrap">
+    <div class="main-section-pipeline" id="main-section-pipeline" role="tablist">
+      <!-- Pixel Wallet Stage -->
+      <button type="button"
+              id="btn-section-pixel-wallet"
+              class="main-chevron-item {% if active_section != 'plan' %}active{% endif %}"
+              onclick="switchPixelSection('wallet')"
+              role="tab"
+              aria-selected="{% if active_section != 'plan' %}true{% else %}false{% endif %}"
+              title="Pixel Wallet">
+        <div class="chevron-bg"></div>
+        <div class="main-chevron-content">
+          <div class="main-chevron-left">
+            <span class="main-chevron-icon">👛</span>
+            <div class="main-chevron-text-col">
+              <div class="main-chevron-title">Pixel Wallet</div>
+              <div class="main-chevron-desc">Current Pixel Balance</div>
+            </div>
+          </div>
+          <span class="main-chevron-badge">
+            <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels" style="width: 15px; height: 15px; object-fit: contain;">
+            <span>{{ wallet_data.current_balance }} Px</span>
+          </span>
+        </div>
+      </button>
+
+      <!-- Pixel Plan Stage -->
+      <button type="button"
+              id="btn-section-pixels-plan"
+              class="main-chevron-item {% if active_section == 'plan' %}active{% endif %}"
+              onclick="switchPixelSection('plan')"
+              role="tab"
+              aria-selected="{% if active_section == 'plan' %}true{% else %}false{% endif %}"
+              title="Pixel Plan">
+        <div class="chevron-bg"></div>
+        <div class="main-chevron-content">
+          <div class="main-chevron-left">
+            <span class="main-chevron-icon">🎯</span>
+            <div class="main-chevron-text-col">
+              <div class="main-chevron-title">Pixel Plan</div>
+              <div class="main-chevron-desc">Allocation Plan &amp; Schedule</div>
+            </div>
+          </div>
+          <span class="main-chevron-badge plan-badge">
+            <span>{{ total_pixels }} Px/Day</span>
+          </span>
+        </div>
+      </button>
+
+      <!-- Floating Center Junction Marker: 100% Visible & Centered at the Chevron Seam -->
+      <div class="main-chevron-junction"
+           id="main-section-junction"
+           title="Switch Section (Pixel Wallet ⇄ Pixel Plan)"
+           onclick="toggleMainSection()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){toggleMainSection();event.preventDefault();}"
+           role="button"
+           tabindex="0">
+        <div class="main-chevron-node">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+            <path d="M4 8h16M16 4l4 4-4 4M20 16H4M8 12l-4 4 4 4"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- TAB 1: PIXEL WALLET TAB                                        -->
+  <!-- Exclusively displays the Current Pixel Balance card            -->
+  <!-- ============================================================== -->
+  <div id="section-pixel-wallet" class="pixel-section-content" style="display: {% if active_section != 'plan' %}block{% else %}none{% endif %};">
+    <div style="background: linear-gradient(135deg, var(--surface) 0%, var(--surface-raised) 100%); border: 2px solid var(--primary-border); border-radius: var(--radius-md); padding: 3.5rem 2rem; box-shadow: var(--shadow-md); text-align: center; max-width: 580px; margin: 2rem auto;">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 80px; height: 80px; border-radius: 999px; background: var(--primary-light); border: 2px solid var(--primary-border); margin-bottom: 1.5rem;">
+        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels" style="width: 48px; height: 48px; object-fit: contain;">
+      </div>
+
+      <div style="font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.5rem;">
+        Current Pixel Balance
+      </div>
+
+      <div style="font-size: 5rem; font-weight: 900; color: var(--primary); line-height: 1; margin: 0.5rem 0 1rem 0; display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
+        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels" style="width: 54px; height: 54px; object-fit: contain;">
+        <span>{{ wallet_data.current_balance }}</span>
+        <span style="font-size: 2rem; font-weight: 700; color: var(--text-muted);">Px</span>
+      </div>
+
+      <div style="font-size: 0.95rem; font-weight: 600; color: var(--success); margin-top: 0.5rem;">
+        Active Retained Energy
+      </div>
+    </div>
+  </div> <!-- end #section-pixel-wallet -->
+
+  <!-- ============================================================== -->
+  <!-- TAB 2: PIXEL PLAN TAB                                          -->
+  <!-- Multi-Menu Section with Chevron Pipeline Navigation            -->
+  <!-- ============================================================== -->
+  <div id="section-pixels-plan" class="pixel-section-content" style="display: {% if active_section == 'plan' %}block{% else %}none{% endif %};">
+
+    <!-- ============================================================ -->
+    <!-- MULTI-MENU SECTION: 6-DOMAIN CHEVRON PIPELINE NAVIGATOR      -->
+    <!-- ============================================================ -->
+    <div class="plan-domains-nav-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.35rem;">🧭</span>
+          <div>
+            <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0; display: inline-flex; align-items: center; gap: 0.5rem;">
+              Plan Domains Navigator
+              <span class="badge" style="background: var(--primary-light); color: var(--primary); font-size: 0.75rem; font-weight: 700; border: 1px solid var(--primary-border);">
+                6 Dedicated Modules
+              </span>
+            </h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0;">
+              Click any module to inspect its domain individually, rather than all in one place.
+            </p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button type="button"
+                  id="btn-toggle-view-all"
+                  onclick="togglePlanViewMode()"
+                  class="btn btn-outline btn-sm"
+                  style="font-size: 0.8rem; padding: 0.35rem 0.75rem; display: inline-flex; align-items: center; gap: 0.4rem; border-radius: var(--radius-sm);">
+            <span id="view-mode-icon">👁️</span>
+            <span id="view-mode-label">Show All Sections</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Horizontal Chevron Pipeline Ribbon (Reference Design) -->
+      <div class="chevron-pipeline-scroll-wrap">
+        <div class="chevron-pipeline" id="chevron-plan-pipeline" role="tablist">
+          
+          <!-- 1. Next Allocation Details -->
+          <button type="button"
+                  id="chevron-btn-1"
+                  class="chevron-item {% if active_tab == 1 %}active{% endif %}"
+                  data-step="1"
+                  onclick="switchPlanDomain(1)"
+                  role="tab"
+                  aria-selected="{% if active_tab == 1 %}true{% else %}false{% endif %}"
+                  title="Next Allocation Details">
+            <div class="chevron-bg"></div>
+            <div class="chevron-node" title="Go to Next: Source of Each Allocation" onclick="event.stopPropagation(); switchPlanDomain(2);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                <path d="M5 12h14M13 5l7 7-7 7"/>
+              </svg>
+            </div>
+            <div class="chevron-content">
+              <div class="chevron-top-icon">📅</div>
+              <div class="chevron-title">Next Allocation Details</div>
+              <div class="chevron-meta">⏳ In {{ days_until_next_allocation }} Day{{ days_until_next_allocation|pluralize }}</div>
+            </div>
+          </button>
+
+          <!-- 2. Source of Each Allocation -->
+          <button type="button"
+                  id="chevron-btn-2"
+                  class="chevron-item {% if active_tab == 2 %}active{% endif %}"
+                  data-step="2"
+                  onclick="switchPlanDomain(2)"
+                  role="tab"
+                  aria-selected="{% if active_tab == 2 %}true{% else %}false{% endif %}"
+                  title="Source of Each Allocation">
+            <div class="chevron-bg"></div>
+            <div class="chevron-node" title="Go to Next: Pixel Progress Graph" onclick="event.stopPropagation(); switchPlanDomain(3);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                <path d="M5 12h14M13 5l7 7-7 7"/>
+              </svg>
+            </div>
+            <div class="chevron-content">
+              <div class="chevron-top-icon">🔍</div>
+              <div class="chevron-title">Source of Each Allocation</div>
+              <div class="chevron-meta">{{ total_gross_allocated }} Px Ledger</div>
+            </div>
+          </button>
+
+          <!-- 3. Pixel Progress Graph -->
+          <button type="button"
+                  id="chevron-btn-3"
+                  class="chevron-item {% if active_tab == 3 %}active{% endif %}"
+                  data-step="3"
+                  onclick="switchPlanDomain(3)"
+                  role="tab"
+                  aria-selected="{% if active_tab == 3 %}true{% else %}false{% endif %}"
+                  title="Pixel Progress Graph">
+            <div class="chevron-bg"></div>
+            <div class="chevron-node" title="Go to Next: Habit Allocations &amp; Breakdown" onclick="event.stopPropagation(); switchPlanDomain(4);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                <path d="M5 12h14M13 5l7 7-7 7"/>
+              </svg>
+            </div>
+            <div class="chevron-content">
+              <div class="chevron-top-icon">📊</div>
+              <div class="chevron-title">Pixel Progress Graph</div>
+              <div class="chevron-meta">{{ month_earned_pixels }} Px Secured</div>
+            </div>
+          </button>
+
+          <!-- 4. Habit Allocations & Wallet Breakdown -->
+          <button type="button"
+                  id="chevron-btn-4"
+                  class="chevron-item {% if active_tab == 4 %}active{% endif %}"
+                  data-step="4"
+                  onclick="switchPlanDomain(4)"
+                  role="tab"
+                  aria-selected="{% if active_tab == 4 %}true{% else %}false{% endif %}"
+                  title="Habit Allocations & Wallet Breakdown">
+            <div class="chevron-bg"></div>
+            <div class="chevron-node" title="Go to Next: Weekly Commitment Schedule" onclick="event.stopPropagation(); switchPlanDomain(5);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                <path d="M5 12h14M13 5l7 7-7 7"/>
+              </svg>
+            </div>
+            <div class="chevron-content">
+              <div class="chevron-top-icon">📋</div>
+              <div class="chevron-title">Habit Allocations &amp; Breakdown</div>
+              <div class="chevron-meta">{{ wallet_data.habits_breakdown|length }} Habits Tracked</div>
+            </div>
+          </button>
+
+          <!-- 5. Weekly Day-by-Day Commitment Schedule -->
+          <button type="button"
+                  id="chevron-btn-5"
+                  class="chevron-item {% if active_tab == 5 %}active{% endif %}"
+                  data-step="5"
+                  onclick="switchPlanDomain(5)"
+                  role="tab"
+                  aria-selected="{% if active_tab == 5 %}true{% else %}false{% endif %}"
+                  title="Weekly Day-by-Day Commitment Schedule">
+            <div class="chevron-bg"></div>
+            <div class="chevron-node" title="Go to Next: How Your Pixel Wallet Works" onclick="event.stopPropagation(); switchPlanDomain(6);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                <path d="M5 12h14M13 5l7 7-7 7"/>
+              </svg>
+            </div>
+            <div class="chevron-content">
+              <div class="chevron-top-icon">🗓️</div>
+              <div class="chevron-title">Weekly Commitment Schedule</div>
+              <div class="chevron-meta">7-Day Cadence</div>
+            </div>
+          </button>
+
+          <!-- 6. How Your Pixel Wallet Works -->
+          <button type="button"
+                  id="chevron-btn-6"
+                  class="chevron-item {% if active_tab == 6 %}active{% endif %}"
+                  data-step="6"
+                  onclick="switchPlanDomain(6)"
+                  role="tab"
+                  aria-selected="{% if active_tab == 6 %}true{% else %}false{% endif %}"
+                  title="How Your Pixel Wallet Works">
+            <div class="chevron-bg"></div>
+            <div class="chevron-content">
+              <div class="chevron-top-icon">📖</div>
+              <div class="chevron-title">How Your Pixel Wallet Works</div>
+              <div class="chevron-meta">Core Guidelines</div>
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Quick Step Status & Directional Navigation Bar -->
+      <div class="plan-domain-status-bar" id="plan-domain-status-bar" style="display: flex; justify-content: space-between; align-items: center; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 1rem; margin-top: 0.75rem; font-size: 0.85rem;">
+        <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+          <span class="badge" style="background: var(--primary); color: var(--primary-text); font-weight: 800; font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 999px;" id="status-bar-step-badge">
+            Domain {{ active_tab }} of 6
+          </span>
+          <span style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;" id="status-bar-title">
+            {% if active_tab == 1 %}Next Allocation Details{% elif active_tab == 2 %}Source of Each Allocation{% elif active_tab == 3 %}Pixel Progress Graph{% elif active_tab == 4 %}Habit Allocations &amp; Wallet Breakdown{% elif active_tab == 5 %}Weekly Day-by-Day Commitment Schedule{% else %}How Your Pixel Wallet Works{% endif %}
+          </span>
+        </div>
+        <div style="display: flex; gap: 0.45rem; align-items: center;">
+          <button type="button" id="btn-prev-domain" onclick="navigateDomain(-1)" class="btn btn-outline btn-sm" style="padding: 0.25rem 0.7rem; font-size: 0.8rem;" {% if active_tab <= 1 %}disabled{% endif %}>
+            &larr; Prev Domain
+          </button>
+          <button type="button" id="btn-next-domain" onclick="navigateDomain(1)" class="btn btn-primary btn-sm" style="padding: 0.25rem 0.7rem; font-size: 0.8rem;" {% if active_tab >= 6 %}disabled{% endif %}>
+            Next Domain &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- DOMAIN 1 PANE: NEXT ALLOCATION DETAILS                       -->
+    <!-- ============================================================ -->
+    <div id="plan-domain-pane-1" class="plan-domain-pane" data-domain="1" style="display: {% if active_tab == 1 %}block{% else %}none{% endif %};">
+      <div style="background: var(--surface); border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.25rem;">
+              <span style="font-size: 1.4rem;">📅</span>
+              <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">
+                1. Next Allocation Details
+              </h3>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 800; font-size: 0.8rem; padding: 0.25rem 0.65rem;">
+                ⏳ {{ days_until_next_allocation }} Day{{ days_until_next_allocation|pluralize }} Remaining
+              </span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+              Scheduled monthly cycle routine reallocation based on your active habit cadence and retained balance.
+            </p>
+          </div>
+
+          <div style="background: var(--surface-raised); padding: 0.5rem 0.95rem; border-radius: var(--radius-sm); border: 1.5px solid rgba(16, 185, 129, 0.35); font-weight: 800; color: #10b981; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 0.45rem;">
+          <span>🗓️</span>
+          <span>{{ next_allocation_date|date:"F 1, Y" }}</span>
+        </div>
+      </div>
+
+      <!-- 5-Metric Next Allocation Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.85rem; margin-bottom: 1.25rem;">
+        <!-- 1. Next Allocation Date -->
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem;">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.35rem;">
+            Next Allocation Date
+          </div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">
+            {{ next_allocation_date|date:"F 1, Y" }}
+          </div>
+          <div style="font-size: 0.75rem; color: #10b981; font-weight: 600;">
+            {{ days_until_next_allocation }} day{{ days_until_next_allocation|pluralize }} until cycle reset
+          </div>
+        </div>
+
+        <!-- 2. Supposed Pixels to be Allocated -->
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem;">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.35rem;">
+            Supposed Pixels to be Allocated
+          </div>
+          <div style="font-size: 1.5rem; font-weight: 800; color: #10b981; margin-bottom: 0.25rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+            <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels">
+            +{{ supposed_allocation_pixels }} Px
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">
+            {{ total_pixels }} Px/day &times; {{ days_in_next_month }} days in {{ next_allocation_date|date:"F" }}
+          </div>
+        </div>
+
+        <!-- 3. Current Preserved Pixel -->
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem;">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.35rem;">
+            Current Preserved Pixel
+          </div>
+          <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin-bottom: 0.25rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+            <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels">
+            {{ current_preserved_pixels }} Px
+          </div>
+          <div style="font-size: 0.75rem; color: #10b981; font-weight: 600;">
+            Retained balance from {{ wallet_data.month_name }}
+          </div>
+        </div>
+
+        <!-- 4. Projected Rollover Pixel (If 100% Retained) -->
+        <div style="background: var(--surface-raised); border: 1.5px solid var(--primary-border); border-radius: var(--radius-sm); padding: 1rem;">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.35rem;">
+            Projected Rollover Pixel if 100% Retained
+          </div>
+          <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary); margin-bottom: 0.25rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+            <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels">
+            {{ projected_rollover_if_100_percent }} Px
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">
+            Initial ({{ wallet_data.allocated_pixels }} Px) + Next ({{ supposed_allocation_pixels }} Px)
+          </div>
+        </div>
+
+        <!-- 5. Projected Rollover Pixels (Based on Current Preserved Status) -->
+        <div style="background: var(--surface-raised); border: 1.5px solid rgba(16, 185, 129, 0.4); border-radius: var(--radius-sm); padding: 1rem;">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.35rem;">
+            Projected Rollover Pixels (Current Status)
+          </div>
+          <div style="font-size: 1.5rem; font-weight: 800; color: #10b981; margin-bottom: 0.25rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+            <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels">
+            {{ projected_rollover_current }} Px
+          </div>
+          <div style="font-size: 0.75rem; color: #10b981; font-weight: 600;">
+            Preserved ({{ current_preserved_pixels }} Px) + Next ({{ supposed_allocation_pixels }} Px)
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanation Callout -->
+      <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 0.85rem 1rem; font-size: 0.85rem; color: var(--text-main); line-height: 1.5;">
+        💡 <strong>Routined Reallocation Mechanic:</strong> At the end of the monthly cycle on <strong>{{ next_allocation_date|date:"F 1, Y" }}</strong>, the system will reallocate an additional <strong>+{{ supposed_allocation_pixels }} Pixels</strong> ({{ total_pixels }} Px/day &times; {{ days_in_next_month }} days). If you retain your entire {{ current_preserved_pixels }} Px balance without misses, your valid wallet balance will automatically update and roll forward to <strong>{{ projected_rollover_current }} Px</strong>!
+      </div>
+
+      <!-- Domain 1 Quick Navigation Footer -->
+      <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 1.25rem;">
+        <button type="button" onclick="switchPlanDomain(2, true)" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          <span>Proceed to 2. Source of Each Allocation</span> &rarr;
+        </button>
+      </div>
+    </div> <!-- end inner card div -->
+  </div> <!-- end #plan-domain-pane-1 -->
+
+    <!-- ============================================================ -->
+    <!-- DOMAIN 2 PANE: SOURCE OF EACH PIXEL ALLOCATION               -->
+    <!-- ============================================================ -->
+    <div id="plan-domain-pane-2" class="plan-domain-pane" data-domain="2" style="display: {% if active_tab == 2 %}block{% else %}none{% endif %};">
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.3rem;">🔍</span>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">
+              2. Source of Each Allocation
+            </h3>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
+            Audit ledger detailing <strong>how</strong>, <strong>why</strong>, and <strong>when</strong> each pixel was allocated to your account.
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <span class="badge" style="background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); font-weight: 700; font-size: 0.8rem; padding: 0.3rem 0.65rem;">
+            Total Gross Allocated: {{ total_gross_allocated }} Px
+          </span>
+          <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; font-size: 0.8rem; padding: 0.3rem 0.65rem;">
+            {{ allocation_sources|length }} Source{{ allocation_sources|length|pluralize }}
+          </span>
+        </div>
+      </div>
+
+      {% if allocation_sources %}
+        <div style="background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+            <thead>
+              <tr style="background: var(--surface-raised); border-bottom: 1.5px solid var(--border); color: var(--text-dim); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+                <th style="padding: 0.75rem 0.9rem;">Source / Event</th>
+                <th style="padding: 0.75rem 0.9rem;">Amount</th>
+                <th style="padding: 0.75rem 0.9rem;">How (Calculation / Mechanism)</th>
+                <th style="padding: 0.75rem 0.9rem;">Why (Reason &amp; Purpose)</th>
+                <th style="padding: 0.75rem 0.9rem;">When (Allocation Date)</th>
+                <th style="padding: 0.75rem 0.9rem;">Current State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for src in allocation_sources %}
+                <tr style="border-bottom: 1px solid var(--border-subtle);">
+                  <td style="padding: 0.85rem 0.9rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <span style="font-size: 1.25rem;">{{ src.icon }}</span>
+                      <div>
+                        <div style="font-weight: 700; color: var(--text-main);">{{ src.title }}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">{{ src.source_type }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem; white-space: nowrap;">
+                    <span class="badge" style="background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); font-weight: 800; font-size: 0.875rem; padding: 0.25rem 0.6rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                      <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels" style="width: 13px; height: 13px;">
+                      +{{ src.amount }} Px
+                    </span>
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem; color: var(--text-main); font-weight: 500;">
+                    <code style="font-size: 0.8rem; background: var(--surface-raised); padding: 0.2rem 0.45rem; border-radius: 4px; border: 1px solid var(--border); color: var(--primary);">
+                      {{ src.how }}
+                    </code>
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem; color: var(--text-muted); font-size: 0.825rem;">
+                    {{ src.why }}
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem; white-space: nowrap; font-size: 0.8rem; color: var(--text-main);">
+                    {% if src.when %}
+                      <div>{{ src.when|date:"M d, Y" }}</div>
+                      <div style="font-size: 0.7rem; color: var(--text-muted);">{{ src.when|date:"h:i A" }}</div>
+                    {% elif src.when_date %}
+                      <div>{{ src.when_date|date:"M d, Y" }}</div>
+                      <div style="font-size: 0.7rem; color: var(--text-muted);">Cycle Start</div>
+                    {% else %}
+                      <span>--</span>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem; white-space: nowrap;">
+                    <span class="badge" style="background: var(--surface-raised); border: 1px solid var(--border); color: var(--text-main); font-size: 0.75rem; font-weight: 600;">
+                      {{ src.status }}
+                    </span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div style="padding: 2.5rem; text-align: center; background: var(--surface-raised); border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 0.875rem;">
+          No pixel allocations recorded yet. Create a habit to begin your monthly pixel allocations!
+        </div>
+      {% endif %}
+
+      <!-- Domain 2 Quick Navigation Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <button type="button" onclick="switchPlanDomain(1, true)" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          &larr; <span>1. Next Allocation Details</span>
+        </button>
+        <button type="button" onclick="switchPlanDomain(3, true)" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          <span>Proceed to 3. Pixel Progress Graph</span> &rarr;
+        </button>
+      </div>
+    </div> <!-- end inner card div -->
+  </div> <!-- end #plan-domain-pane-2 -->
+
+    <!-- ============================================================ -->
+    <!-- DOMAIN 3 PANE: PIXEL PROGRESS GRAPH                          -->
+    <!-- ============================================================ -->
+    <div id="plan-domain-pane-3" class="plan-domain-pane" data-domain="3" style="display: {% if active_tab == 3 %}block{% else %}none{% endif %};">
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.35rem;">📈</span>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">
+              3. Pixel Progress Graph
+            </h3>
+          </div>
+          <div id="graph-mode-description" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">
+            Continuous line graph displaying cumulative pixels secured vs planned monthly target across {{ wallet_data.month_name }}.
+          </div>
+        </div>
+
+        <!-- Mode Toggle & Summary Badges -->
+        <div style="display: flex; gap: 0.55rem; align-items: center; flex-wrap: wrap;">
+          <!-- Dual-Mode Switcher: Cumulative vs Daily -->
+          <div class="btn-group" role="group" style="display: inline-flex; background: var(--surface-raised); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 3px;">
+            <button type="button"
+                    id="btn-graph-mode-cum"
+                    onclick="setGraphMode('cumulative')"
+                    class="btn btn-sm"
+                    style="font-size: 0.75rem; font-weight: 800; padding: 0.3rem 0.7rem; border-radius: calc(var(--radius-sm) - 2px); background: var(--primary); color: var(--primary-text); border: none; transition: all 0.2s ease;">
+              📈 Cumulative Trajectory
+            </button>
+            <button type="button"
+                    id="btn-graph-mode-daily"
+                    onclick="setGraphMode('daily')"
+                    class="btn btn-sm"
+                    style="font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: calc(var(--radius-sm) - 2px); background: transparent; color: var(--text-muted); border: none; transition: all 0.2s ease;">
+              📊 Daily Velocity
+            </button>
+          </div>
+
+          <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; font-size: 0.8rem; padding: 0.3rem 0.65rem;">
+            Secured: <strong>{{ month_earned_pixels }} Px</strong>
+          </span>
+          {% if month_missed_pixels > 0 %}
+            <span class="badge" style="background: rgba(239, 68, 68, 0.12); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; font-size: 0.8rem; padding: 0.3rem 0.65rem;">
+              Missed: <strong>-{{ month_missed_pixels }} Px</strong>
+            </span>
+          {% endif %}
+          <span class="badge" style="background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); font-weight: 700; font-size: 0.8rem; padding: 0.3rem 0.65rem;">
+            Capacity: <strong>{{ monthly_plan_capacity }} Px</strong>
+          </span>
+        </div>
+      </div>
+
+      <!-- Line Graph Canvas Card -->
+      <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem 1.25rem 0.75rem 1.25rem; position: relative;">
+        <!-- Card Top Bar: Y-Axis Unit & Current Pace -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.78rem; color: var(--text-muted);">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span id="graph-y-axis-title" style="font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); font-size: 0.75rem;">
+              Cumulative Pixels (0 &ndash; {{ monthly_plan_capacity }} Px)
+            </span>
+            <span style="opacity: 0.4;">&bull;</span>
+            <span>Timeline: {{ wallet_data.month_name }} (1 to {{ days_in_month }})</span>
+          </div>
+          <div id="graph-current-value-pill" style="font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 0.35rem;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+            <span>Current Secured: <strong>{{ month_earned_pixels }} Px</strong></span>
+          </div>
+        </div>
+
+        <!-- SVG Line Graph Container -->
+        <div style="position: relative; width: 100%; min-height: 290px;" id="pixel-graph-container">
+          <svg id="pixel-line-graph-svg"
+               viewBox="0 0 1000 310"
+               style="width: 100%; height: 290px; display: block; overflow: visible; cursor: crosshair;">
+            <defs>
+              <!-- Actual Secured Area Fill Gradient -->
+              <linearGradient id="lineActualGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+                <stop offset="85%" stop-color="#10b981" stop-opacity="0.04"/>
+                <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+              </linearGradient>
+
+              <!-- Target Baseline Area Fill Gradient -->
+              <linearGradient id="lineTargetGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.12"/>
+                <stop offset="100%" stop-color="var(--primary)" stop-opacity="0.0"/>
+              </linearGradient>
+
+              <!-- Glow Filter for the Main Active Line -->
+              <filter id="neonLineGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- Horizontal Grid lines & Y-Axis Scale -->
+            <g id="svg-grid-group"></g>
+
+            <!-- Target Area & Planned Baseline Curve -->
+            <path id="svg-target-area" fill="url(#lineTargetGradient)"></path>
+            <path id="svg-target-line" fill="none" stroke="var(--primary)" stroke-width="2" stroke-dasharray="6,5" opacity="0.65"></path>
+
+            <!-- Actual Secured Area & Curve -->
+            <path id="svg-actual-area" fill="url(#lineActualGradient)"></path>
+            <path id="svg-actual-line" fill="none" stroke="#10b981" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#neonLineGlow)"></path>
+
+            <!-- Projected Trajectory Line (from Today into the Future) -->
+            <path id="svg-projected-line" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4,4" opacity="0.45"></path>
+
+            <!-- Interactive Vertical Crosshair Line -->
+            <line id="svg-crosshair" x1="0" y1="20" x2="0" y2="265" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" pointer-events="none"></line>
+
+            <!-- Interactive Data Points / Nodes -->
+            <g id="svg-points-group"></g>
+
+            <!-- X-Axis Scale & Timeline Labels -->
+            <g id="svg-x-axis-group"></g>
+          </svg>
+
+          <!-- Floating Interactive Hover Tooltip -->
+          <div id="svg-graph-tooltip"
+               style="position: absolute; display: none; pointer-events: none; background: rgba(13, 17, 26, 0.95); backdrop-filter: blur(8px); border: 1.5px solid var(--primary-border); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; box-shadow: 0 12px 28px -4px rgba(0,0,0,0.7); z-index: 50; font-size: 0.8rem; color: #ffffff; min-width: 180px; transform: translate(-50%, -115%); transition: left 0.08s ease-out, top 0.08s ease-out, opacity 0.15s ease;">
+            <div id="tooltip-date" style="font-weight: 800; font-size: 0.85rem; margin-bottom: 0.3rem; color: var(--primary);"></div>
+            <div id="tooltip-body" style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.78rem;"></div>
+          </div>
+        </div>
+
+        <!-- Line Graph Interactive Legend -->
+        <div style="display: flex; gap: 1.5rem; justify-content: center; align-items: center; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span style="display: inline-block; width: 16px; height: 3.5px; background: #10b981; border-radius: 2px;"></span>
+            <span style="font-weight: 700; color: var(--text-main);">Secured Pixels Line</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span style="display: inline-block; width: 16px; height: 2px; border-top: 2px dashed var(--primary);"></span>
+            <span>Scheduled Target Baseline</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span style="display: inline-block; width: 9px; height: 9px; background: #ef4444; border-radius: 50%;"></span>
+            <span>Missed Day (Deduction)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span style="display: inline-block; width: 9px; height: 9px; background: var(--primary); border: 2px solid #ffffff; border-radius: 50%;"></span>
+            <span style="font-weight: 700; color: var(--primary);">Today's Anchor</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compact Month Performance Stats Row -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-top: 1rem;">
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.6rem;">🎯</span>
+          <div>
+            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Month Retention</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">
+              {{ wallet_data.health_percent }}%
+            </div>
+          </div>
+        </div>
+
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.6rem;">⚡</span>
+          <div>
+            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Daily Cadence Velocity</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #10b981;">
+              {{ total_pixels }} Px / Day
+            </div>
+          </div>
+        </div>
+
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.6rem;">👛</span>
+          <div>
+            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Active Wallet Balance</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);">
+              {{ wallet_data.current_balance }} Px
+            </div>
+          </div>
+        </div>
+
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.6rem;">⏳</span>
+          <div>
+            <div style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Next Rollover</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main);">
+              {{ days_until_next_allocation }} Days
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Domain 3 Quick Navigation Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <button type="button" onclick="switchPlanDomain(2, true)" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          &larr; <span>2. Source of Each Allocation</span>
+        </button>
+        <button type="button" onclick="switchPlanDomain(4, true)" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          <span>Proceed to 4. Habit Allocations &amp; Breakdown</span> &rarr;
+        </button>
+      </div>
+    </div> <!-- end inner card div -->
+  </div> <!-- end #plan-domain-pane-3 -->
+
+    <!-- ============================================================ -->
+    <!-- DOMAIN 4 PANE: HABIT ALLOCATIONS & WALLET BREAKDOWN          -->
+    <!-- ============================================================ -->
+    <div id="plan-domain-pane-4" class="plan-domain-pane" data-domain="4" style="display: {% if active_tab == 4 %}block{% else %}none{% endif %};">
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.3rem;">📋</span>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">
+              4. Habit Allocations &amp; Wallet Breakdown
+            </h3>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
+            Detailed breakdown of daily scores, cycle days, initial allocations, missed deductions, and active balances per habit.
+          </div>
+        </div>
+        <span class="badge" style="background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); font-weight: 700; font-size: 0.8rem; padding: 0.3rem 0.65rem;">
+          Total Daily Pixels: {{ total_pixels }} Px/Day
+        </span>
+      </div>
+
+      {% if wallet_data.habits_breakdown %}
+        <div style="background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+            <thead>
+              <tr style="background: var(--surface-raised); border-bottom: 1.5px solid var(--border); color: var(--text-dim); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+                <th style="padding: 0.75rem 0.9rem;">Task / Habit</th>
+                <th style="padding: 0.75rem 0.9rem;">Daily Score</th>
+                <th style="padding: 0.75rem 0.9rem;">Cycle Days</th>
+                <th style="padding: 0.75rem 0.9rem;">Initial Allocated</th>
+                <th style="padding: 0.75rem 0.9rem;">Missed Deductions</th>
+                <th style="padding: 0.75rem 0.9rem;">Active in Wallet</th>
+                <th style="padding: 0.75rem 0.9rem;">Today's Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in wallet_data.habits_breakdown %}
+                <tr style="border-bottom: 1px solid var(--border-subtle);">
+                  <td style="padding: 0.85rem 0.9rem;">
+                    <div style="font-weight: 700; color: var(--text-main);">{{ item.habit.name }}</div>
+                    <div style="display: flex; gap: 0.35rem; align-items: center; margin-top: 0.25rem;">
+                      <span class="badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem; background: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border);">
+                        {{ item.habit.get_habit_type_display }}
+                      </span>
+                      {% if item.habit.category %}
+                        <span class="badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem; background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border);">
+                          {{ item.habit.category.name }}
+                        </span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem;">
+                    <span class="badge" style="background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); font-weight: 700; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                      <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ item.daily_score }} Pixel{{ item.daily_score|pluralize }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem; color: var(--text-main); font-weight: 500;">
+                    {{ item.pending_days }} day{{ item.pending_days|pluralize }}
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem; font-weight: 700; color: var(--text-main);">
+                    {{ item.allocated_pixels }} Px
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem;">
+                    {% if item.lost_pixels > 0 %}
+                      <span style="color: var(--danger); font-weight: 700;">-{{ item.lost_pixels }} Px</span>
+                      <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">({{ item.missed_days }} missed)</span>
+                    {% else %}
+                      <span style="color: #10b981; font-weight: 600;">0 Px (Solid)</span>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem;">
+                    <span style="font-weight: 800; color: var(--primary); font-size: 0.95rem;">
+                      {{ item.retained_pixels }} Px
+                    </span>
+                  </td>
+                  <td style="padding: 0.85rem 0.9rem;">
+                    {% if item.is_scheduled_today %}
+                      {% if item.is_completed_today %}
+                        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700; font-size: 0.75rem;">
+                          ✅ Completed Today
+                        </span>
+                      {% else %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 700; font-size: 0.75rem;">
+                          ⏳ Pending Today (-{{ item.daily_score }} Px at risk)
+                        </span>
+                      {% endif %}
+                    {% else %}
+                      <span class="badge" style="background: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border); font-size: 0.75rem;">
+                        🏖️ Unscheduled (Safe)
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state" style="padding: 2.5rem 1.5rem; text-align: center; background: var(--surface-raised); border: 1px dashed var(--border); border-radius: var(--radius-sm);">
+          <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">👛</div>
+          <h4 style="margin: 0 0 0.4rem 0; font-weight: 700;">No Active Habits in This Workspace</h4>
+          <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 440px; margin: 0 auto 1.25rem auto;">
+            Add habits to your workspace to allocate monthly pixels and begin building your Pixel Wallet energy!
+          </p>
+          <a href="{% url 'habit_create' %}" class="btn btn-primary btn-sm">
+            + Create Your First Habit
+          </a>
+        </div>
+      {% endif %}
+
+      <!-- Domain 4 Quick Navigation Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <button type="button" onclick="switchPlanDomain(3, true)" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          &larr; <span>3. Pixel Progress Graph</span>
+        </button>
+        <button type="button" onclick="switchPlanDomain(5, true)" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          <span>Proceed to 5. Weekly Commitment Schedule</span> &rarr;
+        </button>
+      </div>
+    </div> <!-- end inner card div -->
+  </div> <!-- end #plan-domain-pane-4 -->
+
+    <!-- ============================================================ -->
+    <!-- DOMAIN 5 PANE: WEEKLY DAY-BY-DAY COMMITMENT SCHEDULE         -->
+    <!-- ============================================================ -->
+    <div id="plan-domain-pane-5" class="plan-domain-pane" data-domain="5" style="display: {% if active_tab == 5 %}block{% else %}none{% endif %};">
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.3rem;">📅</span>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">
+              5. Weekly Day-by-Day Commitment Schedule
+            </h3>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
+            Shows planned pixel commitments and active habits scheduled for each day of the week.
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem;">
+        {% for day in weekly_plan %}
+          <div style="background: var(--surface-raised); border: {% if day.is_today %}2px solid var(--primary){% else %}1px solid var(--border){% endif %}; border-radius: var(--radius-sm); padding: 1rem; position: relative;">
+            {% if day.is_today %}
+              <span class="badge" style="position: absolute; top: -9px; right: 8px; background: var(--primary); color: white; font-size: 0.65rem; padding: 0.1rem 0.4rem; font-weight: 800;">
+                TODAY
+              </span>
+            {% endif %}
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+              {{ day.full_name }}
+            </div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: {% if day.pixels > 0 %}var(--primary){% else %}var(--text-muted){% endif %}; margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.25rem;">
+              <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels" style="width: 14px; height: 14px;">
+              {{ day.pixels }} <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Px</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              {{ day.habits_count }} habit{{ day.habits_count|pluralize }}
+            </div>
+            {% if day.habits %}
+              <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                {% for h in day.habits|slice:":3" %}
+                  <span style="font-size: 0.7rem; color: var(--text-main); background: var(--surface); border: 1px solid var(--border); padding: 0.15rem 0.35rem; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ h.name }} ({{ h.pixel_score }} Px)">
+                    {{ h.name }}
+                  </span>
+                {% endfor %}
+                {% if day.habits|length > 3 %}
+                  <span style="font-size: 0.65rem; color: var(--text-muted);">+{{ day.habits|length|add:"-3" }} more</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <div style="font-size: 0.7rem; color: var(--text-muted); font-style: italic;">
+                Rest Day (0 Px)
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Domain 5 Quick Navigation Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <button type="button" onclick="switchPlanDomain(4, true)" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          &larr; <span>4. Habit Allocations &amp; Breakdown</span>
+        </button>
+        <button type="button" onclick="switchPlanDomain(6, true)" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          <span>Proceed to 6. How Your Pixel Wallet Works</span> &rarr;
+        </button>
+      </div>
+    </div> <!-- end inner card div -->
+  </div> <!-- end #plan-domain-pane-5 -->
+
+    <!-- ============================================================ -->
+    <!-- DOMAIN 6 PANE: HOW YOUR PIXEL WALLET WORKS                   -->
+    <!-- ============================================================ -->
+    <div id="plan-domain-pane-6" class="plan-domain-pane" data-domain="6" style="display: {% if active_tab == 6 %}block{% else %}none{% endif %};">
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <span style="font-size: 1.3rem;">📖</span>
+        <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0;">
+          6. How Your Pixel Wallet Works
+        </h3>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+        <div style="background: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <strong style="color: var(--text-main); display: block; margin-bottom: 0.35rem; font-size: 0.9rem;">
+            1. Initial Monthly Credit
+          </strong>
+          At the start of every month (or when a habit is created), the wallet is credited with an upfront pixel reserve:
+          <code style="display: block; margin-top: 0.45rem; color: var(--primary); font-size: 0.78rem; background: var(--surface); padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
+            Allocated = Daily Score &times; Pending Days in Month
+          </code>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <strong style="color: var(--text-main); display: block; margin-bottom: 0.35rem; font-size: 0.9rem;">
+            2. Daily Dedication &amp; Retention
+          </strong>
+          Completing your scheduled habits secures your allocated pixels. Every completed day preserves your <strong>100% Solid Energy</strong> without any deductions.
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <strong style="color: var(--danger); display: block; margin-bottom: 0.35rem; font-size: 0.9rem;">
+            3. Miss Deductions
+          </strong>
+          Failing to complete a scheduled day deducts the daily score from your active balance:
+          <code style="display: block; margin-top: 0.45rem; color: var(--danger); font-size: 0.78rem; background: var(--surface); padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
+            Lost = Missed Scheduled Days &times; Daily Score
+          </code>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <strong style="color: #10b981; display: block; margin-bottom: 0.35rem; font-size: 0.9rem;">
+            4. Routined Next-Month Rollover
+          </strong>
+          At the end of the month, retained pixels roll forward and combine with your next cycle's fresh allocation:
+          <code style="display: block; margin-top: 0.45rem; color: #10b981; font-size: 0.78rem; background: var(--surface); padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
+            Next Balance = Preserved Pixels + Next Month Allocation
+          </code>
+        </div>
+      </div>
+
+      <!-- Domain 6 Quick Navigation Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <button type="button" onclick="switchPlanDomain(5, true)" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          &larr; <span>5. Weekly Commitment Schedule</span>
+        </button>
+        <button type="button" onclick="switchPlanDomain(1, true)" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem;">
+          <span>Back to 1. Next Allocation Details</span> &uarr;
+        </button>
+      </div>
+    </div> <!-- end inner card div -->
+  </div> <!-- end #plan-domain-pane-6 -->
+
+  </div> <!-- end #section-pixels-plan -->
+</div>
+
+<script>
+let currentPlanDomain = {{ active_tab|default:1 }};
+let isPlanViewAllMode = false;
+const progressGraphData = {{ progress_graph_json|default:"[]"|safe }};
+let currentGraphMode = "cumulative";
+
+const planDomainTitles = [
+  "Next Allocation Details",
+  "Source of Each Allocation",
+  "Pixel Progress Graph",
+  "Habit Allocations & Wallet Breakdown",
+  "Weekly Day-by-Day Commitment Schedule",
+  "How Your Pixel Wallet Works"
+];
+
+function switchPlanDomain(domainNum, smoothScroll = false) {
+  currentPlanDomain = parseInt(domainNum, 10);
+  if (isNaN(currentPlanDomain) || currentPlanDomain < 1) currentPlanDomain = 1;
+  if (currentPlanDomain > 6) currentPlanDomain = 6;
+
+  if (isPlanViewAllMode) {
+    const targetPane = document.getElementById(`plan-domain-pane-${currentPlanDomain}`);
+    if (targetPane && smoothScroll) {
+      targetPane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } else {
+    // Hide all 6 panes, show only the active one
+    for (let i = 1; i <= 6; i++) {
+      const pane = document.getElementById(`plan-domain-pane-${i}`);
+      if (pane) {
+        pane.style.display = (i === currentPlanDomain) ? "block" : "none";
+      }
+    }
+  }
+
+  // Update active state on all 6 chevron items
+  for (let i = 1; i <= 6; i++) {
+    const btn = document.getElementById(`chevron-btn-${i}`);
+    if (btn) {
+      if (i === currentPlanDomain) {
+        btn.classList.add("active");
+        btn.setAttribute("aria-selected", "true");
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      } else {
+        btn.classList.remove("active");
+        btn.setAttribute("aria-selected", "false");
+      }
+    }
+  }
+
+  // When domain 6 is active, highlight domain 5's transition node pointing into domain 6
+  const node5 = document.querySelector("#chevron-btn-5 .chevron-node");
+  if (node5) {
+    if (currentPlanDomain === 6) {
+      node5.classList.add("active-highlight");
+    } else {
+      node5.classList.remove("active-highlight");
+    }
+  }
+
+  // If domain 3 is active, refresh the SVG line graph
+  if (currentPlanDomain === 3 || isPlanViewAllMode) {
+    setTimeout(renderPixelLineGraph, 50);
+  }
+
+  // Update Status Bar info
+  const badge = document.getElementById("status-bar-step-badge");
+  const title = document.getElementById("status-bar-title");
+  const prevBtn = document.getElementById("btn-prev-domain");
+  const nextBtn = document.getElementById("btn-next-domain");
+
+  if (badge) badge.textContent = `Domain ${currentPlanDomain} of 6`;
+  if (title && planDomainTitles[currentPlanDomain - 1]) {
+    title.textContent = planDomainTitles[currentPlanDomain - 1];
+  }
+  if (prevBtn) prevBtn.disabled = (currentPlanDomain <= 1);
+  if (nextBtn) nextBtn.disabled = (currentPlanDomain >= 6);
+
+  // Update URL search parameters without full page reload
+  if (window.history && window.history.replaceState) {
+    const url = new URL(window.location);
+    url.searchParams.set("section", "plan");
+    url.searchParams.set("tab", currentPlanDomain);
+    window.history.replaceState(null, "", url.toString());
+  }
+
+  if (smoothScroll) {
+    const container = document.querySelector(".plan-domains-nav-card");
+    if (container) {
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+}
+
+function navigateDomain(direction) {
+  const target = currentPlanDomain + direction;
+  if (target >= 1 && target <= 6) {
+    switchPlanDomain(target, true);
+  }
+}
+
+function togglePlanViewMode() {
+  isPlanViewAllMode = !isPlanViewAllMode;
+  const label = document.getElementById("view-mode-label");
+  const icon = document.getElementById("view-mode-icon");
+  const btn = document.getElementById("btn-toggle-view-all");
+  const statusBar = document.getElementById("plan-domain-status-bar");
+
+  if (isPlanViewAllMode) {
+    // Show all 6 domains
+    for (let i = 1; i <= 6; i++) {
+      const pane = document.getElementById(`plan-domain-pane-${i}`);
+      if (pane) pane.style.display = "block";
+    }
+    if (label) label.textContent = "Single Domain View";
+    if (icon) icon.textContent = "📑";
+    if (btn) {
+      btn.classList.remove("btn-outline");
+      btn.classList.add("btn-primary");
+    }
+    if (statusBar) statusBar.style.display = "none";
+  } else {
+    // Return to single active domain
+    if (label) label.textContent = "Show All Sections";
+    if (icon) icon.textContent = "👁️";
+    if (btn) {
+      btn.classList.add("btn-outline");
+      btn.classList.remove("btn-primary");
+    }
+    if (statusBar) statusBar.style.display = "flex";
+    switchPlanDomain(currentPlanDomain);
+  }
+}
+
+function toggleMainSection() {
+  const walletBtn = document.getElementById("btn-section-pixel-wallet");
+  if (walletBtn && walletBtn.classList.contains("active")) {
+    switchPixelSection("plan");
+  } else {
+    switchPixelSection("wallet");
+  }
+}
+
+function switchPixelSection(section) {
+  const walletBtn = document.getElementById("btn-section-pixel-wallet");
+  const planBtn = document.getElementById("btn-section-pixels-plan");
+  const walletSection = document.getElementById("section-pixel-wallet");
+  const planSection = document.getElementById("section-pixels-plan");
+
+  if (section === "plan") {
+    if (walletSection) walletSection.style.display = "none";
+    if (planSection) planSection.style.display = "block";
+
+    if (planBtn) {
+      planBtn.classList.add("active");
+      planBtn.setAttribute("aria-selected", "true");
+    }
+    if (walletBtn) {
+      walletBtn.classList.remove("active");
+      walletBtn.setAttribute("aria-selected", "false");
+    }
+    if (window.history && window.history.replaceState) {
+      const url = new URL(window.location);
+      url.searchParams.set("section", "plan");
+      url.searchParams.set("tab", currentPlanDomain);
+      window.history.replaceState(null, "", url.toString());
+    }
+    if (currentPlanDomain === 3 || isPlanViewAllMode) {
+      setTimeout(renderPixelLineGraph, 50);
+    }
+  } else {
+    if (walletSection) walletSection.style.display = "block";
+    if (planSection) planSection.style.display = "none";
+
+    if (walletBtn) {
+      walletBtn.classList.add("active");
+      walletBtn.setAttribute("aria-selected", "true");
+    }
+    if (planBtn) {
+      planBtn.classList.remove("active");
+      planBtn.setAttribute("aria-selected", "false");
+    }
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, "", "?section=wallet");
+    }
+  }
+}
+
+function setGraphMode(mode) {
+  currentGraphMode = mode;
+  const btnCum = document.getElementById("btn-graph-mode-cum");
+  const btnDaily = document.getElementById("btn-graph-mode-daily");
+  const desc = document.getElementById("graph-mode-description");
+  const yAxisTitle = document.getElementById("graph-y-axis-title");
+
+  if (mode === "cumulative") {
+    if (btnCum) {
+      btnCum.style.background = "var(--primary)";
+      btnCum.style.color = "var(--primary-text)";
+    }
+    if (btnDaily) {
+      btnDaily.style.background = "transparent";
+      btnDaily.style.color = "var(--text-muted)";
+    }
+    if (desc) desc.textContent = "Continuous line graph displaying cumulative pixels secured vs planned monthly target across {{ wallet_data.month_name }}.";
+    if (yAxisTitle) yAxisTitle.textContent = "Cumulative Pixels (0 – {{ monthly_plan_capacity }} Px)";
+  } else {
+    if (btnDaily) {
+      btnDaily.style.background = "var(--primary)";
+      btnDaily.style.color = "var(--primary-text)";
+    }
+    if (btnCum) {
+      btnCum.style.background = "transparent";
+      btnCum.style.color = "var(--text-muted)";
+    }
+    if (desc) desc.textContent = "Day-by-day velocity line graph showing scheduled commitment vs secured score for each day of {{ wallet_data.month_name }}.";
+    if (yAxisTitle) yAxisTitle.textContent = "Daily Pixel Score (Px / Day)";
+  }
+
+  renderPixelLineGraph();
+}
+
+function renderPixelLineGraph() {
+  if (!progressGraphData || progressGraphData.length === 0) return;
+
+  const count = progressGraphData.length;
+  const W = 1000;
+  const H = 310;
+  const padLeft = 65;
+  const padRight = 35;
+  const padTop = 25;
+  const padBottom = 45;
+
+  const plotW = W - padLeft - padRight;
+  const plotH = H - padTop - padBottom;
+  const baselineY = padTop + plotH;
+
+  // Compute maximum Y value
+  let maxY = 10;
+  if (currentGraphMode === "cumulative") {
+    const maxCum = progressGraphData[count - 1].cum_scheduled || 10;
+    const maxEarned = Math.max(...progressGraphData.map(d => d.cum_earned || 0));
+    maxY = Math.max(maxCum, maxEarned, 10);
+    const step = maxY <= 50 ? 10 : (maxY <= 150 ? 25 : 50);
+    maxY = Math.ceil(maxY / step) * step;
+  } else {
+    const maxDaily = Math.max(...progressGraphData.map(d => Math.max(d.scheduled_px || 0, d.completed_px || 0, d.missed_px || 0)));
+    maxY = Math.max(maxDaily, 6);
+    maxY = Math.ceil(maxY / 2) * 2;
+  }
+
+  function getX(i) {
+    if (count <= 1) return padLeft + plotW / 2;
+    return padLeft + (i / (count - 1)) * plotW;
+  }
+
+  function getY(val) {
+    if (val === null || val === undefined) return null;
+    const clamped = Math.max(0, Math.min(val, maxY));
+    return padTop + plotH - (clamped / maxY) * plotH;
+  }
+
+  // 1. Horizontal Gridlines & Y-Axis Labels
+  const gridGroup = document.getElementById("svg-grid-group");
+  if (gridGroup) {
+    gridGroup.innerHTML = "";
+    const divisions = 4;
+    for (let s = 0; s <= divisions; s++) {
+      const val = Math.round((maxY / divisions) * s);
+      const y = getY(val);
+
+      // Grid line
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", padLeft);
+      line.setAttribute("y1", y);
+      line.setAttribute("x2", W - padRight);
+      line.setAttribute("y2", y);
+      line.setAttribute("stroke", "var(--border)");
+      line.setAttribute("stroke-width", s === 0 ? "1.5" : "1");
+      line.setAttribute("stroke-dasharray", s === 0 ? "none" : "4,4");
+      line.setAttribute("opacity", s === 0 ? "0.7" : "0.35");
+      gridGroup.appendChild(line);
+
+      // Y-axis label text
+      const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      txt.setAttribute("x", padLeft - 10);
+      txt.setAttribute("y", y + 4);
+      txt.setAttribute("text-anchor", "end");
+      txt.setAttribute("font-size", "11");
+      txt.setAttribute("font-weight", "700");
+      txt.setAttribute("fill", "var(--text-muted)");
+      txt.textContent = `${val} Px`;
+      gridGroup.appendChild(txt);
+    }
+  }
+
+  // 2. Build Paths (Target line, Actual line, Projected line)
+  const targetLine = document.getElementById("svg-target-line");
+  const targetArea = document.getElementById("svg-target-area");
+  const actualLine = document.getElementById("svg-actual-line");
+  const actualArea = document.getElementById("svg-actual-area");
+  const projectedLine = document.getElementById("svg-projected-line");
+
+  let targetPathStr = "";
+  let targetAreaStr = "";
+  let actualPathStr = "";
+  let actualAreaStr = "";
+  let projectedPathStr = "";
+
+  // Find today's index
+  let todayIndex = progressGraphData.findIndex(d => d.is_today);
+  if (todayIndex === -1) todayIndex = count - 1;
+
+  if (currentGraphMode === "cumulative") {
+    // Target Line (From day 0 to day N)
+    targetPathStr = `M ${getX(0)} ${getY(0)}`;
+    targetAreaStr = `M ${getX(0)} ${baselineY} L ${getX(0)} ${getY(0)}`;
+
+    for (let i = 0; i < count; i++) {
+      const x = getX(i);
+      const y = getY(progressGraphData[i].cum_scheduled);
+      targetPathStr += ` L ${x} ${y}`;
+      targetAreaStr += ` L ${x} ${y}`;
+    }
+    targetAreaStr += ` L ${getX(count - 1)} ${baselineY} Z`;
+
+    // Actual Earned Line (Only up to Today)
+    let firstActual = true;
+    for (let i = 0; i <= todayIndex; i++) {
+      const x = getX(i);
+      const y = getY(progressGraphData[i].cum_earned);
+      if (y !== null) {
+        if (firstActual) {
+          actualPathStr = `M ${x} ${y}`;
+          actualAreaStr = `M ${x} ${baselineY} L ${x} ${y}`;
+          firstActual = false;
+        } else {
+          actualPathStr += ` L ${x} ${y}`;
+          actualAreaStr += ` L ${x} ${y}`;
+        }
+      }
+    }
+    if (actualAreaStr) {
+      actualAreaStr += ` L ${getX(todayIndex)} ${baselineY} Z`;
+    }
+
+    // Projected Line from Today to End
+    if (todayIndex < count - 1) {
+      const startX = getX(todayIndex);
+      const startY = getY(progressGraphData[todayIndex].cum_earned || 0);
+      projectedPathStr = `M ${startX} ${startY}`;
+      let curProj = progressGraphData[todayIndex].cum_earned || 0;
+      for (let i = todayIndex + 1; i < count; i++) {
+        curProj += progressGraphData[i].scheduled_px;
+        projectedPathStr += ` L ${getX(i)} ${getY(curProj)}`;
+      }
+    }
+  } else {
+    // Daily Mode: Target baseline is scheduled_px, Actual line is completed_px
+    targetPathStr = `M ${getX(0)} ${getY(progressGraphData[0].scheduled_px)}`;
+    for (let i = 1; i < count; i++) {
+      targetPathStr += ` L ${getX(i)} ${getY(progressGraphData[i].scheduled_px)}`;
+    }
+
+    // Actual completed line up to Today
+    let firstActual = true;
+    for (let i = 0; i <= todayIndex; i++) {
+      const x = getX(i);
+      const y = getY(progressGraphData[i].completed_px);
+      if (firstActual) {
+        actualPathStr = `M ${x} ${y}`;
+        actualAreaStr = `M ${x} ${baselineY} L ${x} ${y}`;
+        firstActual = false;
+      } else {
+        actualPathStr += ` L ${x} ${y}`;
+        actualAreaStr += ` L ${x} ${y}`;
+      }
+    }
+    if (actualAreaStr) {
+      actualAreaStr += ` L ${getX(todayIndex)} ${baselineY} Z`;
+    }
+  }
+
+  if (targetLine) targetLine.setAttribute("d", targetPathStr);
+  if (targetArea) targetArea.setAttribute("d", targetAreaStr);
+  if (actualLine) actualLine.setAttribute("d", actualPathStr);
+  if (actualArea) actualArea.setAttribute("d", actualAreaStr);
+  if (projectedLine) projectedLine.setAttribute("d", projectedPathStr);
+
+  // 3. Render Data Point Nodes
+  const pointsGroup = document.getElementById("svg-points-group");
+  if (pointsGroup) {
+    pointsGroup.innerHTML = "";
+    for (let i = 0; i < count; i++) {
+      const d = progressGraphData[i];
+      const x = getX(i);
+      let val = (currentGraphMode === "cumulative") ? d.cum_earned : d.completed_px;
+
+      if (!d.is_future && val !== null) {
+        const y = getY(val);
+
+        // Outer halo / glow for today
+        if (d.is_today) {
+          const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          halo.setAttribute("cx", x);
+          halo.setAttribute("cy", y);
+          halo.setAttribute("r", "10");
+          halo.setAttribute("fill", "none");
+          halo.setAttribute("stroke", "var(--primary)");
+          halo.setAttribute("stroke-width", "2");
+          halo.setAttribute("opacity", "0.6");
+          halo.style.animation = "pulseRing 2s infinite";
+          pointsGroup.appendChild(halo);
+        }
+
+        // Main node circle
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", d.is_today ? "6.5" : "4.5");
+        circle.setAttribute("id", `graph-node-${i}`);
+
+        if (d.is_today) {
+          circle.setAttribute("fill", "var(--primary)");
+          circle.setAttribute("stroke", "#ffffff");
+          circle.setAttribute("stroke-width", "2");
+        } else if (d.missed_px > 0 && d.completed_px === 0) {
+          circle.setAttribute("fill", "#ef4444");
+          circle.setAttribute("stroke", "#ffffff");
+          circle.setAttribute("stroke-width", "1.5");
+        } else {
+          circle.setAttribute("fill", "#10b981");
+          circle.setAttribute("stroke", "#ffffff");
+          circle.setAttribute("stroke-width", "1.5");
+        }
+        pointsGroup.appendChild(circle);
+      } else if (d.is_future) {
+        // Scheduled node in future
+        const schedVal = (currentGraphMode === "cumulative") ? d.cum_scheduled : d.scheduled_px;
+        const y = getY(schedVal);
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", "3");
+        circle.setAttribute("fill", "none");
+        circle.setAttribute("stroke", "var(--primary)");
+        circle.setAttribute("stroke-width", "1.5");
+        circle.setAttribute("opacity", "0.45");
+        pointsGroup.appendChild(circle);
+      }
+    }
+  }
+
+  // 4. X-Axis Labels (Day number and weekday)
+  const xAxisGroup = document.getElementById("svg-x-axis-group");
+  if (xAxisGroup) {
+    xAxisGroup.innerHTML = "";
+    // Draw horizontal axis line
+    const axisLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    axisLine.setAttribute("x1", padLeft);
+    axisLine.setAttribute("y1", baselineY);
+    axisLine.setAttribute("x2", W - padRight);
+    axisLine.setAttribute("y2", baselineY);
+    axisLine.setAttribute("stroke", "var(--border)");
+    axisLine.setAttribute("stroke-width", "1.5");
+    xAxisGroup.appendChild(axisLine);
+
+    // Label steps: day 1, 5, 10, 15, 20, 25, today, and last day
+    for (let i = 0; i < count; i++) {
+      const d = progressGraphData[i];
+      const x = getX(i);
+      const isKeyStep = (d.day === 1 || d.day % 5 === 0 || d.day === count || d.is_today);
+
+      // Tick mark
+      const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      tick.setAttribute("x1", x);
+      tick.setAttribute("y1", baselineY);
+      tick.setAttribute("x2", x);
+      tick.setAttribute("y2", baselineY + (d.is_today ? 7 : 4));
+      tick.setAttribute("stroke", d.is_today ? "var(--primary)" : "var(--border)");
+      tick.setAttribute("stroke-width", d.is_today ? "2" : "1");
+      xAxisGroup.appendChild(tick);
+
+      if (isKeyStep) {
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", x);
+        txt.setAttribute("y", baselineY + 18);
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("font-size", d.is_today ? "11" : "10");
+        txt.setAttribute("font-weight", d.is_today ? "800" : "600");
+        txt.setAttribute("fill", d.is_today ? "var(--primary)" : "var(--text-main)");
+        txt.textContent = d.is_today ? `Day ${d.day} (TODAY)` : `${d.day}`;
+        xAxisGroup.appendChild(txt);
+
+        const subTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        subTxt.setAttribute("x", x);
+        subTxt.setAttribute("y", baselineY + 30);
+        subTxt.setAttribute("text-anchor", "middle");
+        subTxt.setAttribute("font-size", "9");
+        subTxt.setAttribute("font-weight", "500");
+        subTxt.setAttribute("fill", d.is_today ? "var(--primary)" : "var(--text-muted)");
+        subTxt.textContent = d.weekday;
+        xAxisGroup.appendChild(subTxt);
+      }
+    }
+  }
+
+  // 5. Setup Crosshair and Hover Tooltip Interaction
+  setupGraphInteraction(getX, getY, padLeft, plotW, count);
+}
+
+function setupGraphInteraction(getX, getY, padLeft, plotW, count) {
+  const svg = document.getElementById("pixel-line-graph-svg");
+  const crosshair = document.getElementById("svg-crosshair");
+  const tooltip = document.getElementById("svg-graph-tooltip");
+  const dateEl = document.getElementById("tooltip-date");
+  const bodyEl = document.getElementById("tooltip-body");
+
+  if (!svg || !tooltip) return;
+
+  function updateTooltip(clientX, clientY) {
+    const rect = svg.getBoundingClientRect();
+    const relX = clientX - rect.left;
+    const svgX = (relX / rect.width) * 1000;
+
+    // Find closest day index
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < count; i++) {
+      const dist = Math.abs(getX(i) - svgX);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIdx = i;
+      }
+    }
+
+    const d = progressGraphData[closestIdx];
+    const targetX = getX(closestIdx);
+    const screenX = (targetX / 1000) * rect.width;
+
+    // Position crosshair
+    if (crosshair) {
+      crosshair.setAttribute("x1", targetX);
+      crosshair.setAttribute("x2", targetX);
+      crosshair.setAttribute("opacity", "0.75");
+    }
+
+    // Populate tooltip
+    if (dateEl) {
+      dateEl.innerHTML = `${d.date_str} (${d.weekday}) ${d.is_today ? '<span class="badge" style="background: var(--primary); color: var(--primary-text); font-size: 0.65rem; padding: 1px 5px; margin-left: 4px;">TODAY</span>' : ''}`;
+    }
+    if (bodyEl) {
+      if (currentGraphMode === "cumulative") {
+        const earnedText = d.cum_earned !== null ? `${d.cum_earned} Px` : 'Upcoming';
+        bodyEl.innerHTML = `
+          <div>📈 Cumulative Earned: <strong style="color: #10b981;">${earnedText}</strong></div>
+          <div>🎯 Planned Target: <strong style="color: var(--primary);">${d.cum_scheduled} Px</strong></div>
+          <div>🗓️ Daily Scheduled: <strong>${d.scheduled_px} Px</strong></div>
+          ${d.missed_px > 0 ? `<div style="color: #ef4444;">❌ Missed Today: -${d.missed_px} Px</div>` : ''}
+        `;
+      } else {
+        bodyEl.innerHTML = `
+          <div>⚡ Daily Secured: <strong style="color: #10b981;">${d.completed_px} Px</strong></div>
+          <div>📋 Daily Scheduled: <strong style="color: var(--primary);">${d.scheduled_px} Px</strong></div>
+          <div>❌ Daily Missed: <strong style="color: ${d.missed_px > 0 ? '#ef4444' : 'var(--text-muted)'};">${d.missed_px} Px</strong></div>
+          <div>📊 Cumulative Total: <strong>${d.cum_earned !== null ? d.cum_earned + ' Px' : 'N/A'}</strong></div>
+        `;
+      }
+    }
+
+    // Position tooltip safely within container bounds
+    tooltip.style.display = "block";
+    const clampedScreenX = Math.max(90, Math.min(rect.width - 90, screenX));
+    tooltip.style.left = `${clampedScreenX}px`;
+    tooltip.style.top = "50px";
+  }
+
+  svg.onmousemove = function(e) {
+    updateTooltip(e.clientX, e.clientY);
+  };
+
+  svg.onmouseleave = function() {
+    if (crosshair) crosshair.setAttribute("opacity", "0");
+    if (tooltip) tooltip.style.display = "none";
+  };
+
+  // Touch support for mobile
+  svg.ontouchstart = function(e) {
+    if (e.touches && e.touches[0]) {
+      updateTooltip(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+  svg.ontouchmove = function(e) {
+    if (e.touches && e.touches[0]) {
+      updateTooltip(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+  svg.ontouchend = function() {
+    if (crosshair) crosshair.setAttribute("opacity", "0");
+    if (tooltip) tooltip.style.display = "none";
+  };
+}
+
+window.addEventListener("resize", function() {
+  if (currentPlanDomain === 3 || isPlanViewAllMode) {
+    renderPixelLineGraph();
+  }
+});
+
+document.addEventListener("DOMContentLoaded", function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const sectionParam = urlParams.get("section") || (window.location.hash ? window.location.hash.replace("#", "") : "");
+  const tabParam = urlParams.get("tab");
+
+  if (sectionParam === "plan" || tabParam) {
+    switchPixelSection("plan");
+  }
+
+  if (tabParam) {
+    const tabNum = parseInt(tabParam, 10);
+    if (!isNaN(tabNum) && tabNum >= 1 && tabNum <= 6) {
+      switchPlanDomain(tabNum);
+    }
+  } else if (window.location.hash) {
+    const hash = window.location.hash.toLowerCase();
+    if (hash.includes("allocation-details") || hash.includes("tab-1") || hash.includes("domain-1")) switchPlanDomain(1);
+    else if (hash.includes("source") || hash.includes("tab-2") || hash.includes("domain-2")) switchPlanDomain(2);
+    else if (hash.includes("graph") || hash.includes("progress") || hash.includes("tab-3") || hash.includes("domain-3")) switchPlanDomain(3);
+    else if (hash.includes("breakdown") || hash.includes("habit") || hash.includes("tab-4") || hash.includes("domain-4")) switchPlanDomain(4);
+    else if (hash.includes("schedule") || hash.includes("weekly") || hash.includes("tab-5") || hash.includes("domain-5")) switchPlanDomain(5);
+    else if (hash.includes("how") || hash.includes("wallet-works") || hash.includes("tab-6") || hash.includes("domain-6")) switchPlanDomain(6);
+  }
+
+  // Initialize line graph
+  setTimeout(renderPixelLineGraph, 100);
+});
+</script>
+{% endblock %}

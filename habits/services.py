@@ -470,6 +470,7 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
         )
 
     wallet_obj = None
+    bonus_pixels = 0
     if tenant and user and hasattr(user, "pk") and user.pk:
         wallet_obj, _ = PixelWallet.objects.get_or_create(
             tenant=tenant,
@@ -480,8 +481,16 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
                 "allocated_pixels": total_allocated,
                 "lost_pixels": total_lost,
                 "current_balance": current_balance,
+                "bonus_pixels": 0,
             }
         )
+        bonus_pixels = getattr(wallet_obj, "bonus_pixels", 0) or 0
+        if bonus_pixels > 0:
+            total_allocated += bonus_pixels
+            current_balance = max(0, total_allocated - total_lost)
+            health_percent = round((current_balance / total_allocated * 100), 1) if total_allocated > 0 else 100.0
+            projected_balance_if_failed = max(0, current_balance - today_pending_pixels)
+
         if (wallet_obj.allocated_pixels != total_allocated or 
             wallet_obj.lost_pixels != total_lost or 
             wallet_obj.current_balance != current_balance):
@@ -492,6 +501,7 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
 
     return {
         "wallet": wallet_obj,
+        "bonus_pixels": bonus_pixels,
         "allocated_pixels": total_allocated,
         "lost_pixels": total_lost,
         "current_balance": current_balance,

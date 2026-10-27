@@ -184,3 +184,117 @@ class AdminUsersCrudTestCase(TestCase):
         self.assertContains(response, "Primary Workspace")
         self.assertContains(response, "Workspace Role &amp; Locale")
         self.assertContains(response, "Latest Authentication")
+
+    def test_allocate_pixels_ui_elements_in_users_list(self):
+        """Verify that Allocate action button, Allocate Pixels toolbar button, and modal exist in Users list."""
+        self.client.force_login(self.admin_user)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Allocate")
+        self.assertContains(response, "Allocate Pixels")
+        self.assertContains(response, 'id="btn-toolbar-allocate"')
+        self.assertContains(response, 'id="allocate-pixels-modal"')
+        self.assertContains(response, "btn-allocate-single")
+
+    def test_super_admin_can_allocate_pixels_to_individual_user(self):
+        """Super Admin can allocate additional pixels to an individual user."""
+        from habits.models import PixelWallet, PixelAllocation
+        self.client.force_login(self.admin_user)
+        alloc_url = reverse("admin_allocate_pixels")
+
+        response = self.client.post(alloc_url, {
+            "target_type": "individual",
+            "user_id": self.regular_user.id,
+            "amount": "25",
+            "reason": "Top performer bonus",
+        }, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Successfully allocated +25 pixels to user")
+
+        # Verify PixelAllocation log created
+        log = PixelAllocation.objects.filter(recipient_user=self.regular_user).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.amount, 25)
+        self.assertEqual(log.admin_user, self.admin_user)
+        self.assertEqual(log.reason, "Top performer bonus")
+
+        # Verify PixelWallet updated with bonus pixels
+        from django.utils import timezone
+        today = timezone.localdate()
+        wallet = PixelWallet.objects.get(user=self.regular_user, year=today.year, month=today.month)
+        self.assertEqual(wallet.bonus_pixels, 25)
+        self.assertEqual(wallet.allocated_pixels, 25)
+        self.assertEqual(wallet.current_balance, 25)
+
+    def test_super_admin_can_allocate_pixels_to_user_group(self):
+        """Super Admin can allocate pixels to a specific user group (e.g. Regular Users) at once."""
+        from habits.models import PixelWallet, PixelAllocation
+        user2 = User.objects.create_user(
+            username="user_two",
+            email="two@example.com",
+            password="Password123!",
+            role=User.Role.REGULAR_USER,
+        )
+
+        self.client.force_login(self.admin_user)
+        alloc_url = reverse("admin_allocate_pixels")
+
+        response = self.client.post(alloc_url, {
+            "target_type": "group_regular",
+            "amount": "15",
+            "reason": "Team challenge reward",
+        }, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Successfully allocated +15 pixels to all")
+
+        # Verify both regular users received 15 pixels
+        from django.utils import timezone
+        today = timezone.localdate()
+        w1 = PixelWallet.objects.get(user=self.regular_user, year=today.year, month=today.month)
+        w2 = PixelWallet.objects.get(user=user2, year=today.year, month=today.month)
+        self.assertEqual(w1.bonus_pixels, 15)
+        self.assertEqual(w2.bonus_pixels, 15)
+
+    def test_super_admin_can_allocate_pixels_to_selected_users(self):
+        """Super Admin can allocate pixels to multiple selected users via comma-separated IDs."""
+        from habits.models import PixelWallet
+        user3 = User.objects.create_user(
+            username="user_three",
+            email="three@example.com",
+            password="Password123!",
+        )
+        self.client.force_login(self.admin_user)
+        alloc_url = reverse("admin_allocate_pixels")
+
+        response = self.client.post(alloc_url, {
+            "target_type": "selected",
+            "user_ids": f"{self.regular_user.id},{user3.id}",
+            "amount": "50",
+            "reason": "Selected cohort bonus",
+        }, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Successfully allocated +50 pixels to 2 selected user(s)")
+
+    def test_non_super_admin_cannot_allocate_pixels(self):
+        """Non-super admin users and unauthenticated users are strictly barred from allocating pixels."""
+        alloc_url = reverse("admin_allocate_pixels")
+
+        # 1. Unauthenticated -> redirects to login
+        response = self.client.post(alloc_url, {
+            "target_type": "individual",
+            "user_id": self.regular_user.id,
+            "amount": "10",
+        })
+        self.assertEqual(response.status_code, 302)
+
+        # 2. Regular user -> 403 Forbidden
+        self.client.force_login(self.regular_user)
+        response = self.client.post(alloc_url, {
+            "target_type": "individual",
+            "user_id": self.regular_user.id,
+            "amount": "10",
+        })
+        self.assertEqual(response.status_code, 403)

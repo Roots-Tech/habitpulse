@@ -13,6 +13,7 @@ urlpatterns = [
     path("admin-panel/users/new/", views.admin_user_create_view, name="admin_user_create"),
     path("admin-panel/users/<int:user_id>/edit/", views.admin_user_edit_view, name="admin_user_edit"),
     path("admin-panel/users/<int:user_id>/delete/", views.admin_user_delete_view, name="admin_user_delete"),
+    path("admin-panel/users/allocate-pixels/", views.admin_allocate_pixels_view, name="admin_allocate_pixels"),
 
     # Admin Panel - User Roles & Dynamic Permissions
     path("admin-panel/roles/", views.admin_roles_list_view, name="admin_roles_list"),

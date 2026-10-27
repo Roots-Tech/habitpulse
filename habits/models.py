@@ -653,6 +653,10 @@ class PixelWallet(models.Model):
         default=0,
         help_text="Remaining energized pixels (allocated - lost)",
     )
+    bonus_pixels = models.PositiveIntegerField(
+        default=0,
+        help_text="Additional bonus pixels allocated by Super Admin",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -671,6 +675,56 @@ class PixelWallet(models.Model):
         if self.allocated_pixels <= 0:
             return 100.0
         return round((self.current_balance / self.allocated_pixels) * 100, 1)
+
+
+class PixelAllocation(models.Model):
+    """
+    Audit record of additional pixel grants awarded by Super Admin to users or user groups.
+    """
+    class TargetType(models.TextChoices):
+        INDIVIDUAL = "INDIVIDUAL", "Individual User"
+        SELECTED = "SELECTED", "Selected Users"
+        GROUP_REGULAR = "GROUP_REGULAR", "Regular Users"
+        GROUP_TECHNICAL = "GROUP_TECHNICAL", "Technical Users"
+        GROUP_SUPER = "GROUP_SUPER", "Super Admins"
+        GROUP_ALL = "GROUP_ALL", "All Users"
+
+    admin_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="granted_pixel_allocations",
+    )
+    recipient_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="received_pixel_allocations",
+    )
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="pixel_allocations",
+    )
+    amount = models.PositiveIntegerField(
+        help_text="Number of additional pixels allocated",
+    )
+    target_type = models.CharField(
+        max_length=30,
+        choices=TargetType.choices,
+        default=TargetType.INDIVIDUAL,
+    )
+    reason = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Reason or note for this allocation",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.amount} Px to {self.recipient_user.username} by {self.admin_user.username} ({self.created_at:%Y-%m-%d})" 
 
 
 def seed_default_master_data_for_tenant(tenant):
