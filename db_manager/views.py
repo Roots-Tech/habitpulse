@@ -1,16 +1,28 @@
 import logging
+from django.conf import settings
 from django.contrib import messages
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 from db_manager.services import (
     create_database,
     drop_database,
+    get_active_instances,
     is_port_in_use,
     list_databases,
     verify_master_password,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def db_manager_instance_info_view(request):
+    """Returns metadata about the active instance and database connected to this port."""
+    current_db = settings.DATABASES["default"]["NAME"]
+    return JsonResponse({
+        "status": "online",
+        "database": current_db,
+    })
 
 
 def is_authenticated_db_manager(request) -> bool:
@@ -22,7 +34,7 @@ def db_manager_index_view(request):
     """
     Main entry point for Odoo-style Database Manager.
     If not authenticated with Master Password, shows password prompt.
-    Otherwise displays database dashboard.
+    Otherwise displays database dashboard with running instance discovery.
     """
     if not is_authenticated_db_manager(request):
         return render(request, "db_manager/auth.html")
@@ -34,14 +46,28 @@ def db_manager_index_view(request):
         messages.error(request, f"Unable to connect to PostgreSQL server: {str(e)}")
         databases = []
 
-    # Check port status for quick launch references
-    port_8000_active = is_port_in_use(8000)
-    port_8001_active = is_port_in_use(8001)
+    # Dynamically scan running instances on local ports
+    active_instances = get_active_instances()
+
+    # Fallback mappings for known ports if instance-info was still starting up
+    if "habit_tracker" not in active_instances and is_port_in_use(8000):
+        active_instances["habit_tracker"] = {"port": 8000, "url": "http://127.0.0.1:8000/", "login_url": "http://127.0.0.1:8000/accounts/login/", "db_name": "habit_tracker"}
+    if "habit_fresh" not in active_instances and is_port_in_use(8001):
+        active_instances["habit_fresh"] = {"port": 8001, "url": "http://127.0.0.1:8001/", "login_url": "http://127.0.0.1:8001/accounts/login/", "db_name": "habit_fresh"}
+    if "habit3" not in active_instances and is_port_in_use(8002):
+        active_instances["habit3"] = {"port": 8002, "url": "http://127.0.0.1:8002/", "login_url": "http://127.0.0.1:8002/accounts/login/", "db_name": "habit3"}
+
+    # Attach instance info to each database
+    for db in databases:
+        db_key = db["name"].lower()
+        if db_key in active_instances:
+            db["instance"] = active_instances[db_key]
+        else:
+            db["instance"] = None
 
     context = {
         "databases": databases,
-        "port_8000_active": port_8000_active,
-        "port_8001_active": port_8001_active,
+        "active_instances": active_instances.values(),
     }
     return render(request, "db_manager/dashboard.html", context)
 
