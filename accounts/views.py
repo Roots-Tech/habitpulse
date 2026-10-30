@@ -1,6 +1,6 @@
 from functools import wraps
 from django.contrib import messages
-from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
@@ -213,6 +213,8 @@ def _handle_user_edit(request, target_user, is_super_admin, redirect_url):
         form = AdminUserEditForm(request.POST, instance=target_user, is_super_admin=is_super_admin)
         if form.is_valid():
             updated_user = form.save()
+            if is_self:
+                update_session_auth_hash(request, updated_user)
             if is_super_admin:
                 messages.success(request, f'User "{updated_user.username}" updated successfully (Role: {updated_user.get_role_display()})!')
             else:
@@ -469,6 +471,41 @@ def admin_allocate_pixels_view(request):
     label = group_label_map.get(target_type, f"{allocated_count} users")
     reason_note = f' (Reason: "{reason}")' if reason else ""
     messages.success(request, f"⚡ Successfully allocated +{amount} pixels to {label}!{reason_note}")
+    return redirect("admin_users_list")
+
+
+@require_POST
+@login_required
+@super_admin_required
+def admin_seed_data_view(request):
+    """
+    On-demand provisioner for initial administrative accounts and master data (Odoo-style).
+    Prompts the Super Admin for a common initial password, configures designated roles,
+    and sets a persistent reset password reminder banner for the provisioned users.
+    """
+    common_password = request.POST.get("common_password", "").strip()
+    if not common_password:
+        messages.error(request, "Please provide a common initial password for the admin accounts.")
+        return redirect("admin_users_list")
+
+    if len(common_password) < 6:
+        messages.error(request, "The common password must be at least 6 characters long.")
+        return redirect("admin_users_list")
+
+    from accounts.services import seed_admin_accounts
+
+    try:
+        result = seed_admin_accounts(common_password=common_password, require_reset=True)
+        created_count = len(result["created"])
+        updated_count = len(result["updated"])
+        messages.success(
+            request,
+            f"⚡ Admin data provisioned successfully! ({created_count} created, {updated_count} updated). "
+            "A header notification has been set for these users to update their password."
+        )
+    except Exception as e:
+        messages.error(request, f"Failed to seed admin data: {str(e)}")
+
     return redirect("admin_users_list")
 
 
