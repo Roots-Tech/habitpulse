@@ -1,0 +1,46 @@
+{% load static %}
+<!-- ========================================================================= -->
+<!-- MOBILE APP ANNOUNCEMENT BANNER                                            -->
+<!-- ========================================================================= -->
+<div id="mobile-app-announcement-banner" class="mobile-app-banner" style="display: none; background: linear-gradient(90deg, rgba(99, 102, 241, 0.14) 0%, rgba(56, 189, 248, 0.14) 50%, rgba(168, 85, 247, 0.14) 100%); border-bottom: 1px solid rgba(99, 102, 241, 0.28); padding: 0.65rem 1.25rem; align-items: center; justify-content: space-between; font-size: 0.875rem; color: var(--text-main); transition: all 0.2s ease-in-out; position: relative; z-index: 100;">
+  <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0;">
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); flex-shrink: 0; font-size: 1rem;">
+      📱
+    </div>
+    <div style="line-height: 1.4; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+      <strong style="color: var(--text-main); font-weight: 700; white-space: nowrap;">
+        Mobile App Coming Soon:
+      </strong>
+      <span style="color: var(--text-body);">
+        Our native mobile app will be available soon! In the meantime, please enjoy the full web version patiently.
+      </span>
+      <span class="badge" style="background: rgba(99, 102, 241, 0.18); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); font-size: 0.725rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; white-space: nowrap;">
+        ✨ Web Version Ready
+      </span>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; margin-left: 1rem;">
+    <button type="button" id="dismissMobileBannerBtn" onclick="window.dismissMobileAppBanner();" aria-label="Dismiss banner" title="Dismiss" style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.25rem; line-height: 1; padding: 0.2rem 0.4rem; border-radius: 4px; transition: color 0.15s ease;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">
+      &times;
+    </button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const banner = document.getElementById("mobile-app-announcement-banner");
+  if (!banner) return;
+
+  // Check if previously dismissed in this browser session
+  const isDismissed = sessionStorage.getItem("habitpulse_mobile_banner_dismissed");
+  if (!isDismissed) {
+    banner.style.display = "flex";
+  }
+
+  window.dismissMobileAppBanner = function() {
+    banner.style.display = "none";
+    sessionStorage.setItem("habitpulse_mobile_banner_dismissed", "true");
+  };
+})();
+</script>
