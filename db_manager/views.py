@@ -46,16 +46,9 @@ def db_manager_index_view(request):
         messages.error(request, f"Unable to connect to PostgreSQL server: {str(e)}")
         databases = []
 
-    # Dynamically scan running instances on local ports
-    active_instances = get_active_instances()
-
-    # Fallback mappings for known ports if instance-info was still starting up
-    if "habit_tracker" not in active_instances and is_port_in_use(8000):
-        active_instances["habit_tracker"] = {"port": 8000, "url": "http://127.0.0.1:8000/", "login_url": "http://127.0.0.1:8000/accounts/login/", "db_name": "habit_tracker"}
-    if "habit_fresh" not in active_instances and is_port_in_use(8001):
-        active_instances["habit_fresh"] = {"port": 8001, "url": "http://127.0.0.1:8001/", "login_url": "http://127.0.0.1:8001/accounts/login/", "db_name": "habit_fresh"}
-    if "habit3" not in active_instances and is_port_in_use(8002):
-        active_instances["habit3"] = {"port": 8002, "url": "http://127.0.0.1:8002/", "login_url": "http://127.0.0.1:8002/accounts/login/", "db_name": "habit3"}
+    # Dynamically scan running instances, filtering against currently existing databases in PostgreSQL
+    valid_db_names = {db["name"].lower() for db in databases}
+    active_instances = get_active_instances(valid_db_names=valid_db_names)
 
     # Attach instance info to each database
     for db in databases:
