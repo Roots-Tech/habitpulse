@@ -186,14 +186,39 @@ def create_database(name: str, seed_bootstrap: bool = True) -> Dict:
     }
 
 
+def kill_process_on_port(port: int):
+    """Terminates any process listening on the specified local TCP port."""
+    try:
+        proc = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True,
+            text=True,
+        )
+        for line in proc.stdout.splitlines():
+            if f":{port}" in line and "LISTENING" in line:
+                parts = line.strip().split()
+                pid = parts[-1]
+                if pid and pid.isdigit() and int(pid) > 0 and int(pid) != os.getpid():
+                    logger.info("Terminating process PID %s on port %s", pid, port)
+                    subprocess.run(["taskkill", "/PID", pid, "/F", "/T"], capture_output=True)
+    except Exception as e:
+        logger.warning("Could not terminate process on port %s: %s", port, str(e))
+
+
 def drop_database(name: str) -> bool:
     """
     Terminates active connections and drops the specified database.
+    Also terminates any running dev server instance that was serving this database.
     Strictly prohibits dropping protected databases (habit_tracker, postgres).
     """
     name = name.strip().lower()
     if name in PROTECTED_DATABASES:
         raise ValueError(f"Protected database '{name}' cannot be dropped.")
+
+    # Stop any running server instance serving this database
+    active = get_active_instances()
+    if name in active:
+        kill_process_on_port(active[name]["port"])
 
     conn = get_pg_connection("postgres")
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
@@ -213,10 +238,11 @@ def drop_database(name: str) -> bool:
         conn.close()
 
 
-def get_active_instances() -> Dict[str, Dict]:
+def get_active_instances(valid_db_names=None) -> Dict[str, Dict]:
     """
     Scans local TCP ports (8000-8006) and identifies which database is served on each port.
-    Returns: {db_name: {"port": port, "url": f"http://127.0.0.1:{port}/", "login_url": f"http://127.0.0.1:{port}/accounts/login/"}}
+    If valid_db_names is supplied, automatically kills zombie instances whose DB no longer exists
+    and omits them from the active list.
     """
     import urllib.request
     import json
@@ -234,13 +260,19 @@ def get_active_instances() -> Dict[str, Dict]:
                         data = json.loads(res.read().decode("utf-8"))
                         db_name = data.get("database")
                         if db_name:
-                            active_instances[db_name.lower()] = {
+                            db_key = db_name.lower()
+                            # If database was dropped, clean up zombie process!
+                            if valid_db_names is not None and db_key not in valid_db_names:
+                                logger.info("Killing zombie process on port %s for dropped database '%s'", port, db_name)
+                                kill_process_on_port(port)
+                                continue
+
+                            active_instances[db_key] = {
                                 "port": port,
                                 "url": f"http://127.0.0.1:{port}/",
                                 "login_url": f"http://127.0.0.1:{port}/accounts/login/",
                                 "db_name": db_name,
                             }
             except Exception:
-                # If instance-info is not responding or older instance, port is still running
                 pass
     return active_instances
