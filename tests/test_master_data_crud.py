@@ -45,16 +45,21 @@ class MasterDataCRUDTestCase(TestCase):
 
     def test_seed_default_master_data_for_tenant(self):
         """
-        Verify seeding generates baseline 6 categories and 5 rule strategies.
+        Verify seeding generates baseline 6 categories per tenant and 5 common rule strategies globally.
         """
         seed_default_master_data_for_tenant(self.tenant_a)
         self.assertEqual(HabitCategory.objects.filter(tenant=self.tenant_a).count(), 6)
-        self.assertEqual(RuleStrategy.objects.filter(tenant=self.tenant_a).count(), 5)
+        self.assertEqual(RuleStrategy.objects.count(), 5)
 
         # Idempotence: calling again shouldn't duplicate
         seed_default_master_data_for_tenant(self.tenant_a)
         self.assertEqual(HabitCategory.objects.filter(tenant=self.tenant_a).count(), 6)
-        self.assertEqual(RuleStrategy.objects.filter(tenant=self.tenant_a).count(), 5)
+        self.assertEqual(RuleStrategy.objects.count(), 5)
+
+        # Seeding another tenant should NOT duplicate rule strategies (common for everyone)
+        seed_default_master_data_for_tenant(self.tenant_b)
+        self.assertEqual(HabitCategory.objects.filter(tenant=self.tenant_b).count(), 6)
+        self.assertEqual(RuleStrategy.objects.count(), 5)
 
     def test_category_crud_workflow(self):
         """
@@ -118,7 +123,7 @@ class MasterDataCRUDTestCase(TestCase):
             "is_active": "on",
         })
         self.assertEqual(create_resp.status_code, 302)
-        strat = RuleStrategy.objects.filter(tenant=self.tenant_a, name="Evening Step Target").first()
+        strat = RuleStrategy.objects.filter(name="Evening Step Target").first()
         self.assertIsNotNone(strat)
         self.assertEqual(strat.engine_type, RuleStrategy.EngineType.NUMERIC_TARGET)
         self.assertTrue(strat.requires_numeric)
@@ -147,33 +152,43 @@ class MasterDataCRUDTestCase(TestCase):
 
     def test_tenant_isolation_on_master_data(self):
         """
-        Verify Tenant B cannot view, modify, or delete Tenant A's categories or strategies.
+        Verify categories are tenant-isolated, while rule strategies are common system-wide master data.
+        Regular users cannot modify rule strategies; technical users manage common strategies.
         """
         cat_a = HabitCategory.objects.create(
             tenant=self.tenant_a,
             name="Confidential Category A",
         )
-        strat_a = RuleStrategy.objects.create(
-            tenant=self.tenant_a,
-            name="Confidential Strategy A",
+        strat = RuleStrategy.objects.create(
+            name="Common Strategy X",
             engine_type=RuleStrategy.EngineType.STANDARD,
         )
 
-        # Log in as user_b (Tenant B)
+        # Log in as user_b (Tenant B, Technical User)
         self.client.login(username="Bob", password="password123")
 
-        # List views should not show Tenant A's records
+        # Category list view should not show Tenant A's category
         list_cat_resp = self.client.get(reverse("category_list"))
         self.assertNotContains(list_cat_resp, "Confidential Category A")
 
+        # Rule strategy list view shows common strategy to authorized tech user
         list_strat_resp = self.client.get(reverse("rule_strategy_list"))
-        self.assertNotContains(list_strat_resp, "Confidential Strategy A")
+        self.assertContains(list_strat_resp, "Common Strategy X")
 
-        # Edit/Delete attempts by Tenant B must return 404
+        # Category edit/delete by Tenant B must return 404
         self.assertEqual(self.client.get(reverse("category_edit", kwargs={"pk": cat_a.pk})).status_code, 404)
         self.assertEqual(self.client.post(reverse("category_delete", kwargs={"pk": cat_a.pk})).status_code, 404)
-        self.assertEqual(self.client.get(reverse("rule_strategy_edit", kwargs={"pk": strat_a.pk})).status_code, 404)
-        self.assertEqual(self.client.post(reverse("rule_strategy_delete", kwargs={"pk": strat_a.pk})).status_code, 404)
+
+        # Regular user without permissions gets 403 on rule strategy management
+        reg_user = User.objects.create_user(
+            username="Charlie",
+            email="charlie@example.com",
+            password="password123",
+            role=User.Role.REGULAR_USER,
+        )
+        self.client.login(username="Charlie", password="password123")
+        self.assertEqual(self.client.get(reverse("rule_strategy_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("rule_strategy_create")).status_code, 403)
 
     def test_habit_creation_with_master_data_sync(self):
         """
@@ -185,7 +200,6 @@ class MasterDataCRUDTestCase(TestCase):
             icon="⚡",
         )
         strat = RuleStrategy.objects.create(
-            tenant=self.tenant_a,
             name="Focused Coding Hours",
             engine_type=RuleStrategy.EngineType.NUMERIC_TARGET,
             default_unit="hours",
