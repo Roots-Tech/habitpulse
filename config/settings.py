@@ -18,8 +18,10 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-dev-fallback-key-do-not-use-in-production")
 DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
-allowed_hosts_raw = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,.onrender.com")
+allowed_hosts_raw = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,.onrender.com,testserver")
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_raw.split(",") if host.strip()]
+if "testserver" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("testserver")
 
 csrf_origins_raw = os.getenv("CSRF_TRUSTED_ORIGINS", "https://*.onrender.com")
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins_raw.split(",") if origin.strip()]
@@ -38,6 +40,7 @@ INSTALLED_APPS = [
     "habits.apps.HabitsConfig",
     "dashboard.apps.DashboardConfig",
     "api.apps.ApiConfig",
+    "db_manager.apps.DbManagerConfig",
 ]
 
 MIDDLEWARE = [
@@ -165,3 +168,6 @@ MESSAGE_TAGS = {
     messages.WARNING: "warning",
     messages.ERROR: "error",
 }
+
+# Master password for Odoo-style Database Manager (/db-manager/)
+DB_MASTER_PASSWORD = os.getenv("DB_MASTER_PASSWORD", "admin")

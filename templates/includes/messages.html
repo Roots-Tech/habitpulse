@@ -1,3 +1,20 @@
+{% if user.is_authenticated and user.must_reset_password %}
+<div class="alert alert-warning password-reset-banner" role="alert" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.20) 100%); border: 1.5px solid rgba(245, 158, 11, 0.5); color: var(--text-main); padding: 0.85rem 1.25rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; box-shadow: var(--shadow-sm);">
+  <div style="display: flex; align-items: center; gap: 0.65rem;">
+    <span style="font-size: 1.4rem;">🔐</span>
+    <div>
+      <strong style="color: #d97706; font-size: 0.9rem;">Security Action Required:</strong>
+      <span style="font-size: 0.85rem; color: var(--text-body); margin-left: 0.25rem;">
+        Your workspace was provisioned with a temporary common password. Please update your account password to secure your workspace.
+      </span>
+    </div>
+  </div>
+  <a href="{% url 'profile' %}?tab=security" class="btn btn-primary btn-sm" style="font-size: 0.8rem; padding: 0.35rem 0.85rem; white-space: nowrap; font-weight: 600;">
+    Reset Password Now &rarr;
+  </a>
+</div>
+{% endif %}
+
 {% if messages %}
 <div class="messages-container" role="alert" aria-live="polite">
   {% for message in messages %}

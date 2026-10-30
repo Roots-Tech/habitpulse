@@ -14,6 +14,7 @@ urlpatterns = [
     path("admin-panel/users/<int:user_id>/edit/", views.admin_user_edit_view, name="admin_user_edit"),
     path("admin-panel/users/<int:user_id>/delete/", views.admin_user_delete_view, name="admin_user_delete"),
     path("admin-panel/users/allocate-pixels/", views.admin_allocate_pixels_view, name="admin_allocate_pixels"),
+    path("admin-panel/users/seed-admin-data/", views.admin_seed_data_view, name="admin_seed_data"),
 
     # Admin Panel - User Roles & Dynamic Permissions
     path("admin-panel/roles/", views.admin_roles_list_view, name="admin_roles_list"),

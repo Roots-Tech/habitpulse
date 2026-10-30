@@ -17,6 +17,12 @@
         <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels" style="width: 15px; height: 15px; object-fit: contain;">
         <span>Allocate Pixels</span>
       </button>
+      {% if not admin_data_seeded %}
+      <button type="button" class="btn btn-outline" id="btn-toolbar-seed-admin" onclick="window.openSeedAdminModal && window.openSeedAdminModal(); return false;" style="padding: 0.45rem 1rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;" title="Provision baseline admin accounts and workspace master data on-demand">
+        <span>⚡</span>
+        <span>Add Admin Data</span>
+      </button>
+      {% endif %}
       <a href="{% url 'admin_roles_list' %}" class="btn btn-outline" style="padding: 0.45rem 1rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.35rem;">
         <span>🛡️</span> Manage Roles
       </a>
@@ -349,6 +355,91 @@
   </div>
 </div>
 
+<!-- Odoo-style Seed Admin Data Modal -->
+<div id="seed-admin-data-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" style="display: none; position: fixed; inset: 0; z-index: 1050; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 1rem;">
+  <div class="modal-dialog" style="background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: var(--radius-md); max-width: 540px; width: 100%; box-shadow: var(--shadow-xl); overflow: hidden;">
+    <form method="post" action="{% url 'admin_seed_data' %}" id="seedAdminDataForm">
+      {% csrf_token %}
+      <!-- Modal Header -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface-raised);">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.2rem;">⚡</span>
+          <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 0;">Add Admin Data</h2>
+        </div>
+        <button type="button" class="btn-close" onclick="window.closeSeedAdminModal(); return false;" aria-label="Close" style="background: none; border: none; font-size: 1.3rem; color: var(--text-muted); cursor: pointer; padding: 0 4px;">&times;</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div style="padding: 1.25rem; display: grid; gap: 1rem;">
+        {% if is_bootstrap_admin %}
+        <div style="padding: 0.75rem 0.95rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-sm); font-size: 0.825rem; color: var(--text-main); line-height: 1.45;">
+          ⚡ <strong>Temporary Bootstrap Mode:</strong> You are currently logged in with the initial <code>admin</code> account. Provisioning admin data will create <strong>Shrinath_jayakumar</strong> as the permanent Super Admin along with the administrative team, and the temporary <code>admin</code> account will <strong>automatically self-destruct and delete</strong>.
+        </div>
+        {% else %}
+        <div style="font-size: 0.85rem; color: var(--text-body); line-height: 1.5;">
+          Provisions baseline administrative roles and seeds default master data across active workspaces on-demand (Odoo-style).
+        </div>
+        {% endif %}
+
+        <!-- Role Accounts Breakdown -->
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; font-size: 0.8rem; display: grid; gap: 0.5rem;">
+          <div style="font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem;">Designated Role Accounts:</div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span>👑 <strong>Shrinath_jayakumar</strong> (Shrinath Jayakumar)</span>
+            {% if is_bootstrap_admin %}
+              <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4);">New Super Admin</span>
+            {% else %}
+              <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4);">Super Admin (Active)</span>
+            {% endif %}
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span>🛠️ <strong>Akash_ps</strong> (Akash P S)</span>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4);">Technical User</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span>👤 <strong>Romy_fred</strong> (Romy Fred)</span>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">Regular User</span>
+          </div>
+        </div>
+
+        <!-- Common Password Input -->
+        <div>
+          <label for="commonAdminPassword" style="display: block; font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+            🔑 Common Initial Password for Seeded Users
+          </label>
+          <div style="position: relative;">
+            <input type="password" name="common_password" id="commonAdminPassword" class="form-control" required minlength="6" placeholder="Enter common initial password (min 6 characters)" style="width: 100%; padding: 0.55rem 2.5rem 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1.5px solid rgba(99, 102, 241, 0.4); background: var(--surface); color: var(--text-main); font-size: 0.95rem;">
+            <button type="button" id="toggleCommonPasswordBtn" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.85rem;" title="Show/Hide Password">👁️</button>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
+            {% if is_bootstrap_admin %}
+              The admin team accounts will be initialized with this password. The temporary bootstrap 'admin' account will be automatically deleted.
+            {% else %}
+              The designated team accounts will be initialized with this password. They will see a persistent header banner prompting them to update their personal password upon first login.
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Security & Non-Destructive Notice -->
+        <div style="padding: 0.65rem 0.85rem; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-body); display: flex; align-items: center; gap: 0.5rem;">
+          <span>🛡️</span>
+          <span><strong>Safe &amp; Non-Destructive:</strong> Existing customer accounts, workspaces, and habits are never deleted or modified.</span>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.6rem; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface-raised);">
+        <button type="button" class="btn btn-outline btn-sm" onclick="window.closeSeedAdminModal(); return false;" style="padding: 0.45rem 0.9rem; font-size: 0.85rem; cursor: pointer;">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.45rem 1.15rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+          <span>⚡ Provision Admin Data</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 (function() {
   function getSelectedUserIds() {
@@ -425,6 +516,31 @@
       targetTypeSelect.value = selected.length > 0 ? "selected" : "individual";
     }
     window.openAllocateModal();
+  };
+
+  window.openSeedAdminModal = function() {
+    const modal = document.getElementById("seed-admin-data-modal");
+    if (!modal) return;
+    modal.style.display = "flex";
+    void modal.offsetHeight;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    const pw = document.getElementById("commonAdminPassword");
+    if (pw) { pw.value = ""; pw.focus(); }
+  };
+
+  window.closeSeedAdminModal = function() {
+    const modal = document.getElementById("seed-admin-data-modal");
+    if (!modal) return;
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    setTimeout(function() {
+      if (!modal.classList.contains("open")) {
+        modal.style.display = "none";
+      }
+    }, 200);
   };
 
   window.closeAllocateModal = function() {
@@ -565,6 +681,16 @@
         window.openAllocateModalForUser(userId);
       });
     });
+
+    const togglePwBtn = document.getElementById("toggleCommonPasswordBtn");
+    if (togglePwBtn) {
+      togglePwBtn.addEventListener("click", function() {
+        const input = document.getElementById("commonAdminPassword");
+        if (input) {
+          input.type = input.type === "password" ? "text" : "password";
+        }
+      });
+    }
 
     updateSelectionState();
     window.updateTargetUI();

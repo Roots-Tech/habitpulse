@@ -333,6 +333,7 @@ class AdminUserEditForm(forms.ModelForm):
         new_password = self.cleaned_data.get("new_password")
         if new_password:
             user.set_password(new_password)
+            user.must_reset_password = False
 
         if commit:
             user.save()
