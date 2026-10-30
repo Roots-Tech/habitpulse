@@ -4,6 +4,30 @@
 {% block title %}Database Manager — HabitPulse{% endblock %}
 
 {% block content %}
+<style>
+  #create-db-modal, #drop-db-modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+  }
+  #create-db-modal.open, #drop-db-modal.open {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  #create-db-modal.open .modal-dialog, #drop-db-modal.open .modal-dialog {
+    transform: translateY(0) scale(1) !important;
+  }
+</style>
 <div class="container" style="max-width: 1080px; margin: 2rem auto; padding: 0 1rem;">
   <!-- Header Bar -->
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
@@ -176,7 +200,7 @@
 <!-- ========================================================================= -->
 <!-- CREATE DATABASE MODAL                                                     -->
 <!-- ========================================================================= -->
-<div id="create-db-modal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+<div id="create-db-modal" class="modal-backdrop" aria-hidden="true">
   <div class="modal-dialog" style="max-width: 480px; width: 92%; background: var(--surface); border-radius: var(--radius-md); border: 1.5px solid var(--border); box-shadow: var(--shadow-lg); overflow: hidden;">
     <div style="padding: 1.15rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface-raised); display: flex; justify-content: space-between; align-items: center;">
       <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0;">
@@ -229,7 +253,7 @@
 <!-- ========================================================================= -->
 <!-- DROP DATABASE MODAL                                                       -->
 <!-- ========================================================================= -->
-<div id="drop-db-modal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+<div id="drop-db-modal" class="modal-backdrop" aria-hidden="true">
   <div class="modal-dialog" style="max-width: 440px; width: 92%; background: var(--surface); border-radius: var(--radius-md); border: 1.5px solid rgba(239, 68, 68, 0.4); box-shadow: var(--shadow-lg); overflow: hidden;">
     <div style="padding: 1.15rem 1.25rem; border-bottom: 1px solid var(--border); background: rgba(239, 68, 68, 0.08); display: flex; justify-content: space-between; align-items: center;">
       <h3 style="font-size: 1.15rem; font-weight: 800; color: #ef4444; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
@@ -270,23 +294,86 @@
 
 <script>
 window.openCreateDbModal = function() {
-  document.getElementById("create-db-modal").style.display = "flex";
+  const modal = document.getElementById("create-db-modal");
+  if (!modal) return;
+  modal.style.display = "flex";
+  void modal.offsetHeight;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  const input = document.getElementById("new_db_name");
+  if (input) { input.focus(); }
 };
+
 window.closeCreateDbModal = function() {
-  document.getElementById("create-db-modal").style.display = "none";
+  const modal = document.getElementById("create-db-modal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+  setTimeout(function() {
+    if (!modal.classList.contains("open")) {
+      modal.style.display = "none";
+    }
+  }, 200);
 };
+
 window.openDropDbModal = function(dbName) {
-  document.getElementById("dropDbNameInput").value = dbName;
-  document.getElementById("dropDbNameLabel").textContent = dbName;
-  document.getElementById("drop-db-modal").style.display = "flex";
+  const modal = document.getElementById("drop-db-modal");
+  if (!modal) return;
+  const inputDb = document.getElementById("dropDbNameInput");
+  const labelDb = document.getElementById("dropDbNameLabel");
+  if (inputDb) inputDb.value = dbName;
+  if (labelDb) labelDb.textContent = dbName;
+  modal.style.display = "flex";
+  void modal.offsetHeight;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  const inputPw = document.getElementById("confirm_master_password");
+  if (inputPw) { inputPw.value = ""; inputPw.focus(); }
 };
+
 window.closeDropDbModal = function() {
-  document.getElementById("drop-db-modal").style.display = "none";
+  const modal = document.getElementById("drop-db-modal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+  setTimeout(function() {
+    if (!modal.classList.contains("open")) {
+      modal.style.display = "none";
+    }
+  }, 200);
 };
-document.getElementById("createDbForm").addEventListener("submit", function() {
-  const btn = document.getElementById("btnSubmitCreateDb");
-  btn.disabled = true;
-  btn.innerHTML = "Creating &amp; Migrating... (Please wait)";
+
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") {
+    window.closeCreateDbModal();
+    window.closeDropDbModal();
+  }
 });
+
+document.querySelectorAll("#create-db-modal, #drop-db-modal").forEach(function(m) {
+  m.addEventListener("click", function(e) {
+    if (e.target === m) {
+      window.closeCreateDbModal();
+      window.closeDropDbModal();
+    }
+  });
+});
+
+const createForm = document.getElementById("createDbForm");
+if (createForm) {
+  createForm.addEventListener("submit", function() {
+    const btn = document.getElementById("btnSubmitCreateDb");
+    setTimeout(function() {
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = "Creating &amp; Migrating... (Please wait)";
+      }
+    }, 10);
+  });
+}
 </script>
 {% endblock %}
