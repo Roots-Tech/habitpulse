@@ -215,6 +215,14 @@ def drop_database(name: str) -> bool:
     if name in PROTECTED_DATABASES:
         raise ValueError(f"Protected database '{name}' cannot be dropped.")
 
+    current_db = settings.DATABASES["default"]["NAME"].lower()
+    if name == current_db:
+        raise ValueError(
+            f"Cannot drop database '{name}' because this running server instance is currently connected to it. "
+            f"Please open the primary Database Manager on Port 8000 (http://127.0.0.1:8000/db-manager/) "
+            f"to manage or drop this database."
+        )
+
     # Stop any running server instance serving this database
     active = get_active_instances()
     if name in active:

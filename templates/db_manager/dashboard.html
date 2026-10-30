@@ -153,10 +153,14 @@
                     </button>
                   {% endif %}
 
-                  {% if not db.is_protected %}
+                  {% if not db.is_protected and not db.is_active %}
                     <button type="button" class="btn btn-outline btn-sm" onclick="window.openDropDbModal('{{ db.name }}');" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4); padding: 0.35rem 0.75rem; font-size: 0.8rem; cursor: pointer;" title="Drop database">
                       🗑️ Drop
                     </button>
+                  {% elif db.is_active %}
+                    <span style="font-size: 0.75rem; color: #818cf8; font-style: italic;" title="This server instance is currently connected to this database. To drop it, use the primary manager on Port 8000.">
+                      Active Instance
+                    </span>
                   {% else %}
                     <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">
                       Protected
