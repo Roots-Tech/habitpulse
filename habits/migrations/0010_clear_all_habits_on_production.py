@@ -1,16 +1,9 @@
-# Generated manually to wipe habits table data on production/test server
+# Neutralized migration (SEC-06):
+# Previously contained destructive calls to purge Habit, HabitCompletion, and PixelWallet records.
+# Neutralized with migrations.RunPython.noop to preserve the migration dependency chain
+# while guaranteeing strict data retention and zero data loss across all environments.
 
 from django.db import migrations
-
-
-def clear_all_habit_data(apps, schema_editor):
-    Habit = apps.get_model("habits", "Habit")
-    HabitCompletion = apps.get_model("habits", "HabitCompletion")
-    PixelWallet = apps.get_model("habits", "PixelWallet")
-
-    HabitCompletion.objects.all().delete()
-    PixelWallet.objects.all().delete()
-    Habit.objects.all().delete()
 
 
 class Migration(migrations.Migration):
@@ -20,5 +13,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(clear_all_habit_data, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(migrations.RunPython.noop, reverse_code=migrations.RunPython.noop),
     ]

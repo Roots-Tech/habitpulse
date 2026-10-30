@@ -88,6 +88,10 @@ class User(AbstractUser):
             "unique": "A user with that email already exists.",
         },
     )
+    must_reset_password = models.BooleanField(
+        default=False,
+        help_text="Flags if the user must reset their password on first login.",
+    )
     role = models.CharField(
         max_length=30,
         choices=Role.choices,
