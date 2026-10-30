@@ -43,7 +43,7 @@ class HabitCategory(models.Model):
 class RuleStrategy(models.Model):
     """
     Master Data: Configurable Completion Validation Rule Strategies with full CRUD support.
-    Strictly tenant-scoped.
+    Common system-wide master data created and managed by the tech team, shared across all users and workspaces.
     """
     class EngineType(models.TextChoices):
         STANDARD = "STANDARD", "Honor System (One-Click)"
@@ -52,12 +52,7 @@ class RuleStrategy(models.Model):
         NUMERIC_TARGET = "NUMERIC_TARGET", "Quantitative Goal"
         TIME_AND_EVIDENCE = "TIME_AND_EVIDENCE", "Time Window + Proof Required"
 
-    tenant = models.ForeignKey(
-        Tenant,
-        on_delete=models.CASCADE,
-        related_name="rule_strategies",
-    )
-    name = models.CharField(max_length=120)
+    name = models.CharField(max_length=120, unique=True)
     engine_type = models.CharField(
         max_length=30,
         choices=EngineType.choices,
@@ -75,7 +70,6 @@ class RuleStrategy(models.Model):
 
     class Meta:
         ordering = ["name"]
-        unique_together = [("tenant", "name")]
         verbose_name = "Rule Strategy"
         verbose_name_plural = "Rule Strategies"
 
@@ -475,16 +469,14 @@ class Habit(models.Model):
             self.category = self.category_ref.name
 
         # 2. Synchronize validation_rule and rule_strategy_ref
-        if self.validation_rule and self.tenant_id:
+        if self.validation_rule:
             if not self.rule_strategy_ref or self.rule_strategy_ref.engine_type != self.validation_rule:
                 strat = RuleStrategy.objects.filter(
-                    tenant=self.tenant,
                     engine_type=self.validation_rule,
                 ).first()
                 if not strat:
                     label = dict(self.ValidationRule.choices).get(self.validation_rule, self.validation_rule)
                     strat, _ = RuleStrategy.objects.get_or_create(
-                        tenant=self.tenant,
                         name=label,
                         defaults={
                             "engine_type": self.validation_rule,
@@ -751,6 +743,15 @@ def seed_default_master_data_for_tenant(tenant):
             },
         )
 
+    seed_default_rule_strategies()
+
+
+def seed_default_rule_strategies():
+    """
+    Seeds baseline system-wide Rule Strategies managed by the tech team.
+    Common for all users and workspaces across the platform.
+    Idempotent: skips existing entries.
+    """
     default_rules = [
         {
             "name": "Honor System (One-Click)",
@@ -780,7 +781,6 @@ def seed_default_master_data_for_tenant(tenant):
     ]
     for rule in default_rules:
         RuleStrategy.objects.get_or_create(
-            tenant=tenant,
             name=rule["name"],
             defaults={
                 "engine_type": rule["engine_type"],
