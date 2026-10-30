@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.generic import RedirectView, TemplateView
-from django.views.static import serve
+from config.views import protected_media_view
 
 
 class ServiceWorkerView(TemplateView):
@@ -39,5 +39,5 @@ urlpatterns = [
     path("offline/", TemplateView.as_view(template_name="pwa/offline.html"), name="pwa_offline"),
     path("", include("habits.urls")),
     path("", include("dashboard.urls")),
-    re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
+    re_path(r"^media/(?P<path>.*)$", protected_media_view, name="protected_media"),
 ]
