@@ -33,6 +33,7 @@ from .models import (
     RuleStrategy,
     seed_default_catalog_habits,
     seed_default_master_data_for_tenant,
+    seed_default_rule_strategies,
 )
 from .services import (
     calculate_completion_rate,
@@ -559,7 +560,7 @@ def habit_create_view(request):
             is_template_initial=is_template_req,
         )
 
-    available_rule_strategies = RuleStrategy.objects.filter(tenant=tenant, is_active=True)
+    available_rule_strategies = RuleStrategy.objects.filter(is_active=True)
 
     action_title = "Create a New Habit"
     submit_label = "Create Habit"
@@ -624,7 +625,7 @@ def habit_update_view(request, pk):
     else:
         form = HabitForm(instance=habit, tenant=target_tenant, user=request.user)
 
-    available_rule_strategies = RuleStrategy.objects.filter(tenant=target_tenant, is_active=True)
+    available_rule_strategies = RuleStrategy.objects.filter(is_active=True)
 
     action_title = f'Edit Template "{habit.name}"' if habit.is_template else f'Edit "{habit.name}"'
     return render(request, "habits/habit_form.html", {
@@ -1090,25 +1091,16 @@ def category_delete_view(request, pk):
 @rule_strategy_permission_required
 def rule_strategy_list_view(request):
     """
-    Master Data: Lists all Rule Strategies in the user's active workspace (or all for Super Admin).
+    Master Data: Lists all Rule Strategies (Common system-wide master data managed by the tech team).
     Supports search query (?q=).
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    if not RuleStrategy.objects.filter(tenant=tenant).exists():
-        seed_default_master_data_for_tenant(tenant)
+    if not RuleStrategy.objects.exists():
+        seed_default_rule_strategies()
 
     q = request.GET.get("q", "").strip()
-    if request.user.is_super_admin:
-        strategies = RuleStrategy.objects.all().annotate(
-            total_habits=Count("habits")
-        )
-    else:
-        strategies = RuleStrategy.objects.filter(tenant=tenant).annotate(
-            total_habits=Count("habits")
-        )
+    strategies = RuleStrategy.objects.all().annotate(
+        total_habits=Count("habits")
+    )
     if q:
         strategies = strategies.filter(
             Q(name__icontains=q) | Q(description__icontains=q) | Q(engine_type__icontains=q)
@@ -1125,24 +1117,18 @@ def rule_strategy_list_view(request):
 @rule_strategy_permission_required
 def rule_strategy_create_view(request):
     """
-    Master Data: Create a new Rule Strategy for the active tenant.
+    Master Data: Create a new system-wide Rule Strategy.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
     if request.method == "POST":
-        form = RuleStrategyForm(request.POST, tenant=tenant)
+        form = RuleStrategyForm(request.POST)
         if form.is_valid():
-            strategy = form.save(commit=False)
-            strategy.tenant = tenant
-            strategy.save()
+            strategy = form.save()
             messages.success(request, f'Rule Strategy "{strategy.name}" created successfully!')
             return redirect("rule_strategy_list")
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = RuleStrategyForm(tenant=tenant)
+        form = RuleStrategyForm()
 
     return render(request, "habits/rule_strategy_form.html", {
         "form": form,
@@ -1154,18 +1140,12 @@ def rule_strategy_create_view(request):
 @rule_strategy_permission_required
 def rule_strategy_update_view(request, pk):
     """
-    Master Data: Edit an existing Rule Strategy.
-    Super Admins can edit any rule strategy across the platform.
+    Master Data: Edit an existing system-wide Rule Strategy.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    strategy = get_object_or_404(RuleStrategy, pk=pk) if request.user.is_super_admin else get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
-    target_tenant = strategy.tenant if strategy.tenant else tenant
+    strategy = get_object_or_404(RuleStrategy, pk=pk)
 
     if request.method == "POST":
-        form = RuleStrategyForm(request.POST, instance=strategy, tenant=target_tenant)
+        form = RuleStrategyForm(request.POST, instance=strategy)
         if form.is_valid():
             form.save()
             messages.success(request, f'Rule Strategy "{strategy.name}" updated successfully!')
@@ -1173,7 +1153,7 @@ def rule_strategy_update_view(request, pk):
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = RuleStrategyForm(instance=strategy, tenant=target_tenant)
+        form = RuleStrategyForm(instance=strategy)
 
     return render(request, "habits/rule_strategy_form.html", {
         "form": form,
@@ -1186,14 +1166,9 @@ def rule_strategy_update_view(request, pk):
 @rule_strategy_permission_required
 def rule_strategy_delete_view(request, pk):
     """
-    Master Data: Delete a Rule Strategy.
-    Super Admins can delete any rule strategy across the platform.
+    Master Data: Delete a system-wide Rule Strategy.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    strategy = get_object_or_404(RuleStrategy, pk=pk) if request.user.is_super_admin else get_object_or_404(RuleStrategy, pk=pk, tenant=tenant)
+    strategy = get_object_or_404(RuleStrategy, pk=pk)
     habits_count = strategy.habits.count()
 
     if request.method == "POST":
