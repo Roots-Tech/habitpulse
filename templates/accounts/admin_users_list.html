@@ -17,10 +17,12 @@
         <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels" style="width: 15px; height: 15px; object-fit: contain;">
         <span>Allocate Pixels</span>
       </button>
+      {% if not admin_data_seeded %}
       <button type="button" class="btn btn-outline" id="btn-toolbar-seed-admin" onclick="window.openSeedAdminModal && window.openSeedAdminModal(); return false;" style="padding: 0.45rem 1rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;" title="Provision baseline admin accounts and workspace master data on-demand">
         <span>⚡</span>
         <span>Add Admin Data</span>
       </button>
+      {% endif %}
       <a href="{% url 'admin_roles_list' %}" class="btn btn-outline" style="padding: 0.45rem 1rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.35rem;">
         <span>🛡️</span> Manage Roles
       </a>
