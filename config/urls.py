@@ -37,6 +37,7 @@ urlpatterns = [
     path("manifest.json", ManifestView.as_view(), name="pwa_manifest"),
     path("sw.js", ServiceWorkerView.as_view(), name="pwa_service_worker"),
     path("offline/", TemplateView.as_view(template_name="pwa/offline.html"), name="pwa_offline"),
+    path("db-manager/", include("db_manager.urls")),
     path("", include("habits.urls")),
     path("", include("dashboard.urls")),
     re_path(r"^media/(?P<path>.*)$", protected_media_view, name="protected_media"),

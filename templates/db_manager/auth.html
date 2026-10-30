@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Database Manager Authentication — HabitPulse{% endblock %}
+
+{% block content %}
+<div style="min-height: calc(100vh - 120px); display: flex; align-items: center; justify-content: center; padding: 2rem 1rem;">
+  <div class="card" style="max-width: 440px; width: 100%; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 1.5px solid var(--border); background: var(--surface);">
+    <div style="padding: 2rem 1.75rem; text-align: center;">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.4); margin-bottom: 1.25rem;">
+        <span style="font-size: 1.75rem;">🗄️</span>
+      </div>
+      <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0 0 0.4rem 0;">
+        Database Manager
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0 0 1.5rem 0; line-height: 1.4;">
+        Enter Master Password to manage, create, and inspect PostgreSQL database instances (Odoo-style).
+      </p>
+
+      <form method="post" action="{% url 'db_manager_auth' %}" style="display: grid; gap: 1.15rem; text-align: left;">
+        {% csrf_token %}
+        <div>
+          <label for="master_password" style="display: block; font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">
+            🔑 Master Password
+          </label>
+          <input type="password" name="master_password" id="master_password" class="form-control" required autofocus placeholder="Enter Master Password" style="width: 100%; padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--surface-raised); color: var(--text-main); font-size: 0.95rem;">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem 1rem; font-weight: 700; font-size: 0.925rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 0.45rem;">
+          <span>Unlock Database Manager</span>
+          <span>&rarr;</span>
+        </button>
+      </form>
+
+      <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-size: 0.775rem; color: var(--text-muted);">
+        Master password configured via <code>DB_MASTER_PASSWORD</code> in your environment.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

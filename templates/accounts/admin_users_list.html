@@ -371,16 +371,26 @@
 
       <!-- Modal Body -->
       <div style="padding: 1.25rem; display: grid; gap: 1rem;">
-        <div style="font-size: 0.85rem; color: var(--text-body); line-height: 1.5;">
-          Provisions or updates the baseline administrative roles and seeds default master data (Habit Categories &amp; Rule Strategies) across active workspaces on-demand (Odoo-style).
+        {% if is_bootstrap_admin %}
+        <div style="padding: 0.75rem 0.95rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-sm); font-size: 0.825rem; color: var(--text-main); line-height: 1.45;">
+          ⚡ <strong>Temporary Bootstrap Mode:</strong> You are currently logged in with the initial <code>admin</code> account. Provisioning admin data will create <strong>Shrinath_jayakumar</strong> as the permanent Super Admin along with the administrative team, and the temporary <code>admin</code> account will <strong>automatically self-destruct and delete</strong>.
         </div>
+        {% else %}
+        <div style="font-size: 0.85rem; color: var(--text-body); line-height: 1.5;">
+          Provisions baseline administrative roles and seeds default master data across active workspaces on-demand (Odoo-style).
+        </div>
+        {% endif %}
 
         <!-- Role Accounts Breakdown -->
         <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; font-size: 0.8rem; display: grid; gap: 0.5rem;">
           <div style="font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem;">Designated Role Accounts:</div>
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <span>👑 <strong>Shrinath_jayakumar</strong> (Shrinath Jayakumar)</span>
-            <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4);">Super Admin</span>
+            {% if is_bootstrap_admin %}
+              <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4);">New Super Admin</span>
+            {% else %}
+              <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4);">Super Admin (Active)</span>
+            {% endif %}
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <span>🛠️ <strong>Akash_ps</strong> (Akash P S)</span>
@@ -402,7 +412,11 @@
             <button type="button" id="toggleCommonPasswordBtn" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.85rem;" title="Show/Hide Password">👁️</button>
           </div>
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem;">
-            All 3 users will be initialized with this password. They will see a persistent header banner prompting them to update their personal password upon first login.
+            {% if is_bootstrap_admin %}
+              The admin team accounts will be initialized with this password. The temporary bootstrap 'admin' account will be automatically deleted.
+            {% else %}
+              The designated team accounts will be initialized with this password. They will see a persistent header banner prompting them to update their personal password upon first login.
+            {% endif %}
           </div>
         </div>
 

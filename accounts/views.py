@@ -169,6 +169,7 @@ def admin_users_list_view(request):
 
     from accounts.services import are_admin_accounts_seeded
     admin_data_seeded = are_admin_accounts_seeded()
+    is_bootstrap_admin = (request.user.username.lower() == "admin")
 
     context = {
         "users": users_data,
@@ -181,6 +182,7 @@ def admin_users_list_view(request):
         "regular_users_count": regular_users_count,
         "role_choices": User.Role.choices,
         "admin_data_seeded": admin_data_seeded,
+        "is_bootstrap_admin": is_bootstrap_admin,
     }
     return render(request, "accounts/admin_users_list.html", context)
 
@@ -507,9 +509,26 @@ def admin_seed_data_view(request):
         return redirect("admin_users_list")
 
     try:
-        result = seed_admin_accounts(common_password=common_password, require_reset=True)
+        is_bootstrap_admin = (request.user.username.lower() == "admin")
+        result = seed_admin_accounts(
+            common_password=common_password,
+            require_reset=True,
+            executing_user=request.user,
+        )
         created_count = len(result["created"])
         updated_count = len(result["updated"])
+
+        if is_bootstrap_admin and result.get("bootstrap_deleted"):
+            from django.contrib.auth import logout
+            logout(request)
+            messages.success(
+                request,
+                f"⚡ Admin data provisioned successfully! ({created_count} created). "
+                "The temporary bootstrap 'admin' account has been automatically deleted. "
+                "Please log in with your permanent Super Admin credentials (Shrinath_jayakumar)."
+            )
+            return redirect("login")
+
         messages.success(
             request,
             f"⚡ Admin data provisioned successfully! ({created_count} created, {updated_count} updated). "
