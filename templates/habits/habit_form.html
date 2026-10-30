@@ -163,7 +163,9 @@
         <div class="form-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
             <label class="form-label" for="{{ form.rule_strategy_ref.id_for_label }}" style="margin-bottom: 0;">Rule Strategy</label>
+            {% if is_admin_or_tech %}
             <a href="{% url 'rule_strategy_create' %}" target="_blank" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 500;">+ New Strategy</a>
+            {% endif %}
           </div>
           {% if form.rule_strategy_ref %}
             {{ form.rule_strategy_ref }}

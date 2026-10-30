@@ -11,9 +11,9 @@ class HabitCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(RuleStrategy)
 class RuleStrategyAdmin(admin.ModelAdmin):
-    list_display = ["name", "engine_type", "tenant", "default_unit", "is_active", "created_at"]
-    list_filter = ["tenant", "engine_type", "is_active"]
-    search_fields = ["name", "description", "tenant__name"]
+    list_display = ["name", "engine_type", "default_unit", "is_active", "created_at"]
+    list_filter = ["engine_type", "is_active"]
+    search_fields = ["name", "description"]
 
 
 @admin.register(Habit)

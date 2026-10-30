@@ -58,7 +58,7 @@ class HabitCategoryForm(forms.ModelForm):
 class RuleStrategyForm(forms.ModelForm):
     """
     Form for creating and editing Master Data Rule Strategies.
-    Strictly tenant-scoped.
+    Common master data managed by the tech team.
     """
     class Meta:
         model = RuleStrategy
@@ -85,22 +85,19 @@ class RuleStrategyForm(forms.ModelForm):
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def __init__(self, *args, tenant=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("tenant", None)
         super().__init__(*args, **kwargs)
-        self.tenant = tenant
-        if not self.tenant and self.instance and self.instance.pk and hasattr(self.instance, "tenant"):
-            self.tenant = self.instance.tenant
 
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
         if not name:
             raise forms.ValidationError("Rule strategy name cannot be empty.")
-        if self.tenant:
-            qs = RuleStrategy.objects.filter(tenant=self.tenant, name__iexact=name)
-            if self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise forms.ValidationError(f"A rule strategy named '{name}' already exists in your workspace.")
+        qs = RuleStrategy.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(f"A rule strategy named '{name}' already exists.")
         return name
 
 
@@ -303,17 +300,14 @@ class HabitForm(forms.ModelForm):
             self.fields["category_ref"].queryset = HabitCategory.objects.filter(
                 tenant=self.tenant, is_active=True
             )
-            self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(
-                tenant=self.tenant, is_active=True
-            )
         else:
             self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True)
-            self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True)
+        self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True)
 
         if not self.instance.pk:
-            if not self.initial.get("rule_strategy_ref") and self.tenant:
+            if not self.initial.get("rule_strategy_ref"):
                 default_strat = RuleStrategy.objects.filter(
-                    tenant=self.tenant, engine_type=RuleStrategy.EngineType.STANDARD
+                    engine_type=RuleStrategy.EngineType.STANDARD
                 ).first()
                 if default_strat:
                     self.initial["rule_strategy_ref"] = default_strat
@@ -390,10 +384,9 @@ class HabitForm(forms.ModelForm):
         else:
             rule = cleaned_data.get("validation_rule") or Habit.ValidationRule.STANDARD
             cleaned_data["validation_rule"] = rule
-            if self.tenant:
-                strat = RuleStrategy.objects.filter(tenant=self.tenant, engine_type=rule).first()
-                if strat:
-                    cleaned_data["rule_strategy_ref"] = strat
+            strat = RuleStrategy.objects.filter(engine_type=rule).first()
+            if strat:
+                cleaned_data["rule_strategy_ref"] = strat
 
         start_time = cleaned_data.get("window_start_time")
         end_time = cleaned_data.get("window_end_time")
