@@ -211,3 +211,36 @@ def drop_database(name: str) -> bool:
             return True
     finally:
         conn.close()
+
+
+def get_active_instances() -> Dict[str, Dict]:
+    """
+    Scans local TCP ports (8000-8006) and identifies which database is served on each port.
+    Returns: {db_name: {"port": port, "url": f"http://127.0.0.1:{port}/", "login_url": f"http://127.0.0.1:{port}/accounts/login/"}}
+    """
+    import urllib.request
+    import json
+
+    active_instances = {}
+    for port in range(8000, 8007):
+        if is_port_in_use(port):
+            try:
+                req = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/db-manager/instance-info/",
+                    headers={"User-Agent": "HabitPulse-Manager"},
+                )
+                with urllib.request.urlopen(req, timeout=0.35) as res:
+                    if res.getcode() == 200:
+                        data = json.loads(res.read().decode("utf-8"))
+                        db_name = data.get("database")
+                        if db_name:
+                            active_instances[db_name.lower()] = {
+                                "port": port,
+                                "url": f"http://127.0.0.1:{port}/",
+                                "login_url": f"http://127.0.0.1:{port}/accounts/login/",
+                                "db_name": db_name,
+                            }
+            except Exception:
+                # If instance-info is not responding or older instance, port is still running
+                pass
+    return active_instances
