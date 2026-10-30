@@ -167,6 +167,9 @@ def admin_users_list_view(request):
     technical_users_count = User.objects.filter(role=User.Role.TECHNICAL_USER, is_superuser=False).count()
     regular_users_count = User.objects.filter(role=User.Role.REGULAR_USER, is_superuser=False).count()
 
+    from accounts.services import are_admin_accounts_seeded
+    admin_data_seeded = are_admin_accounts_seeded()
+
     context = {
         "users": users_data,
         "search_query": search_query,
@@ -177,6 +180,7 @@ def admin_users_list_view(request):
         "technical_users_count": technical_users_count,
         "regular_users_count": regular_users_count,
         "role_choices": User.Role.choices,
+        "admin_data_seeded": admin_data_seeded,
     }
     return render(request, "accounts/admin_users_list.html", context)
 
@@ -492,7 +496,15 @@ def admin_seed_data_view(request):
         messages.error(request, "The common password must be at least 6 characters long.")
         return redirect("admin_users_list")
 
-    from accounts.services import seed_admin_accounts
+    from accounts.services import are_admin_accounts_seeded, seed_admin_accounts
+
+    if are_admin_accounts_seeded():
+        messages.warning(
+            request,
+            "Admin accounts have already been provisioned in this instance. "
+            "Re-seeding is restricted to prevent overwriting active credentials."
+        )
+        return redirect("admin_users_list")
 
     try:
         result = seed_admin_accounts(common_password=common_password, require_reset=True)

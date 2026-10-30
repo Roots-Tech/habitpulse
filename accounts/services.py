@@ -37,13 +37,30 @@ INITIAL_ADMIN_PROFILES = [
 ]
 
 
+def are_admin_accounts_seeded() -> bool:
+    """
+    Evaluates whether all baseline administrative accounts are already provisioned.
+    Used to hide the setup action from UI and block duplicate/conflicting provisioning attempts.
+    """
+    target_usernames = [acc["username"] for acc in INITIAL_ADMIN_PROFILES]
+    existing_count = User.objects.filter(username__in=target_usernames).count()
+    return existing_count >= len(target_usernames)
+
+
 @transaction.atomic
-def seed_admin_accounts(common_password: str, require_reset: bool = True):
+def seed_admin_accounts(common_password: str, require_reset: bool = True, allow_overwrite: bool = False):
     """
     Seeds/provisions baseline administrative accounts using a common initial password
     provided on demand by the Super Admin, flagging them to reset on first login.
     Strictly non-destructive: never purges pre-existing users or workspaces.
+    Blocks duplicate execution unless allow_overwrite is explicitly set to True.
     """
+    if not allow_overwrite and are_admin_accounts_seeded():
+        raise ValueError(
+            "Admin accounts have already been provisioned in this instance. "
+            "Re-seeding is restricted to prevent overwriting existing user credentials."
+        )
+
     if not common_password or len(common_password) < 6:
         raise ValueError("Common initial password must be at least 6 characters.")
 

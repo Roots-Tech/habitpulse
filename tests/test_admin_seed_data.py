@@ -49,6 +49,11 @@ class AdminSeedDataFeatureTestCase(TestCase):
     def test_super_admin_can_provision_admin_data_with_common_password(self):
         self.client.force_login(self.super_admin)
 
+        # Verify button is visible when not yet seeded
+        res_initial = self.client.get(self.users_list_url)
+        self.assertEqual(res_initial.status_code, 200)
+        self.assertContains(res_initial, "Add Admin Data")
+
         # Pre-create an existing customer and workspace
         customer = User.objects.create_user(
             username="existing_customer",
@@ -88,6 +93,37 @@ class AdminSeedDataFeatureTestCase(TestCase):
         # Verify master data seeded
         self.assertTrue(HabitCategory.objects.filter(tenant=customer_tenant).exists())
         self.assertTrue(RuleStrategy.objects.exists())
+
+        # Verify button is now HIDDEN on users list view
+        res_after = self.client.get(self.users_list_url)
+        self.assertEqual(res_after.status_code, 200)
+        self.assertNotContains(res_after, "btn-toolbar-seed-admin")
+
+    def test_reseeding_is_blocked_when_already_provisioned(self):
+        """
+        Verify that once admin accounts exist, subsequent attempts to re-seed
+        are blocked, warning the user and protecting existing credentials.
+        """
+        self.client.force_login(self.super_admin)
+
+        # First provision
+        self.client.post(self.seed_url, {"common_password": "FirstPassword123!"})
+
+        # Change one user's password to simulate customized private credentials
+        shrinath = User.objects.get(username="Shrinath_jayakumar")
+        shrinath.set_password("ShrinathPersonalPassword999!")
+        shrinath.must_reset_password = False
+        shrinath.save()
+
+        # Attempt to re-seed again with a different password
+        res_second = self.client.post(self.seed_url, {"common_password": "NewMaliciousPassword123!"}, follow=True)
+        self.assertEqual(res_second.status_code, 200)
+        self.assertContains(res_second, "Admin accounts have already been provisioned in this instance")
+
+        # Verify Shrinath's password was NOT overwritten
+        shrinath.refresh_from_db()
+        self.assertTrue(shrinath.check_password("ShrinathPersonalPassword999!"))
+        self.assertFalse(shrinath.check_password("NewMaliciousPassword123!"))
 
     def test_password_reset_banner_lifecycle(self):
         """
