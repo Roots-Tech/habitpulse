@@ -93,29 +93,14 @@ class Command(BaseCommand):
                 tenant.save(update_fields=["name"])
                 self.stdout.write(self.style.SUCCESS(f"  -> Workspace set to: '{tenant.name}'"))
 
-        # 2. Prune all other users who are NOT in the target list
-        other_users = User.objects.exclude(username__in=target_usernames)
-        count_pruned = other_users.count()
-        if count_pruned > 0:
-            pruned_names = list(other_users.values_list("username", flat=True))
-            other_users.delete()
-            self.stdout.write(self.style.WARNING(f"Pruned {count_pruned} other user(s): {', '.join(pruned_names)}"))
-
-        # 3. Clean up orphaned tenants with no active memberships
-        orphaned_tenants = Tenant.objects.filter(memberships__isnull=True)
-        count_orphans = orphaned_tenants.count()
-        if count_orphans > 0:
-            orphaned_tenants.delete()
-            self.stdout.write(self.style.WARNING(f"Cleaned up {count_orphans} orphaned tenant(s)"))
-
-        # 4. Seed default master data (Categories and Rule Strategies) for all tenants
+        # 2. Seed default master data (Categories and Rule Strategies) for all active tenants
         from habits.models import seed_default_master_data_for_tenant
         for tenant in Tenant.objects.all():
             seed_default_master_data_for_tenant(tenant)
         self.stdout.write(self.style.SUCCESS("Seeded default master data for all active workspaces."))
 
-        # Verify final user count
-        final_users = list(User.objects.values_list("username", "is_superuser"))
+        # Verify configured admin users
+        configured_users = list(User.objects.filter(username__in=target_usernames).values_list("username", "is_superuser"))
         self.stdout.write(self.style.SUCCESS(
-            f"Successfully configured exactly {len(final_users)} admin accounts: {final_users}"
+            f"Successfully configured {len(configured_users)} admin accounts: {configured_users}"
         ))
