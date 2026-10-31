@@ -31,7 +31,7 @@
         <div class="dropdown topbar-admin-dropdown">
           <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="adminDropdownBtn" aria-haspopup="true" aria-expanded="false" title="Administrative Access & Configurations">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            <span>Admin Panel</span> <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+            <span class="topbar-btn-text">Admin Panel</span> <span class="dropdown-arrow" style="font-size: 0.7rem; margin-left: 2px;">▾</span>
           </button>
           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdownBtn" style="min-width: 220px;">
             {% if user.can_manage_roles or user.can_manage_users %}
@@ -83,7 +83,7 @@
         {% elif user.can_manage_categories or user.can_manage_rule_strategies %}
         <div class="dropdown topbar-admin-dropdown">
           <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" id="masterDataDropdownBtn" aria-haspopup="true" aria-expanded="false">
-            Master Data <span style="font-size: 0.7rem; margin-left: 2px;">▾</span>
+            <span class="topbar-btn-text">Master Data</span> <span class="dropdown-arrow" style="font-size: 0.7rem; margin-left: 2px;">▾</span>
           </button>
           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="masterDataDropdownBtn" style="min-width: 220px;">
             <div class="dropdown-header">Master Data</div>
@@ -106,13 +106,13 @@
                 <!-- PWA Install App Button -->
         <button type="button" class="btn btn-outline btn-sm pwa-install-btn" id="pwaInstallBtn" style="display: none;" title="Install HabitPulse to your device">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          <span>Install App</span>
+          <span class="topbar-btn-text">Install App</span>
         </button>
 
         <!-- Logout button -->
         <a href="{% url 'logout' %}" class="btn btn-outline btn-sm btn-logout" title="Log out of HabitPulse">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          <span>Log out</span>
+          <span class="topbar-btn-text">Log out</span>
         </a>
       </div>
 
@@ -330,7 +330,7 @@
         <div class="topbar-theme-row">
           <span class="theme-label" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.35rem;">
             <span class="theme-icon">❄️</span>
-            <span>Theme:</span>
+            <span class="theme-label-text">Theme:</span>
           </span>
           <select class="theme-select-control topbar-theme-select" aria-label="Theme Selection" title="Select theme">
             <option value="ice">❄️ Cool Ice</option>
@@ -818,6 +818,152 @@
   }
 }
 
+/* Responsive Mobile & Tablet Topbar Rules */
+@media (max-width: 768px) {
+  .app-topbar {
+    min-height: 58px !important;
+    height: auto !important;
+    padding: 0.45rem 0.75rem !important;
+    gap: 0.4rem !important;
+  }
+  .topbar-left {
+    gap: 0.4rem !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .topbar-left .tenant-badge {
+    max-width: 140px !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+  .tenant-badge-text {
+    max-width: 75px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+  }
+  .tenant-role-tag {
+    display: none !important;
+  }
+  .topbar-right {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.35rem !important;
+    margin-left: auto !important;
+  }
+  .topbar-actions-row,
+  .topbar-controls-row {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+  }
+  .topbar-btn-text,
+  .theme-label-text {
+    display: none !important;
+  }
+  .topbar-admin-dropdown .btn,
+  .pwa-install-btn,
+  .btn-logout {
+    padding: 0 !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+  }
+  .topbar-admin-dropdown .btn svg,
+  .pwa-install-btn svg,
+  .btn-logout svg {
+    margin: 0 !important;
+  }
+  .topbar-admin-dropdown .dropdown-arrow {
+    display: none !important;
+  }
+  .topbar-theme-row {
+    padding: 0.15rem 0.35rem !important;
+  }
+  .topbar-theme-select {
+    padding: 0.15rem 0.3rem !important;
+    font-size: 0.72rem !important;
+    max-width: 58px !important;
+  }
+  .habit-notification-menu {
+    position: fixed !important;
+    top: 60px !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 74px) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+  }
+  .habit-notif-header {
+    padding: 0.75rem 1rem 0.65rem !important;
+  }
+  .habit-notif-title {
+    font-size: 1rem !important;
+  }
+  .habit-notif-tabs-bar {
+    padding: 0 1rem 0.5rem !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .habit-notif-body {
+    max-height: calc(100vh - 210px) !important;
+    padding: 0.5rem 0.75rem 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+  .habit-notif-row {
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+  .habit-notif-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 1.1rem !important;
+  }
+  .habit-notif-sub-badge {
+    width: 15px !important;
+    height: 15px !important;
+    font-size: 0.55rem !important;
+  }
+  .habit-notif-actions-row {
+    flex-wrap: wrap !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-topbar {
+    padding: 0.4rem 0.5rem !important;
+    gap: 0.25rem !important;
+  }
+  .topbar-left .tenant-badge {
+    max-width: 105px !important;
+    padding: 0.2rem 0.4rem !important;
+    font-size: 0.72rem !important;
+  }
+  .tenant-badge-text {
+    max-width: 55px !important;
+  }
+  .sidebar-toggle-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .topbar-admin-dropdown .btn,
+  .pwa-install-btn,
+  .btn-logout,
+  .habit-bell-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+  }
+  .topbar-theme-select {
+    max-width: 50px !important;
+  }
+}
 </style>
 
 <script>

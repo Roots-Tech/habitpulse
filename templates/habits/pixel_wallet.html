@@ -933,7 +933,7 @@
     /* -------------------------------------------------------------------------- */
     /* 4. RESPONSIVE BREAKPOINTS                                                  */
     /* -------------------------------------------------------------------------- */
-    @media (max-width: 680px) {
+    @media (max-width: 768px) {
       .main-section-pipeline {
         flex-direction: column;
         gap: 0.65rem;
@@ -944,6 +944,8 @@
       }
       .main-chevron-item {
         min-height: auto;
+        min-width: 0 !important;
+        width: 100% !important;
         padding: 0.95rem 1.15rem !important;
         margin-left: 0 !important;
         border-radius: var(--radius-md) !important;
@@ -952,6 +954,14 @@
       .main-chevron-item .chevron-bg {
         clip-path: none !important;
         border-radius: var(--radius-md);
+      }
+      .main-chevron-content {
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+      }
+      .main-chevron-badge {
+        font-size: 0.8rem !important;
+        padding: 0.3rem 0.65rem !important;
       }
       .main-chevron-junction {
         display: none !important;
