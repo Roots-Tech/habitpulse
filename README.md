@@ -273,3 +273,4 @@ Follow this step-by-step checklist to manually test and verify every requirement
 - [ ] In the browser address bar, try accessing `testuser`'s habit directly:
   `http://127.0.0.1:8000/habits/1/edit/` or `/habits/1/calendar/` or `/habits/1/complete/`.
 - [ ] Verify that a `404 Not Found` response is returned. `attacker` cannot view, edit, mark complete, or infer the existence of `testuser`'s habits.
+_______________________________________________________________________________________________________________
