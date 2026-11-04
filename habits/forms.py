@@ -1,7 +1,7 @@
 import uuid
 from django import forms
 from django.utils import timezone
-from .models import Habit, HabitCategory, HabitCompletion, RuleStrategy
+from .models import Habit, HabitCategory, HabitCompletion, PixelRewardConfig, RuleStrategy
 from .validators import HabitCompletionValidationEngine
 
 
@@ -267,26 +267,23 @@ class HabitForm(forms.ModelForm):
             or Habit.HabitType.GENERAL
         )
 
+        reward_config = PixelRewardConfig.get_config(self.tenant)
+
         # Set initial pixel_score
         if self.instance and self.instance.pk and self.instance.pixel_score:
             self.initial["pixel_score"] = self.instance.pixel_score
         elif "pixel_score" not in self.initial:
-            if current_type == Habit.HabitType.EXPERT_PRESCRIBED:
-                self.initial["pixel_score"] = 10
-            elif current_type == Habit.HabitType.PREDEFINED_PURPOSE:
-                self.initial["pixel_score"] = 5
-            else:
-                self.initial["pixel_score"] = 2
+            self.initial["pixel_score"] = reward_config.get_pixel_for_type(current_type)
 
         if not is_admin_or_tech:
-            # Standard users can only create General habits with fixed 2 pixels
+            # Standard users can only create General habits with configured user-defined pixels
             self.fields["habit_type"].choices = [
                 (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
             ]
             self.fields["habit_type"].initial = Habit.HabitType.GENERAL
             self.fields["is_template"].initial = False
             self.fields["is_template"].widget = forms.HiddenInput()
-            self.fields["pixel_score"].initial = 2
+            self.fields["pixel_score"].initial = reward_config.user_defined_pixels
             self.fields["pixel_score"].widget = forms.HiddenInput()
         else:
             if habit_type_initial:
@@ -424,14 +421,15 @@ class HabitForm(forms.ModelForm):
             if not unit_label or not unit_label.strip():
                 self.add_error("unit_label", "Please specify a unit label (e.g. mins, km, pages).")
 
-        # 3. Pixel Score Validation & Enforcement
+        # 3. Pixel Score Validation & Enforcement via dynamic Admin Configuration
+        reward_config = PixelRewardConfig.get_config(self.tenant)
         if habit_type == Habit.HabitType.GENERAL or not is_admin_or_tech:
-            cleaned_data["pixel_score"] = 2
-            self.instance.pixel_score = 2
+            cleaned_data["pixel_score"] = reward_config.user_defined_pixels
+            self.instance.pixel_score = reward_config.user_defined_pixels
         else:
             score = cleaned_data.get("pixel_score")
             if score is None or score == "":
-                default_score = 10 if habit_type == Habit.HabitType.EXPERT_PRESCRIBED else 5
+                default_score = reward_config.get_pixel_for_type(habit_type)
                 cleaned_data["pixel_score"] = default_score
                 self.instance.pixel_score = default_score
             else:
@@ -451,7 +449,7 @@ class HabitForm(forms.ModelForm):
         habit = super().save(commit=False)
         habit.habit_type = self.cleaned_data.get("habit_type") or habit.habit_type or Habit.HabitType.GENERAL
         habit.is_template = bool(self.cleaned_data.get("is_template", False))
-        habit.pixel_score = self.cleaned_data.get("pixel_score", 2)
+        habit.pixel_score = self.cleaned_data.get("pixel_score") or PixelRewardConfig.get_config(self.tenant).user_defined_pixels
         habit.selected_weekdays = self.cleaned_data.get("selected_weekdays", [])
         if self.cleaned_data.get("category_ref"):
             habit.category_ref = self.cleaned_data["category_ref"]
@@ -515,3 +513,75 @@ class HabitCompletionSubmissionForm(forms.ModelForm):
                 self.add_error(None, err)
 
         return cleaned_data
+
+
+class PixelRewardConfigForm(forms.ModelForm):
+    """
+    Administrative form for configuring dynamic pixel allocations per habit classification:
+    - User-Defined (General)
+    - Predefined Purposeful
+    - Expert Prescribed
+    """
+    class Meta:
+        model = PixelRewardConfig
+        fields = [
+            "user_defined_pixels",
+            "predefined_pixels",
+            "expert_prescribed_pixels",
+            "auto_sync_active_habits",
+            "notes",
+        ]
+        widgets = {
+            "user_defined_pixels": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "1",
+                "id": "id_user_defined_pixels",
+                "style": "font-size: 1.25rem; font-weight: 800; text-align: center; max-width: 140px;",
+            }),
+            "predefined_pixels": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "1",
+                "id": "id_predefined_pixels",
+                "style": "font-size: 1.25rem; font-weight: 800; text-align: center; max-width: 140px;",
+            }),
+            "expert_prescribed_pixels": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "1",
+                "id": "id_expert_prescribed_pixels",
+                "style": "font-size: 1.25rem; font-weight: 800; text-align: center; max-width: 140px;",
+            }),
+            "auto_sync_active_habits": forms.CheckboxInput(attrs={
+                "class": "form-check-input",
+                "id": "id_auto_sync_active_habits",
+            }),
+            "notes": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 2,
+                "placeholder": "Optional administrative note or policy reason for this reward rate change...",
+            }),
+        }
+        labels = {
+            "user_defined_pixels": "User Defined Habits (General)",
+            "predefined_pixels": "Predefined Purposeful Habits",
+            "expert_prescribed_pixels": "Expert Prescribed Habits",
+            "auto_sync_active_habits": "Sync to existing active habits across workspace",
+            "notes": "Policy Notes / Reason for Adjustment",
+        }
+
+    def clean_user_defined_pixels(self):
+        val = self.cleaned_data.get("user_defined_pixels")
+        if val is None or val < 1:
+            raise forms.ValidationError("User-defined habit pixels must be at least 1 Px.")
+        return val
+
+    def clean_predefined_pixels(self):
+        val = self.cleaned_data.get("predefined_pixels")
+        if val is None or val < 1:
+            raise forms.ValidationError("Predefined purposeful habit pixels must be at least 1 Px.")
+        return val
+
+    def clean_expert_prescribed_pixels(self):
+        val = self.cleaned_data.get("expert_prescribed_pixels")
+        if val is None or val < 1:
+            raise forms.ValidationError("Expert prescribed habit pixels must be at least 1 Px.")
+        return val

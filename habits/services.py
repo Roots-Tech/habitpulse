@@ -361,7 +361,7 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
         membership = user.memberships.select_related("tenant").filter(status="ACTIVE").first()
         tenant = membership.tenant if membership else None
 
-    from .models import Habit, HabitCompletion, PixelWallet
+    from .models import Habit, HabitCompletion, PixelWallet, PixelRewardConfig
 
     if habits_qs is None:
         if tenant:
@@ -391,7 +391,7 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
             completions_by_habit[hid].add(cdate)
 
     for h in habits_qs:
-        daily_score = h.pixel_score or (2 if h.is_general else (5 if h.is_predefined_purpose else 10))
+        daily_score = h.pixel_score or PixelRewardConfig.get_config(tenant).get_pixel_for_type(h.habit_type)
         h_pending_days = get_pending_days_in_month(h, today)
         h_allocated = daily_score * h_pending_days
 

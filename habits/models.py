@@ -356,10 +356,11 @@ class Habit(models.Model):
             if not self.unit_label or not self.unit_label.strip():
                 errors["unit_label"] = "Unit label is required (e.g. pages, mins, km)."
 
-        # Pixel Score Rules Validation
+        # Pixel Score Rules Validation via Admin Configuration
+        config = PixelRewardConfig.get_config(self.tenant)
         if self.habit_type == self.HabitType.GENERAL:
-            if self.pixel_score is not None and self.pixel_score != 2:
-                errors["pixel_score"] = "User-created personal habits have a fixed pixel score of 2."
+            if self.pixel_score is not None and self.pixel_score != config.user_defined_pixels:
+                errors["pixel_score"] = f"User-created personal habits have an allotted pixel score of {config.user_defined_pixels}."
         else:
             if self.pixel_score is not None and self.pixel_score < 1:
                 errors["pixel_score"] = "Pixel score must be at least 1."
@@ -487,16 +488,12 @@ class Habit(models.Model):
         elif self.rule_strategy_ref:
             self.validation_rule = self.rule_strategy_ref.engine_type
 
-        # 3. Enforce pixel score rules
+        # 3. Enforce pixel score rules via dynamic Admin Configuration
+        config = PixelRewardConfig.get_config(self.tenant)
         if self.habit_type == self.HabitType.GENERAL:
-            self.pixel_score = 2
+            self.pixel_score = config.user_defined_pixels
         elif not self.pixel_score or self.pixel_score < 1:
-            if self.habit_type == self.HabitType.PREDEFINED_PURPOSE:
-                self.pixel_score = 5
-            elif self.habit_type == self.HabitType.EXPERT_PRESCRIBED:
-                self.pixel_score = 10
-            else:
-                self.pixel_score = 2
+            self.pixel_score = config.get_pixel_for_type(self.habit_type)
 
         super().save(*args, **kwargs)
 
@@ -836,6 +833,133 @@ class PixelRequest(models.Model):
                 "border": "rgba(239, 68, 68, 0.4)",
                 "icon": "✕"
             }
+
+
+class PixelRewardConfig(models.Model):
+    """
+    Master Data & Administrative Configuration:
+    Defines how many pixels are allotted and awarded for each habit classification:
+    1. User-Defined Habits (GENERAL / Honor System)
+    2. Predefined Purposeful Habits (PREDEFINED_PURPOSE)
+    3. Expert Prescribed Habits (EXPERT_PRESCRIBED)
+
+    Enables administrators to adjust accomplishment rewards dynamically across the platform.
+    """
+    DEFAULT_USER_DEFINED = 2
+    DEFAULT_PREDEFINED = 5
+    DEFAULT_EXPERT_PRESCRIBED = 10
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="pixel_reward_configs",
+        help_text="Workspace scope (null for system-wide global configuration)",
+    )
+    user_defined_pixels = models.PositiveIntegerField(
+        default=DEFAULT_USER_DEFINED,
+        help_text="Pixels awarded per accomplishment for user-defined personal habits",
+    )
+    predefined_pixels = models.PositiveIntegerField(
+        default=DEFAULT_PREDEFINED,
+        help_text="Pixels awarded per accomplishment for predefined purposeful habits",
+    )
+    expert_prescribed_pixels = models.PositiveIntegerField(
+        default=DEFAULT_EXPERT_PRESCRIBED,
+        help_text="Pixels awarded per accomplishment for expert prescribed habits",
+    )
+    auto_sync_active_habits = models.BooleanField(
+        default=True,
+        help_text="Automatically update existing active habits to match newly configured pixel rates.",
+    )
+    notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Administrative notes or rationale for these reward thresholds",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_pixel_configs",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Pixel Reward Configuration"
+        verbose_name_plural = "Pixel Reward Configurations"
+
+    def __str__(self):
+        scope = self.tenant.name if self.tenant else "Global"
+        return f"PixelRewardConfig ({scope}): User={self.user_defined_pixels} Px, Predefined={self.predefined_pixels} Px, Expert={self.expert_prescribed_pixels} Px"
+
+    @classmethod
+    def get_config(cls, tenant=None):
+        """
+        Retrieves the active pixel reward configuration for the tenant,
+        falling back to global configuration if tenant-specific does not exist.
+        Initializes default record if neither exists.
+        """
+        try:
+            if tenant:
+                cfg = cls.objects.filter(tenant=tenant).first()
+                if cfg:
+                    return cfg
+            global_cfg = cls.objects.filter(tenant__isnull=True).first()
+            if global_cfg:
+                return global_cfg
+            # Create default global config
+            return cls.objects.create(
+                user_defined_pixels=cls.DEFAULT_USER_DEFINED,
+                predefined_pixels=cls.DEFAULT_PREDEFINED,
+                expert_prescribed_pixels=cls.DEFAULT_EXPERT_PRESCRIBED,
+                notes="System initial default reward configuration.",
+            )
+        except Exception:
+            # Fallback during initial migrations or isolated mock runs
+            return cls(
+                user_defined_pixels=cls.DEFAULT_USER_DEFINED,
+                predefined_pixels=cls.DEFAULT_PREDEFINED,
+                expert_prescribed_pixels=cls.DEFAULT_EXPERT_PRESCRIBED,
+            )
+
+    def get_pixel_for_type(self, habit_type):
+        """
+        Returns the configured pixel award for a given Habit.HabitType.
+        """
+        if habit_type == Habit.HabitType.EXPERT_PRESCRIBED:
+            return self.expert_prescribed_pixels
+        elif habit_type == Habit.HabitType.PREDEFINED_PURPOSE:
+            return self.predefined_pixels
+        return self.user_defined_pixels
+
+    def sync_to_habits(self, tenant=None):
+        """
+        Synchronizes all active habits and templates to reflect the updated pixel allocations.
+        """
+        filter_kwargs = {}
+        if tenant:
+            filter_kwargs["tenant"] = tenant
+
+        u_count = Habit.objects.filter(habit_type=Habit.HabitType.GENERAL, **filter_kwargs).update(
+            pixel_score=self.user_defined_pixels
+        )
+        p_count = Habit.objects.filter(habit_type=Habit.HabitType.PREDEFINED_PURPOSE, **filter_kwargs).update(
+            pixel_score=self.predefined_pixels
+        )
+        e_count = Habit.objects.filter(habit_type=Habit.HabitType.EXPERT_PRESCRIBED, **filter_kwargs).update(
+            pixel_score=self.expert_prescribed_pixels
+        )
+        return {
+            "user_defined": u_count,
+            "predefined": p_count,
+            "expert": e_count,
+            "total": u_count + p_count + e_count,
+        }
 
 
 def seed_default_master_data_for_tenant(tenant):

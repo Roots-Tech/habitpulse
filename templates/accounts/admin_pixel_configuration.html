@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pixel Reward Configuration - Admin Panel - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 980px; margin: 1.5rem auto; padding: 0 1rem;">
+  <!-- Breadcrumbs & Nav -->
+  <div style="margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+    <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">&larr; Back to Dashboard</a>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <a href="{% url 'admin_roles_list' %}" class="btn btn-outline btn-sm">User Roles</a>
+      <a href="{% url 'admin_pixel_requests' %}" class="btn btn-outline btn-sm">Requests</a>
+      <a href="{% url 'category_list' %}" class="btn btn-outline btn-sm">Categories</a>
+    </div>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header" style="margin-bottom: 1.75rem;">
+    <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.35rem;">
+      <span style="font-size: 1.75rem;">⚙️</span>
+      <h1 style="font-size: 1.6rem; font-weight: 900; color: var(--text-main); margin: 0; letter-spacing: -0.02em;">
+        Pixel Reward &amp; Allocation Configuration
+      </h1>
+      <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 0.75rem; padding: 0.2rem 0.5rem; font-weight: 700;">
+        Admin Only
+      </span>
+    </div>
+    <p style="font-size: 0.925rem; color: var(--text-muted); margin: 0; max-width: 760px; line-height: 1.5;">
+      Define and dynamically adjust the pixels awarded to users for accomplishing each habit classification. Nothing is fixed—you have complete administrative control over accomplishment incentives across your platform.
+    </p>
+  </div>
+
+  <!-- Workspace Habits Scope & Metrics -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+    <div class="card" style="padding: 1.15rem 1.25rem; border-left: 4px solid #34d399; background: var(--surface);">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">User Defined Habits</div>
+      <div style="font-size: 1.75rem; font-weight: 900; color: #34d399; line-height: 1.1; margin-top: 0.25rem;">
+        {{ stats.user_defined_count }} <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">active</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+        Personal routines created by users
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem 1.25rem; border-left: 4px solid #38bdf8; background: var(--surface);">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Predefined Purpose</div>
+      <div style="font-size: 1.75rem; font-weight: 900; color: #38bdf8; line-height: 1.1; margin-top: 0.25rem;">
+        {{ stats.predefined_count }} <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">active</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+        Curated catalog habit templates
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem 1.25rem; border-left: 4px solid #c084fc; background: var(--surface);">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Expert Prescribed</div>
+      <div style="font-size: 1.75rem; font-weight: 900; color: #c084fc; line-height: 1.1; margin-top: 0.25rem;">
+        {{ stats.expert_count }} <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">active</span>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+        Clinical/structured protocols
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem 1.25rem; border-left: 4px solid var(--primary); background: var(--surface);">
+      <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Total Tracked Tasks</div>
+      <div style="font-size: 1.75rem; font-weight: 900; color: var(--primary); line-height: 1.1; margin-top: 0.25rem;">
+        {{ stats.total_active }}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+        Combined active habits in system
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Card -->
+  <form method="post" action="{% url 'admin_pixel_configuration' %}" id="pixelConfigForm">
+    {% csrf_token %}
+
+    <div class="card" style="padding: 1.75rem; margin-bottom: 1.5rem; border: 1.5px solid var(--border-strong);">
+      <div style="border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0;">
+            Accomplishment Reward Rates
+          </h2>
+          <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.2rem;">
+            Set the exact number of Pixels awarded for each completed day of each habit type.
+          </div>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+          Last updated: <strong style="color: var(--text-main);">{{ config.updated_at|date:"M d, Y H:i" }}</strong>
+          {% if config.updated_by %}by <strong style="color: var(--primary);">@{{ config.updated_by.username }}</strong>{% endif %}
+        </div>
+      </div>
+
+      {% if form.errors %}
+        <div class="alert alert-error" style="margin-bottom: 1.25rem; background-color: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.4); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+          <div style="font-weight: 700; color: #f43f5e; margin-bottom: 0.35rem;">⚠️ Please correct the errors below:</div>
+          <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-main);">
+            {% for field in form %}
+              {% for error in field.errors %}
+                <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <!-- 3 Habit Classification Config Cards Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 1.75rem;">
+        
+        <!-- 1. User Defined (General) Habits Card -->
+        <div style="background: var(--surface-raised); border: 1.5px solid rgba(52, 211, 153, 0.35); border-radius: var(--radius-md); padding: 1.35rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.35rem;">👤</span>
+                <div>
+                  <h3 style="font-size: 1rem; font-weight: 800; color: var(--text-main); margin: 0;">User Defined</h3>
+                  <span style="font-size: 0.7rem; color: #34d399; font-weight: 700; text-transform: uppercase;">General / Honor System</span>
+                </div>
+              </div>
+              <span class="badge" style="background: rgba(52, 211, 153, 0.15); color: #34d399; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem;">
+                Baseline: 2 Px
+              </span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin: 0 0 1.25rem 0;">
+              Everyday personal routines created by users (e.g., Drink Water, Read 15 mins). Users have full flexibility to define these habits.
+            </p>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div>
+              <label for="{{ form.user_defined_pixels.id_for_label }}" style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.15rem;">
+                Allotted Pixels
+              </label>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">Per daily completion</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              {{ form.user_defined_pixels }}
+              <span style="font-weight: 800; font-size: 0.9rem; color: #34d399;">Px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Predefined Purpose Habits Card -->
+        <div style="background: var(--surface-raised); border: 1.5px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-md); padding: 1.35rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.35rem;">🎯</span>
+                <div>
+                  <h3 style="font-size: 1rem; font-weight: 800; color: var(--text-main); margin: 0;">Predefined Purpose</h3>
+                  <span style="font-size: 0.7rem; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Curated Catalog</span>
+                </div>
+              </div>
+              <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem;">
+                Baseline: 5 Px
+              </span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin: 0 0 1.25rem 0;">
+              Curated habits published in the catalog with targeted goals (e.g., Deep Hydration 2L, 45 Min Deep Work Sprint).
+            </p>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div>
+              <label for="{{ form.predefined_pixels.id_for_label }}" style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.15rem;">
+                Allotted Pixels
+              </label>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">Per daily completion</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              {{ form.predefined_pixels }}
+              <span style="font-weight: 800; font-size: 0.9rem; color: #38bdf8;">Px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Expert Prescribed Habits Card -->
+        <div style="background: var(--surface-raised); border: 1.5px solid rgba(192, 132, 252, 0.35); border-radius: var(--radius-md); padding: 1.35rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.35rem;">🩺</span>
+                <div>
+                  <h3 style="font-size: 1rem; font-weight: 800; color: var(--text-main); margin: 0;">Expert Prescribed</h3>
+                  <span style="font-size: 0.7rem; color: #c084fc; font-weight: 700; text-transform: uppercase;">Rigorous Protocols</span>
+                </div>
+              </div>
+              <span class="badge" style="background: rgba(192, 132, 252, 0.15); color: #c084fc; font-size: 0.68rem; font-weight: 700; padding: 0.15rem 0.45rem;">
+                Baseline: 10 Px
+              </span>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; margin: 0 0 1.25rem 0;">
+              High-discipline protocols (e.g., Zone 2 Cardio, Circadian Light Exposure) with strict verification and highest accomplishment value.
+            </p>
+          </div>
+
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <div>
+              <label for="{{ form.expert_prescribed_pixels.id_for_label }}" style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.15rem;">
+                Allotted Pixels
+              </label>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">Per daily completion</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              {{ form.expert_prescribed_pixels }}
+              <span style="font-weight: 800; font-size: 0.9rem; color: #c084fc;">Px</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Dynamic Impact Calculator Preview -->
+      <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); border: 1.5px solid rgba(99, 102, 241, 0.25); border-radius: var(--radius-md); padding: 1.15rem 1.35rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div style="font-size: 0.75rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.35rem;">
+            <span>⚡ Live Impact Simulation</span>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">
+            If a user tracks and accomplishes <strong>1 habit of each classification daily</strong>:
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+          <div style="text-align: right;">
+            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Daily Earning</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: var(--text-main);" id="simDailyTotal">
+              17 Px / day
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">30-Day Monthly Reserve</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: var(--primary);" id="simMonthlyTotal">
+              510 Px / month
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync to active habits option -->
+      <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem; margin-bottom: 1.25rem;">
+        <label style="display: flex; align-items: flex-start; gap: 0.75rem; margin: 0; cursor: pointer;">
+          <div style="margin-top: 0.15rem;">
+            {{ form.auto_sync_active_habits }}
+          </div>
+          <div>
+            <strong style="font-size: 0.875rem; color: var(--text-main); display: block;">
+              Synchronize existing active habits to these reward rates
+            </strong>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.15rem 0 0 0; line-height: 1.4;">
+              Recommended. When checked, all existing habits in the workspace will immediately adopt these updated pixel amounts, adjusting upcoming daily wallet baselines accordingly.
+            </p>
+          </div>
+        </label>
+      </div>
+
+      <!-- Notes Field -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" for="{{ form.notes.id_for_label }}" style="font-weight: 700; font-size: 0.85rem; margin-bottom: 0.35rem;">
+          {{ form.notes.label }}
+        </label>
+        {{ form.notes }}
+        <div class="form-help" style="font-size: 0.75rem; margin-top: 0.25rem;">
+          Document the reason for this adjustment for audit and compliance tracking.
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+        <a href="{% url 'dashboard' %}" class="btn btn-outline" style="padding: 0.5rem 1.25rem;">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="font-weight: 800; padding: 0.5rem 1.75rem; display: inline-flex; align-items: center; gap: 0.45rem;">
+          <span>💾 Save &amp; Apply Pixel Configurations</span>
+        </button>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script>
+function updateSimulation() {
+  const userPx = parseInt(document.getElementById('id_user_defined_pixels').value) || 0;
+  const predPx = parseInt(document.getElementById('id_predefined_pixels').value) || 0;
+  const expPx = parseInt(document.getElementById('id_expert_prescribed_pixels').value) || 0;
+
+  const daily = userPx + predPx + expPx;
+  const monthly = daily * 30;
+
+  document.getElementById('simDailyTotal').innerText = `${daily} Px / day`;
+  document.getElementById('simMonthlyTotal').innerText = `${monthly} Px / month`;
+}
+
+document.getElementById('id_user_defined_pixels').addEventListener('input', updateSimulation);
+document.getElementById('id_predefined_pixels').addEventListener('input', updateSimulation);
+document.getElementById('id_expert_prescribed_pixels').addEventListener('input', updateSimulation);
+updateSimulation();
+</script>
+{% endblock %}
+
