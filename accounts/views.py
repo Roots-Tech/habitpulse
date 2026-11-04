@@ -979,3 +979,48 @@ def admin_pixel_request_review_view(request, request_id):
     messages.success(request, f"{msg_action} User's wallet settled at {req_obj.final_balance_after_settlement} Px.")
 
     return redirect("admin_pixel_requests")
+
+
+@login_required
+def toggle_view_mode_view(request):
+    """
+    Toggles between Admin Mode and Regular User Mode for Super Admins.
+    Allows testing/previewing the exact Regular User experience without changing database permissions.
+    """
+    is_real_super = (
+        request.user.role == User.Role.SUPER_ADMIN or
+        request.user.is_superuser or
+        getattr(request.user, "is_real_super_admin", False)
+    )
+    if not is_real_super:
+        messages.error(request, "Permission denied. Only Super Admins can switch view modes.")
+        return redirect("dashboard")
+
+    current_mode = request.session.get("admin_view_mode", "admin")
+    requested_mode = request.POST.get("mode") or request.GET.get("mode")
+
+    if requested_mode in ["admin", "user"]:
+        new_mode = requested_mode
+    else:
+        new_mode = "user" if current_mode == "admin" else "admin"
+
+    request.session["admin_view_mode"] = new_mode
+
+    if new_mode == "user":
+        messages.info(
+            request,
+            "👤 Switched to User Mode. You are now previewing HabitPulse as a Regular User. "
+            "All admin features and elevated permissions are temporarily hidden."
+        )
+    else:
+        messages.success(
+            request,
+            "👑 Switched to Admin Mode. Full Super Admin controls and access restored."
+        )
+
+    next_url = request.POST.get("next") or request.GET.get("next") or request.META.get("HTTP_REFERER")
+    if next_url:
+        if new_mode == "user" and ("/admin-panel/" in next_url or "/admin/" in next_url):
+            return redirect("dashboard")
+        return redirect(next_url)
+    return redirect("dashboard")

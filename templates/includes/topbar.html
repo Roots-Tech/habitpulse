@@ -10,7 +10,9 @@
       <a href="{% url 'profile' %}" class="tenant-badge tenant-badge-btn {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" role="button" title="View Workspace & Access Profile: {{ current_tenant.name|default:'Personal Workspace' }}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
         <span class="tenant-badge-text">{{ current_tenant.name|default:"Personal Workspace" }}</span>
-        {% if user.role %}
+        {% if request.is_user_view_mode %}
+          <span class="tenant-role-tag" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">#Regular User (Preview)</span>
+        {% elif user.role %}
           <span class="tenant-role-tag">#{{ user.get_role_display|default:user.role }}</span>
         {% endif %}
       </a>
@@ -26,6 +28,29 @@
     {% if user.is_authenticated %}
       {# Top Row: Actions #}
       <div class="topbar-actions-row">
+        {# View Mode Toggle for Super Admins (Admin Mode <-> User Mode Preview) #}
+        {% if user.is_real_super_admin %}
+        <form method="post" action="{% url 'toggle_view_mode' %}" style="margin: 0; display: inline-flex;" title="Switch view between Admin and Regular User mode">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          {% if request.is_user_view_mode %}
+            <input type="hidden" name="mode" value="admin">
+            <button type="submit" class="btn btn-sm" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 800; display: inline-flex; align-items: center; gap: 0.4rem; background: #34d399; border: 1px solid #059669; color: #064e3b; border-radius: var(--radius-sm); cursor: pointer; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);" title="You are previewing UI as Regular User. Click to switch back to Admin Mode.">
+              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #064e3b;"></span>
+              <span>User Mode (Preview)</span>
+              <span style="font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.35rem; background: #064e3b; color: #34d399; border-radius: 3px;">Exit to Admin 👑</span>
+            </button>
+          {% else %}
+            <input type="hidden" name="mode" value="user">
+            <button type="submit" class="btn btn-outline btn-sm" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; border-color: rgba(192, 132, 252, 0.45); color: #c084fc; background: rgba(168, 85, 247, 0.1); border-radius: var(--radius-sm); cursor: pointer;" title="Preview UI as Regular User (hides all admin features temporarily)">
+              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 6px #c084fc;"></span>
+              <span>Admin Mode</span>
+              <span style="font-size: 0.7rem; color: var(--text-muted); padding: 0.1rem 0.35rem; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 3px;">Switch to User 👤</span>
+            </button>
+          {% endif %}
+        </form>
+        {% endif %}
+
         {# Admin Panel Dropdown #}
         {% if user.can_access_admin_panel %}
         <div class="dropdown topbar-admin-dropdown">

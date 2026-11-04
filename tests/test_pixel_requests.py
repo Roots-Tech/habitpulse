@@ -272,3 +272,4 @@ class PixelRedemptionRequestTests(TestCase):
         # Wallet is completely restored to initial balance
         new_wallet = calculate_user_pixel_wallet(self.user, tenant=self.tenant)
         self.assertEqual(new_wallet["current_balance"], initial_balance)
+
