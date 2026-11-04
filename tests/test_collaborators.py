@@ -75,7 +75,7 @@ class CollaboratorsViewTests(TestCase):
         self.assertEqual(resp_offers.context["active_tab"], "offers")
 
     def test_curated_offers_and_life_suggestions_sections_rendered(self):
-        """Verify Curated Offers empty placeholder and Trending Life Suggestions protocols are rendered."""
+        """Verify Curated Offers and Trending Life Suggestions clean placeholders are rendered."""
         self.client.login(username="collaborator_user", password="securepassword123")
         response = self.client.get(reverse("collaborators"))
         self.assertEqual(response.status_code, 200)
@@ -85,11 +85,10 @@ class CollaboratorsViewTests(TestCase):
         self.assertNotContains(response, "Oura Health")
         self.assertNotContains(response, "WHOOP")
 
-        # Trending Life Suggestions checks
-        self.assertContains(response, "Huberman Early Morning Sunlight Protocol")
-        self.assertContains(response, "Cold Plunge &amp; Sauna Contrast Therapy")
-        self.assertContains(response, "Zone 2 Aerobic Base")
-        self.assertContains(response, "90-Minute Ultradian Deep Work Blocks")
+        # Trending Life Suggestions checks (all hardcoded suggestions cleared)
+        self.assertContains(response, "No suggestions published yet")
+        self.assertNotContains(response, "Huberman Early Morning Sunlight Protocol")
+        self.assertNotContains(response, "Cold Plunge &amp; Sauna Contrast Therapy")
 
     def test_sidebar_active_state_on_collaborators(self):
         """Sidebar should display Collaborators menu link as active when on collaborators URL."""

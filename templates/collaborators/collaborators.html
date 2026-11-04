@@ -434,7 +434,7 @@
   }
 
   /* ========================================================================== */
-  /* TAB PANES & FILTERS                                                        */
+  /* TAB PANES                                                                  */
   /* ========================================================================== */
   .collab-tab-pane {
     animation: fadeInCollab 0.25s ease-out;
@@ -445,139 +445,31 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .collab-filter-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding-bottom: 0.75rem;
-    margin-bottom: 1.5rem;
-  }
-  .collab-filter-chip {
-    background: var(--surface-raised);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    font-size: 0.825rem;
-    font-weight: 600;
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s ease;
-  }
-  .collab-filter-chip:hover {
+  .collab-empty-card {
     background: var(--surface);
-    color: var(--text-main);
-    border-color: var(--border-strong);
-  }
-  .collab-filter-chip.active {
-    background: var(--primary);
-    color: #ffffff;
-    border-color: var(--primary);
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
-  }
-
-  /* Grid of Cards */
-  .collab-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-    gap: 1.5rem;
-  }
-
-  /* Protocol / Life Suggestion Card */
-  .protocol-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px dashed var(--border-strong);
     border-radius: var(--radius-md);
-    padding: 1.35rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    transition: all 0.25s ease;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+    padding: 3.5rem 2rem;
+    text-align: center;
+    max-width: 620px;
+    margin: 2rem auto;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
   }
-  .protocol-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--success);
-    box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.15);
-  }
-  .protocol-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  .collab-empty-icon {
+    font-size: 2.75rem;
     margin-bottom: 0.85rem;
   }
-  .protocol-icon-title {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-  .protocol-icon-wrap {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.28);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.4rem;
-  }
-  .protocol-category-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 0.22rem 0.6rem;
-    border-radius: 999px;
-    background: rgba(16, 185, 129, 0.12);
-    color: var(--success);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-  }
-  .protocol-title {
-    font-size: 1.1rem;
+  .collab-empty-title {
+    font-size: 1.25rem;
     font-weight: 800;
     color: var(--text-main);
-    line-height: 1.35;
-    margin-bottom: 0.65rem;
+    margin: 0 0 0.5rem 0;
   }
-  .protocol-meta-strip {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
-    font-size: 0.78rem;
+  .collab-empty-desc {
+    font-size: 0.9rem;
     color: var(--text-muted);
-  }
-  .protocol-meta-item {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .protocol-mechanism {
-    background: var(--surface-raised);
-    border-left: 3px solid var(--primary);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    padding: 0.65rem 0.85rem;
-    font-size: 0.8rem;
-    color: var(--text-body);
-    line-height: 1.45;
-    margin-bottom: 1.15rem;
-  }
-  .protocol-footer {
-    border-top: 1px solid var(--border-subtle);
-    padding-top: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-  .protocol-reward-pill {
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
+    margin: 0;
+    line-height: 1.5;
   }
 </style>
 {% endblock %}
@@ -662,10 +554,10 @@
   <!-- SECTION 1: CURATED OFFERS                                      -->
   <!-- ============================================================== -->
   <div id="pane-curated-offers" class="collab-tab-pane" style="display: {% if active_tab == 'offers' %}block{% else %}none{% endif %};">
-    <div style="background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius-md); padding: 3.5rem 2rem; text-align: center; max-width: 620px; margin: 2rem auto;">
-      <div style="font-size: 2.75rem; margin-bottom: 0.85rem;">🎁</div>
-      <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin: 0 0 0.5rem 0;">Curated Offers</h3>
-      <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0; line-height: 1.5;">
+    <div class="collab-empty-card">
+      <div class="collab-empty-icon">🎁</div>
+      <h3 class="collab-empty-title">Curated Offers</h3>
+      <p class="collab-empty-desc">
         No offers published yet. Curated partner perks and rewards will be configured here.
       </p>
     </div>
@@ -675,259 +567,12 @@
   <!-- SECTION 2: TRENDING LIFE SUGGESTIONS                           -->
   <!-- ============================================================== -->
   <div id="pane-trending-suggestions" class="collab-tab-pane" style="display: {% if active_tab == 'suggestions' %}block{% else %}none{% endif %};">
-    
-    <!-- Category Filter Bar -->
-    <div class="collab-filter-bar" id="protocolFilterBar">
-      <button type="button" class="collab-filter-chip active" onclick="filterProtocols('all', this)">All Protocols (8)</button>
-      <button type="button" class="collab-filter-chip" onclick="filterProtocols('morning', this)">🌅 Morning Rituals</button>
-      <button type="button" class="collab-filter-chip" onclick="filterProtocols('focus', this)">🧠 Deep Focus &amp; Cognition</button>
-      <button type="button" class="collab-filter-chip" onclick="filterProtocols('fitness', this)">🏃 Vitality &amp; Fitness</button>
-      <button type="button" class="collab-filter-chip" onclick="filterProtocols('recovery', this)">🌙 Sleep &amp; Longevity</button>
-    </div>
-
-    <!-- Protocols Grid -->
-    <div class="collab-grid" id="protocolsGrid">
-
-      <!-- 1. Huberman Morning Sunlight -->
-      <div class="protocol-card" data-category="morning">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">☀️</div>
-              <span class="protocol-category-badge">Morning Ritual</span>
-            </div>
-            <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success); font-weight: 700; font-size: 0.72rem;">Beginner</span>
-          </div>
-          <div class="protocol-title">Huberman Early Morning Sunlight Protocol</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 10–15 mins</div>
-            <div class="protocol-meta-item"><span>🎯</span> Within 30 min of waking</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Photons striking retinal ganglion cells reset the suprachiasmatic nucleus (SCN), generating a healthy morning cortisol surge and timing evening melatonin release 14 hours later.
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+10 Px / Day</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=Huberman+Morning+Sunlight+Protocol&description=Get+10-15+minutes+of+natural+outdoor+sunlight+within+30+minutes+of+waking+to+anchor+circadian+clock." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
-      <!-- 2. Cold Plunge & Sauna -->
-      <div class="protocol-card" data-category="recovery">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">🧊</div>
-              <span class="protocol-category-badge">Recovery &amp; Longevity</span>
-            </div>
-            <span class="badge" style="background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 700; font-size: 0.72rem;">Advanced</span>
-          </div>
-          <div class="protocol-title">Cold Plunge &amp; Sauna Contrast Therapy</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>3x / Week</strong> · 25 mins</div>
-            <div class="protocol-meta-item"><span>🌡️</span> 20 min Sauna + 3 min Cold (50°F)</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Contrast thermal stress triggers heat shock proteins (HSPs) and elevates plasma norepinephrine by up to 250%, stimulating cellular autophagy and stress inoculation.
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+25 Px / Session</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=Cold+Plunge+%26+Sauna+Contrast&description=Perform+20+minutes+of+hot+sauna+followed+by+3+minutes+of+cold+immersion+(50°F)+for+rapid+cellular+recovery." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
-      <!-- 3. Zone 2 Aerobic Base -->
-      <div class="protocol-card" data-category="fitness">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">🏃</div>
-              <span class="protocol-category-badge">Vitality &amp; Fitness</span>
-            </div>
-            <span class="badge" style="background: rgba(234,179,8,0.15); color: var(--primary); font-weight: 700; font-size: 0.72rem;">Intermediate</span>
-          </div>
-          <div class="protocol-title">Zone 2 Aerobic Base (150 min / Week)</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>3–4x / Week</strong> · 45 mins</div>
-            <div class="protocol-meta-item"><span>💓</span> Conversational Pace (Lactate &lt; 2mM)</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Sustained low-intensity cardiovascular conditioning stimulates mitochondrial biogenesis in Type I muscle fibers, maximizing fat oxidation and metabolic flexibility.
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+20 Px / Session</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=Zone+2+Cardio+Base+(45m)&description=Complete+45+minutes+of+steady-state+conversational+aerobic+work+(jogging,+cycling,+or+rowing)+at+Zone+2+heart+rate." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
-      <!-- 4. 90-Minute Ultradian Deep Work -->
-      <div class="protocol-card" data-category="focus">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">🎯</div>
-              <span class="protocol-category-badge">Deep Focus</span>
-            </div>
-            <span class="badge" style="background: rgba(234,179,8,0.15); color: var(--primary); font-weight: 700; font-size: 0.72rem;">Intermediate</span>
-          </div>
-          <div class="protocol-title">90-Minute Ultradian Deep Work Blocks</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 90 mins</div>
-            <div class="protocol-meta-item"><span>🔕</span> Zero phone / notifications</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Human cognition cycles in 90-minute basic rest-activity cycles (BRAC). Deep focus without context switching maximizes theta-to-beta brainwave synchronization.
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+15 Px / Day</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=90-Minute+Ultradian+Deep+Work&description=Execute+one+uninterrupted+90-minute+focused+work+session+with+notifications+silenced+and+phone+in+another+room." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
-      <!-- 5. Digital Sunset -->
-      <div class="protocol-card" data-category="recovery">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">📵</div>
-              <span class="protocol-category-badge">Sleep &amp; Longevity</span>
-            </div>
-            <span class="badge" style="background: rgba(234,179,8,0.15); color: var(--primary); font-weight: 700; font-size: 0.72rem;">Intermediate</span>
-          </div>
-          <div class="protocol-title">Digital Sunset (No Screens 90m Before Bed)</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>Nightly</strong> · Starts 9:00 PM</div>
-            <div class="protocol-meta-item"><span>🌙</span> Dim warm lighting only</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Blue and high-intensity overhead lighting suppresses pineal melatonin secretion by up to 85%. Shifting to amber light shortens sleep latency and deepens slow-wave rest.
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+12 Px / Night</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=Digital+Sunset+(No+Screens)&description=Power+down+all+laptops,+tablets,+and+smartphones+90+minutes+before+sleep+to+protect+deep+REM+architecture." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
-      <!-- 6. Zero Refined Sugar Sprint -->
-      <div class="protocol-card" data-category="fitness">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">🚫</div>
-              <span class="protocol-category-badge">Vitality &amp; Nutrition</span>
-            </div>
-            <span class="badge" style="background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 700; font-size: 0.72rem;">Hard</span>
-          </div>
-          <div class="protocol-title">30-Day Zero Refined Sugar Sprint</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 30-day streak</div>
-            <div class="protocol-meta-item"><span>🥗</span> Whole natural foods only</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Eliminating added sucrose and high-fructose corn syrup flattens insulin spikes, eliminates postprandial reactive hypoglycemia, and dramatically reduces C-reactive protein (CRP).
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+30 Px / Day</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=Zero+Refined+Sugar+Sprint&description=Avoid+all+added+sugars,+desserts,+and+sweetened+beverages+for+the+entire+day+to+reset+insulin+sensitivity." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
-      <!-- 7. NSDR (Non-Sleep Deep Rest) -->
-      <div class="protocol-card" data-category="focus">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">🧘</div>
-              <span class="protocol-category-badge">Deep Focus</span>
-            </div>
-            <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success); font-weight: 700; font-size: 0.72rem;">Beginner</span>
-          </div>
-          <div class="protocol-title">NSDR (Non-Sleep Deep Rest) / Yoga Nidra</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 15–20 mins</div>
-            <div class="protocol-meta-item"><span>🔋</span> Midday energy replenishment</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Guided bodily relaxation and breathwork shifts the nervous system into parasympathetic dominance, replenishing striatal dopamine reserves and enhancing motor learning.
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+10 Px / Day</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=NSDR+Yoga+Nidra+(20m)&description=Complete+a+15-20+minute+guided+Non-Sleep+Deep+Rest+session+during+the+afternoon+energy+dip." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
-      <!-- 8. 10,000 Daily Steps (NEAT) -->
-      <div class="protocol-card" data-category="fitness">
-        <div>
-          <div class="protocol-top">
-            <div class="protocol-icon-title">
-              <div class="protocol-icon-wrap">👟</div>
-              <span class="protocol-category-badge">Vitality &amp; Fitness</span>
-            </div>
-            <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success); font-weight: 700; font-size: 0.72rem;">Beginner</span>
-          </div>
-          <div class="protocol-title">10,000 Daily Steps (NEAT Movement)</div>
-          <div class="protocol-meta-strip">
-            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · Cumulative 10K</div>
-            <div class="protocol-meta-item"><span>🚶</span> Walking meetings, stairs &amp; strides</div>
-          </div>
-          <div class="protocol-mechanism">
-            <strong>Biological Mechanism:</strong> Non-Exercise Activity Thermogenesis (NEAT) regulates glucose transporter 4 (GLUT4) translocation, maintaining all-day metabolic burn and preventing sedentary vascular stiffness.
-          </div>
-        </div>
-        <div class="protocol-footer">
-          <div class="protocol-reward-pill">
-            <span>💎</span>
-            <span>+15 Px / Day</span>
-          </div>
-          <a href="{% url 'habit_create' %}?name=10,000+Daily+Steps&description=Accumulate+at+least+10,000+steps+throughout+the+day+using+walking+meetings,+outdoor+strolls,+and+stairs." class="btn btn-outline btn-sm" style="font-weight: 700;">
-            ➕ Adopt as Habit
-          </a>
-        </div>
-      </div>
-
+    <div class="collab-empty-card">
+      <div class="collab-empty-icon">🔥</div>
+      <h3 class="collab-empty-title">Trending Life Suggestions</h3>
+      <p class="collab-empty-desc">
+        No suggestions published yet. Trending lifestyle protocols and routines will be configured here.
+      </p>
     </div>
   </div>
 
@@ -971,24 +616,6 @@
       url.searchParams.set('tab', tabKey);
       window.history.replaceState(null, '', url.toString());
     }
-  }
-
-  // -------------------------------------------------------------
-  // CATEGORY FILTERING (Protocols)
-  // -------------------------------------------------------------
-  function filterProtocols(category, btnElem) {
-    const bar = document.getElementById('protocolFilterBar');
-    bar.querySelectorAll('.collab-filter-chip').forEach(btn => btn.classList.remove('active'));
-    if (btnElem) btnElem.classList.add('active');
-
-    const cards = document.querySelectorAll('#protocolsGrid .protocol-card');
-    cards.forEach(card => {
-      if (category === 'all' || card.getAttribute('data-category') === category) {
-        card.style.display = 'flex';
-      } else {
-        card.style.display = 'none';
-      }
-    });
   }
 
   // Check URL param on page load
