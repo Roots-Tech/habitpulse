@@ -587,3 +587,66 @@ class UserRolesAndPermissionsTestCase(TestCase):
         self.assertEqual(resp_del.status_code, 302)
         self.assertFalse(Habit.objects.filter(pk=user_habit.pk).exists())
 
+
+    def test_admin_roles_list_renders_view_users_button(self):
+        """
+        The User Roles page displays a compact 'View Users' action button
+        for each role linking to its dedicated role members page.
+        """
+        self.client.force_login(self.super_admin)
+        resp = self.client.get(reverse("admin_roles_list"))
+        self.assertEqual(resp.status_code, 200)
+
+        # Ensure View Users buttons are present
+        super_url = reverse("admin_role_users", kwargs={"role_code": User.Role.SUPER_ADMIN})
+        tech_url = reverse("admin_role_users", kwargs={"role_code": User.Role.TECHNICAL_USER})
+        reg_url = reverse("admin_role_users", kwargs={"role_code": User.Role.REGULAR_USER})
+
+        self.assertContains(resp, f'href="{super_url}"')
+        self.assertContains(resp, f'href="{tech_url}"')
+        self.assertContains(resp, f'href="{reg_url}"')
+        self.assertContains(resp, "View Users")
+
+    def test_admin_role_users_dedicated_page_permissions_and_search(self):
+        """
+        The dedicated admin role users page shows all users in that specific role,
+        supports search filtering, and strictly enforces Super Admin access.
+        """
+        # 1. Unauthenticated -> Redirects to login
+        reg_url = reverse("admin_role_users", kwargs={"role_code": User.Role.REGULAR_USER})
+        resp = self.client.get(reg_url)
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith(reverse("login")))
+
+        # 2. Regular user / Technical user -> PermissionDenied (403)
+        self.client.force_login(self.regular_user)
+        resp = self.client.get(reg_url)
+        self.assertEqual(resp.status_code, 403)
+
+        self.client.force_login(self.tech_user)
+        resp = self.client.get(reg_url)
+        self.assertEqual(resp.status_code, 403)
+
+        # 3. Super Admin -> 200 OK
+        self.client.force_login(self.super_admin)
+        resp = self.client.get(reg_url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Regular User")
+        self.assertContains(resp, self.regular_user.username)
+        self.assertNotContains(resp, self.tech_user.username)
+
+        # 4. Search filter in role
+        search_resp = self.client.get(f"{reg_url}?q=Romy")
+        self.assertEqual(search_resp.status_code, 200)
+        self.assertContains(search_resp, self.regular_user.username)
+
+        # Search with non-matching query
+        no_match_resp = self.client.get(f"{reg_url}?q=NonExistentQueryXYZ")
+        self.assertEqual(no_match_resp.status_code, 200)
+        self.assertContains(no_match_resp, "No users in Regular User match your search")
+
+        # 5. Invalid role code redirects to admin_roles_list
+        invalid_url = reverse("admin_role_users", kwargs={"role_code": "NON_EXISTENT_ROLE"})
+        invalid_resp = self.client.get(invalid_url)
+        self.assertEqual(invalid_resp.status_code, 302)
+        self.assertEqual(invalid_resp.url, reverse("admin_roles_list"))

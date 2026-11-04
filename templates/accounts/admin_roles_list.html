@@ -53,9 +53,10 @@
                 {{ role.level }}
               </div>
             </div>
-            <span class="badge" style="background-color: {{ role.badge_bg }}; color: {{ role.badge_color }}; border: 1px solid {{ role.badge_color }}; font-weight: 700;">
-              {{ role.users.count }} user{{ role.users.count|pluralize }}
-            </span>
+            <a href="{% url 'admin_role_users' role.code %}" class="badge" style="background-color: {{ role.badge_bg }}; color: {{ role.badge_color }}; border: 1px solid {{ role.badge_color }}; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 0.35rem;" title="Click to view all users in {{ role.name }}">
+              <span>{{ role.users.count }} user{{ role.users.count|pluralize }}</span>
+              <span style="font-size: 0.7rem;">&rarr;</span>
+            </a>
           </div>
 
           <!-- Description -->
@@ -110,19 +111,19 @@
           </form>
         </div>
 
-        <!-- Assigned Users Preview -->
-        <div style="border-top: 1px solid var(--border-subtle); padding-top: 0.75rem; margin-top: 0.5rem;">
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600;">Assigned Users:</div>
-          <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
-            {% for u in role.users %}
-              <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--text-main); font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.35rem;" title="{{ u.email }}">
-                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: {{ role.badge_color }};"></span>
-                {{ u.username }}
-              </span>
-            {% empty %}
-              <span style="font-size: 0.78rem; color: var(--text-muted); font-style: italic;">No users currently assigned</span>
-            {% endfor %}
+        <!-- Assigned Users Action -->
+        <div style="border-top: 1px solid var(--border-subtle); padding-top: 0.85rem; margin-top: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+          <div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Assigned Users</div>
+            <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-main); margin-top: 0.15rem;">
+              {{ role.users.count }} user{{ role.users.count|pluralize }}
+            </div>
           </div>
+          <a href="{% url 'admin_role_users' role.code %}" class="btn btn-outline btn-sm" style="font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 0.45rem; white-space: nowrap; border-color: {{ role.badge_color }}; color: var(--text-main); text-decoration: none;">
+            <span>👥</span>
+            <span>View Users</span>
+            <span style="font-size: 0.85rem; color: {{ role.badge_color }}; font-weight: 800;">&rarr;</span>
+          </a>
         </div>
       </div>
     {% endfor %}

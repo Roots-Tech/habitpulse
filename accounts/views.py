@@ -544,55 +544,68 @@ def admin_seed_data_view(request):
 # ADMIN PANEL: USER ROLES MANAGEMENT & CUSTOMIZABLE PERMISSIONS
 # ==============================================================================
 
+ROLE_METADATA_MAP = {
+    User.Role.SUPER_ADMIN: {
+        "code": User.Role.SUPER_ADMIN,
+        "name": "Super Admin",
+        "icon": "👑",
+        "badge_class": "badge-super-admin",
+        "badge_color": "#c084fc",
+        "badge_bg": "rgba(168, 85, 247, 0.15)",
+        "level": "Level 1 — Full System Access",
+        "description": (
+            "Complete unrestricted access across all layers of the application: "
+            "Frontend, Backend, Admin Panel, Database admin, user management, passwords, and sensitive settings."
+        ),
+    },
+    User.Role.TECHNICAL_USER: {
+        "code": User.Role.TECHNICAL_USER,
+        "name": "Technical User",
+        "icon": "🛠️",
+        "badge_class": "badge-technical-user",
+        "badge_color": "#38bdf8",
+        "badge_bg": "rgba(56, 189, 248, 0.15)",
+        "level": "Level 2 — Technical & Master Data",
+        "description": (
+            "Technical team members and developers who configure and operate application features: "
+            "Full access to habits, master data (Categories & Rule Strategies), and features. "
+            "Can be granted or restricted from any page using configurable permissions."
+        ),
+    },
+    User.Role.REGULAR_USER: {
+        "code": User.Role.REGULAR_USER,
+        "name": "Regular User",
+        "icon": "👤",
+        "badge_class": "badge-regular-user",
+        "badge_color": "#34d399",
+        "badge_bg": "rgba(16, 185, 129, 0.15)",
+        "level": "Level 3 — Personal Workspace Only",
+        "description": (
+            "Standard end users restricted strictly to their own personal dashboard and habits they have created. "
+            "Super Admins can selectively check additional privileges to grant access to any page or menu."
+        ),
+    },
+}
+
+
 @super_admin_required
 def admin_roles_list_view(request):
     """
     Admin panel view for User Roles Management.
     Displays detailed role specifications with customizable permission checkboxes,
-    assigned users directory, and individual user permission overrides.
+    assigned users summary with direct links to view role members, and individual user permission overrides.
     """
     roles_meta = [
         {
-            "code": User.Role.SUPER_ADMIN,
-            "name": "Super Admin",
-            "icon": "👑",
-            "badge_class": "badge-super-admin",
-            "badge_color": "#c084fc",
-            "badge_bg": "rgba(168, 85, 247, 0.15)",
-            "level": "Level 1 — Full System Access",
-            "description": (
-                "Complete unrestricted access across all layers of the application: "
-                "Frontend, Backend, Admin Panel, Database admin, user management, passwords, and sensitive settings."
-            ),
+            **ROLE_METADATA_MAP[User.Role.SUPER_ADMIN],
             "users": User.objects.filter(Q(role=User.Role.SUPER_ADMIN) | Q(is_superuser=True)).order_by("username"),
         },
         {
-            "code": User.Role.TECHNICAL_USER,
-            "name": "Technical User",
-            "icon": "🛠️",
-            "badge_class": "badge-technical-user",
-            "badge_color": "#38bdf8",
-            "badge_bg": "rgba(56, 189, 248, 0.15)",
-            "level": "Level 2 — Technical & Master Data",
-            "description": (
-                "Technical team members and developers who configure and operate application features: "
-                "Full access to habits, master data (Categories & Rule Strategies), and features. "
-                "Can be granted or restricted from any page using the checkboxes below."
-            ),
+            **ROLE_METADATA_MAP[User.Role.TECHNICAL_USER],
             "users": User.objects.filter(role=User.Role.TECHNICAL_USER, is_superuser=False).order_by("username"),
         },
         {
-            "code": User.Role.REGULAR_USER,
-            "name": "Regular User",
-            "icon": "👤",
-            "badge_class": "badge-regular-user",
-            "badge_color": "#34d399",
-            "badge_bg": "rgba(16, 185, 129, 0.15)",
-            "level": "Level 3 — Personal Workspace Only",
-            "description": (
-                "Standard end users restricted strictly to their own personal dashboard and habits they have created. "
-                "Super Admins can selectively check additional privileges to grant access to any page or menu."
-            ),
+            **ROLE_METADATA_MAP[User.Role.REGULAR_USER],
             "users": User.objects.filter(role=User.Role.REGULAR_USER, is_superuser=False).order_by("username"),
         },
     ]
@@ -641,6 +654,97 @@ def admin_roles_list_view(request):
         "roles": roles_data,
         "user_rows": user_rows,
         "permissions_definitions": PERMISSIONS_DEFINITIONS,
+        "role_choices": User.Role.choices,
+    })
+
+
+@super_admin_required
+def admin_role_users_view(request, role_code):
+    """
+    Dedicated admin page displaying all users assigned to a specific user role.
+    Allows Super Admins to view members, search users, inspect custom permissions,
+    and change user roles.
+    """
+    if role_code not in ROLE_METADATA_MAP:
+        messages.error(request, f'Role "{role_code}" is not recognized.')
+        return redirect("admin_roles_list")
+
+    role_info = ROLE_METADATA_MAP[role_code]
+
+    if role_code == User.Role.SUPER_ADMIN:
+        base_qs = User.objects.filter(Q(role=User.Role.SUPER_ADMIN) | Q(is_superuser=True))
+    else:
+        base_qs = User.objects.filter(role=role_code, is_superuser=False)
+
+    total_role_users = base_qs.count()
+    active_role_users = base_qs.filter(is_active=True).count()
+
+    search_query = request.GET.get("q", "").strip()
+    users_qs = base_qs
+    if search_query:
+        users_qs = users_qs.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query)
+        )
+
+    users_qs = users_qs.order_by("username").prefetch_related("permission_override", "memberships__tenant")
+
+    users_data = []
+    custom_overrides_count = 0
+    for u in users_qs:
+        override = getattr(u, "permission_override", None)
+        has_custom = bool(override and override.enable_custom)
+        if has_custom:
+            custom_overrides_count += 1
+
+        active_membership = u.memberships.select_related("tenant").filter(status="ACTIVE").first()
+        tenant_name = active_membership.tenant.name if (active_membership and active_membership.tenant) else "Personal Workspace"
+        tenant_role = active_membership.role if active_membership else "Owner"
+
+        users_data.append({
+            "user": u,
+            "display_name": u.get_full_name() or u.username,
+            "username": u.username,
+            "email": u.email,
+            "tenant_name": tenant_name,
+            "tenant_role": tenant_role,
+            "date_joined": u.date_joined,
+            "last_login": u.last_login,
+            "is_active": u.is_active,
+            "is_superuser": u.is_superuser,
+            "has_custom": has_custom,
+            "override": override,
+        })
+
+    # Summary counts for role navigation tabs
+    role_tabs = []
+    for r_code, r_meta in ROLE_METADATA_MAP.items():
+        if r_code == User.Role.SUPER_ADMIN:
+            count = User.objects.filter(Q(role=User.Role.SUPER_ADMIN) | Q(is_superuser=True)).count()
+        else:
+            count = User.objects.filter(role=r_code, is_superuser=False).count()
+
+        role_tabs.append({
+            "code": r_code,
+            "name": r_meta["name"],
+            "icon": r_meta["icon"],
+            "badge_color": r_meta["badge_color"],
+            "badge_bg": r_meta["badge_bg"],
+            "user_count": count,
+            "is_current": r_code == role_code,
+        })
+
+    return render(request, "accounts/admin_role_users.html", {
+        "role": role_info,
+        "users": users_data,
+        "total_count": total_role_users,
+        "active_count": active_role_users,
+        "custom_overrides_count": custom_overrides_count,
+        "filtered_count": len(users_data),
+        "search_query": search_query,
+        "role_tabs": role_tabs,
         "role_choices": User.Role.choices,
     })
 
@@ -716,6 +820,9 @@ def admin_user_role_change_view(request, user_id):
     target_user.role = new_role
     target_user.save()
     messages.success(request, f'Updated role for "{target_user.username}" to {target_user.get_role_display()} successfully!')
+    next_url = request.POST.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     return redirect("admin_roles_list")
 
 

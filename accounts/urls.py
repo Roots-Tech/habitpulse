@@ -18,6 +18,7 @@ urlpatterns = [
 
     # Admin Panel - User Roles & Dynamic Permissions
     path("admin-panel/roles/", views.admin_roles_list_view, name="admin_roles_list"),
+    path("admin-panel/roles/<str:role_code>/users/", views.admin_role_users_view, name="admin_role_users"),
     path("admin-panel/roles/<str:role_code>/permissions/", views.admin_role_permissions_update_view, name="admin_role_permissions_update"),
     path("admin-panel/roles/<int:user_id>/change/", views.admin_user_role_change_view, name="admin_user_role_change"),
     path("admin-panel/roles/user/<int:user_id>/permissions/", views.admin_user_permissions_update_view, name="admin_user_permissions_update"),
