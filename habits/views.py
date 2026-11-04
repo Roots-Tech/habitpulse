@@ -647,7 +647,13 @@ def habit_create_view(request):
             else:
                 messages.error(request, "Please fix the errors in the habit form.")
     else:
+        initial = {}
+        if request.GET.get('name'):
+            initial['name'] = request.GET.get('name')
+        if request.GET.get('description'):
+            initial['description'] = request.GET.get('description')
         form = HabitForm(
+            initial=initial,
             tenant=tenant,
             user=request.user,
             habit_type_initial=requested_type,
@@ -1274,5 +1280,32 @@ def rule_strategy_delete_view(request, pk):
     return render(request, "habits/rule_strategy_confirm_delete.html", {
         "strategy": strategy,
         "habits_count": habits_count,
+    })
+
+
+@login_required
+def collaborators_view(request):
+    """
+    Collaborators & Ecosystem Hub:
+    Two core sections navigated via the segmented chevron pipeline ribbon:
+    1. Curated Offers: Partner perks, biometric device discounts, wellness vouchers, and pixel redemptions.
+    2. Trending Life Suggestions: Science-backed lifestyle protocols, habit templates, and biohacking routines.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        membership = request.user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+        tenant = membership.tenant if membership else None
+
+    today = timezone.localdate()
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
+
+    active_tab = request.GET.get("tab", "offers").lower()
+    if active_tab not in ["offers", "suggestions"]:
+        active_tab = "offers"
+
+    return render(request, "collaborators/collaborators.html", {
+        "wallet_data": wallet_data,
+        "active_tab": active_tab,
+        "current_balance": wallet_data.get("current_balance", 0),
     })
 

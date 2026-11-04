@@ -1,0 +1,1485 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Collaborators & Ecosystem - HabitPulse{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ========================================================================== */
+  /* COLLABORATORS & ECOSYSTEM STYLING                                          */
+  /* ========================================================================== */
+
+  .collaborators-page-container {
+    max-width: 1280px;
+    margin: 1.5rem auto 3.5rem auto;
+    padding: 0 1rem;
+  }
+
+  /* Header Section */
+  .collab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .collab-title-area h1 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0 0 0.35rem 0;
+    letter-spacing: -0.02em;
+  }
+  .collab-title-area p {
+    font-size: 0.925rem;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 650px;
+    line-height: 1.45;
+  }
+  .collab-wallet-badge {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 0.55rem 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  .collab-wallet-badge .badge-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .collab-wallet-badge .badge-val {
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: var(--primary);
+  }
+
+  /* ========================================================================== */
+  /* CHEVRON PIPELINE NAVIGATION (Exact 2-Step Ribbon Match)                   */
+  /* ========================================================================== */
+  .collaborator-pipeline-wrap {
+    margin-bottom: 2.25rem;
+  }
+
+  .chevron-pipeline {
+    display: flex;
+    align-items: stretch;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+    position: relative;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  .chevron-item {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 200px;
+    background: none;
+    border: none;
+    padding: 1.25rem 1.25rem 1.2rem 2.35rem;
+    cursor: pointer;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 125px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    outline: none;
+  }
+
+  .chevron-item:first-child {
+    padding-left: 1.5rem;
+    padding-right: 2rem;
+  }
+
+  .chevron-item:last-child {
+    padding-right: 1.5rem;
+  }
+
+  .chevron-item:not(:first-child) {
+    margin-left: -22px;
+  }
+
+  .chevron-item[data-step="1"] { z-index: 5; }
+  .chevron-item[data-step="2"] { z-index: 4; }
+
+  .chevron-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1;
+    transition: all 0.25s ease;
+    filter: drop-shadow(4px 0 6px rgba(0, 0, 0, 0.22));
+  }
+
+  .chevron-item[data-step="1"] .chevron-bg {
+    clip-path: polygon(0% 0%, calc(100% - 24px) 0%, 100% 50%, calc(100% - 24px) 100%, 0% 100%);
+  }
+  .chevron-item[data-step="2"] .chevron-bg {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 24px 50%);
+  }
+
+  .chevron-node {
+    position: absolute;
+    right: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: all 0.25s ease;
+    cursor: pointer;
+  }
+
+  .chevron-item[data-step="2"] .chevron-node {
+    display: none;
+  }
+
+  .chevron-content {
+    position: relative;
+    z-index: 5;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  .chevron-top-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chevron-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.25;
+    text-align: center;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.01em;
+    transition: color 0.2s ease;
+  }
+
+  .chevron-meta {
+    font-size: 0.725rem;
+    font-weight: 700;
+    padding: 0.22rem 0.65rem;
+    border-radius: 999px;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+  }
+
+  .chevron-item:hover:not(.active) .chevron-bg {
+    filter: brightness(1.08) drop-shadow(4px 0 8px rgba(0, 0, 0, 0.3));
+  }
+  .chevron-item:hover:not(.active) .chevron-node {
+    transform: translateY(-50%) scale(1.12);
+  }
+
+  .chevron-item.active .chevron-node,
+  .chevron-node.active-highlight,
+  .chevron-node:hover {
+    transform: translateY(-50%) scale(1.18);
+  }
+
+  .chevron-item.active::before {
+    content: "ACTIVE";
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    font-size: 0.55rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    padding: 1px 7px;
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* ========================================================================== */
+  /* MULTI-THEME SYNCHRONIZATION                                                */
+  /* ========================================================================== */
+
+  /* Obsidian Dark */
+  [data-theme="dark"] .chevron-pipeline {
+    background: #0d111a;
+    border-color: rgba(223, 193, 135, 0.25);
+  }
+  [data-theme="dark"] .chevron-item[data-step="1"] .chevron-bg {
+    background: linear-gradient(135deg, #1c2233 0%, #141824 100%);
+  }
+  [data-theme="dark"] .chevron-item[data-step="2"] .chevron-bg {
+    background: linear-gradient(135deg, #181d2c 0%, #101420 100%);
+  }
+  [data-theme="dark"] .chevron-item.active .chevron-bg {
+    background: linear-gradient(135deg, #2d2417 0%, #201a11 100%) !important;
+    filter: brightness(1.2) drop-shadow(0 0 12px rgba(223, 193, 135, 0.55));
+  }
+  [data-theme="dark"] .chevron-item .chevron-title {
+    color: #cbd5e1;
+  }
+  [data-theme="dark"] .chevron-item.active .chevron-title {
+    color: #dfc187;
+  }
+  [data-theme="dark"] .chevron-item.active::before {
+    background: #dfc187;
+    color: #0b0e14;
+  }
+  [data-theme="dark"] .chevron-meta {
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  [data-theme="dark"] .chevron-item.active .chevron-meta {
+    background: rgba(223, 193, 135, 0.22);
+    color: #dfc187;
+    border: 1px solid rgba(223, 193, 135, 0.45);
+  }
+  [data-theme="dark"] .chevron-item .chevron-node {
+    background: #141824;
+    color: #dfc187;
+    border: 2px solid rgba(223, 193, 135, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
+  [data-theme="dark"] .chevron-item.active .chevron-node,
+  [data-theme="dark"] .chevron-node.active-highlight,
+  [data-theme="dark"] .chevron-node:hover {
+    background: #dfc187;
+    color: #0b0e14;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 3px #dfc187, 0 4px 14px rgba(223, 193, 135, 0.65);
+  }
+
+  /* Cool Ice (Default) */
+  :root, [data-theme="ice"] {
+    --collab-accent: #38bdf8;
+    --collab-accent-bg: rgba(56, 189, 248, 0.18);
+  }
+  .chevron-pipeline, [data-theme="ice"] .chevron-pipeline {
+    background: #0d2737;
+    border-color: rgba(186, 230, 253, 0.22);
+  }
+  .chevron-item[data-step="1"] .chevron-bg, [data-theme="ice"] .chevron-item[data-step="1"] .chevron-bg {
+    background: linear-gradient(135deg, #1e4660 0%, #16364c 100%);
+  }
+  .chevron-item[data-step="2"] .chevron-bg, [data-theme="ice"] .chevron-item[data-step="2"] .chevron-bg {
+    background: linear-gradient(135deg, #18384f 0%, #122b3f 100%);
+  }
+  .chevron-item.active .chevron-bg, [data-theme="ice"] .chevron-item.active .chevron-bg {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+    filter: brightness(1.15) drop-shadow(0 0 12px rgba(56, 189, 248, 0.5));
+  }
+  .chevron-item .chevron-title, [data-theme="ice"] .chevron-item .chevron-title {
+    color: #e0f2fe;
+  }
+  .chevron-item.active .chevron-title, [data-theme="ice"] .chevron-item.active .chevron-title {
+    color: #7dd3fc;
+  }
+  .chevron-item.active::before, [data-theme="ice"] .chevron-item.active::before {
+    background: #38bdf8;
+    color: #082f49;
+  }
+  .chevron-meta, [data-theme="ice"] .chevron-meta {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+  }
+  .chevron-item.active .chevron-meta, [data-theme="ice"] .chevron-item.active .chevron-meta {
+    background: rgba(56, 189, 248, 0.25);
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.5);
+  }
+  .chevron-item .chevron-node, [data-theme="ice"] .chevron-item .chevron-node {
+    background: #16364c;
+    color: #38bdf8;
+    border: 2px solid rgba(56, 189, 248, 0.4);
+  }
+  .chevron-item.active .chevron-node,
+  [data-theme="ice"] .chevron-item.active .chevron-node,
+  .chevron-node.active-highlight,
+  .chevron-node:hover {
+    background: #38bdf8;
+    color: #082f49;
+    border: 2px solid #e0f2fe;
+    box-shadow: 0 0 0 3px #38bdf8, 0 4px 14px rgba(56, 189, 248, 0.6);
+  }
+
+  /* Clean Light */
+  [data-theme="light"] .chevron-pipeline {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+  [data-theme="light"] .chevron-item[data-step="1"] .chevron-bg {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  }
+  [data-theme="light"] .chevron-item[data-step="2"] .chevron-bg {
+    background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+  }
+  [data-theme="light"] .chevron-item.active .chevron-bg {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+    filter: drop-shadow(0 4px 12px rgba(2, 132, 199, 0.35));
+  }
+  [data-theme="light"] .chevron-item .chevron-title {
+    color: #334155;
+  }
+  [data-theme="light"] .chevron-item.active .chevron-title {
+    color: #ffffff;
+  }
+  [data-theme="light"] .chevron-item.active::before {
+    background: #0284c7;
+    color: #ffffff;
+  }
+  [data-theme="light"] .chevron-meta {
+    background: #e2e8f0;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+  }
+  [data-theme="light"] .chevron-item.active .chevron-meta {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  [data-theme="light"] .chevron-item .chevron-node {
+    background: #ffffff;
+    color: #0284c7;
+    border: 2px solid #0284c7;
+  }
+  [data-theme="light"] .chevron-item.active .chevron-node,
+  [data-theme="light"] .chevron-node.active-highlight,
+  [data-theme="light"] .chevron-node:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 3px #0284c7;
+  }
+
+  /* Pale Rose */
+  [data-theme="rose"] .chevron-pipeline {
+    background: #2a1b24;
+    border-color: rgba(251, 113, 133, 0.28);
+  }
+  [data-theme="rose"] .chevron-item[data-step="1"] .chevron-bg {
+    background: linear-gradient(135deg, #3d2331 0%, #2b1822 100%);
+  }
+  [data-theme="rose"] .chevron-item[data-step="2"] .chevron-bg {
+    background: linear-gradient(135deg, #341c29 0%, #24131d 100%);
+  }
+  [data-theme="rose"] .chevron-item.active .chevron-bg {
+    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+    filter: brightness(1.15) drop-shadow(0 0 12px rgba(251, 113, 133, 0.5));
+  }
+  [data-theme="rose"] .chevron-item .chevron-title {
+    color: #fbcfe8;
+  }
+  [data-theme="rose"] .chevron-item.active .chevron-title {
+    color: #ffe4e6;
+  }
+  [data-theme="rose"] .chevron-item.active::before {
+    background: #fb7185;
+    color: #4c0519;
+  }
+  [data-theme="rose"] .chevron-meta {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fda4af;
+    border: 1px solid rgba(251, 113, 133, 0.25);
+  }
+  [data-theme="rose"] .chevron-item.active .chevron-meta {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  [data-theme="rose"] .chevron-item .chevron-node {
+    background: #2a1b24;
+    color: #fb7185;
+    border: 2px solid rgba(251, 113, 133, 0.4);
+  }
+  [data-theme="rose"] .chevron-item.active .chevron-node,
+  [data-theme="rose"] .chevron-node.active-highlight,
+  [data-theme="rose"] .chevron-node:hover {
+    background: #fb7185;
+    color: #4c0519;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 3px #fb7185, 0 4px 14px rgba(251, 113, 133, 0.6);
+  }
+
+  /* ========================================================================== */
+  /* TAB PANES & FILTERS                                                        */
+  /* ========================================================================== */
+  .collab-tab-pane {
+    animation: fadeInCollab 0.25s ease-out;
+  }
+
+  @keyframes fadeInCollab {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .collab-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .collab-filter-chip {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.825rem;
+    font-weight: 600;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+  }
+  .collab-filter-chip:hover {
+    background: var(--surface);
+    color: var(--text-main);
+    border-color: var(--border-strong);
+  }
+  .collab-filter-chip.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+  }
+
+  /* Grid of Cards */
+  .collab-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 1.5rem;
+  }
+
+  /* Offer Card Styling */
+  .offer-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.35rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+  }
+  .offer-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--primary-border);
+    box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.2);
+  }
+  .offer-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+  .offer-partner-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+  .offer-logo-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.45rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  .offer-brand-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-main);
+  }
+  .offer-verified-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+  .offer-category-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .offer-headline {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.35;
+    margin-bottom: 0.5rem;
+  }
+  .offer-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+  }
+  .offer-footer {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .offer-pixel-perk {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  /* Protocol / Life Suggestion Card */
+  .protocol-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.35rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+  }
+  .protocol-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--success);
+    box-shadow: 0 12px 28px -4px rgba(16, 185, 129, 0.15);
+  }
+  .protocol-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+  }
+  .protocol-icon-title {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+  .protocol-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+  }
+  .protocol-category-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.22rem 0.6rem;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+  .protocol-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.35;
+    margin-bottom: 0.65rem;
+  }
+  .protocol-meta-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .protocol-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .protocol-mechanism {
+    background: var(--surface-raised);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8rem;
+    color: var(--text-body);
+    line-height: 1.45;
+    margin-bottom: 1.15rem;
+  }
+  .protocol-footer {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .protocol-reward-pill {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  /* Modals */
+  .collab-modal-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+  }
+  .collab-modal-content {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    max-width: 520px;
+    width: 100%;
+    padding: 1.75rem;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    animation: fadeInModal 0.2s ease-out;
+  }
+  @keyframes fadeInModal {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  /* Promo code copy input */
+  .promo-code-box {
+    display: flex;
+    align-items: center;
+    background: var(--surface-raised);
+    border: 2px dashed var(--primary-border);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem;
+    margin: 1.25rem 0;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .promo-code-text {
+    font-family: monospace;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: 0.05em;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="collaborators-page-container">
+
+  <!-- Breadcrumb & Top Bar -->
+  <div style="margin-bottom: 1.25rem;">
+    <a href="{% url 'dashboard' %}" class="btn btn-outline btn-sm">&larr; Back to Dashboard</a>
+  </div>
+
+  <!-- Page Header -->
+  <div class="collab-header">
+    <div class="collab-title-area">
+      <h1>
+        <span>🤝</span>
+        <span>Collaborators &amp; Ecosystem</span>
+      </h1>
+      <p>
+        Explore curated partner perks, exclusive member discounts, and trending science-backed lifestyle protocols designed to elevate your daily habits.
+      </p>
+    </div>
+    <div class="collab-wallet-badge">
+      <span style="font-size: 1.15rem;">👛</span>
+      <div>
+        <div class="badge-label">Your Wallet Balance</div>
+        <div class="badge-val">{{ current_balance }} <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">Px</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- SEGMENTED CHEVRON PIPELINE NAVIGATION (2-Step Ribbon)          -->
+  <!-- ============================================================== -->
+  <div class="collaborator-pipeline-wrap">
+    <div class="chevron-pipeline" role="tablist" aria-label="Collaborators Sections">
+      
+      <!-- STEP 1: Curated Offers -->
+      <button type="button"
+              id="chevron-btn-offers"
+              class="chevron-item {% if active_tab == 'offers' %}active{% endif %}"
+              data-step="1"
+              onclick="switchCollaboratorTab('offers')"
+              role="tab"
+              aria-selected="{% if active_tab == 'offers' %}true{% else %}false{% endif %}"
+              title="Curated Offers">
+        <div class="chevron-bg"></div>
+        <div class="chevron-node" title="Switch to: Trending Life Suggestions" onclick="event.stopPropagation(); switchCollaboratorTab('suggestions');">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+            <path d="M5 12h14M13 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div class="chevron-content">
+          <div class="chevron-top-icon">🎁</div>
+          <div class="chevron-title">Curated Offers</div>
+          <div class="chevron-meta">Partner Perks &amp; Rewards</div>
+        </div>
+      </button>
+
+      <!-- STEP 2: Trending Life Suggestions -->
+      <button type="button"
+              id="chevron-btn-suggestions"
+              class="chevron-item {% if active_tab == 'suggestions' %}active{% endif %}"
+              data-step="2"
+              onclick="switchCollaboratorTab('suggestions')"
+              role="tab"
+              aria-selected="{% if active_tab == 'suggestions' %}true{% else %}false{% endif %}"
+              title="Trending Life Suggestions">
+        <div class="chevron-bg"></div>
+        <div class="chevron-content">
+          <div class="chevron-top-icon">🔥</div>
+          <div class="chevron-title">Trending Life Suggestions</div>
+          <div class="chevron-meta">Lifestyle &amp; Biohack Protocols</div>
+        </div>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- SECTION 1: CURATED OFFERS                                      -->
+  <!-- ============================================================== -->
+  <div id="pane-curated-offers" class="collab-tab-pane" style="display: {% if active_tab == 'offers' %}block{% else %}none{% endif %};">
+    
+    <!-- Category Filter Bar -->
+    <div class="collab-filter-bar" id="offerFilterBar">
+      <button type="button" class="collab-filter-chip active" onclick="filterOffers('all', this)">All Perks (8)</button>
+      <button type="button" class="collab-filter-chip" onclick="filterOffers('sleep', this)">🛏️ Sleep &amp; Biohacking</button>
+      <button type="button" class="collab-filter-chip" onclick="filterOffers('wellness', this)">🧘 Health &amp; Recovery</button>
+      <button type="button" class="collab-filter-chip" onclick="filterOffers('tech', this)">🚀 Productivity &amp; Tech</button>
+      <button type="button" class="collab-filter-chip" onclick="filterOffers('nutrition', this)">🥗 Nutrition &amp; Fuel</button>
+    </div>
+
+    <!-- Offers Grid -->
+    <div class="collab-grid" id="offersGrid">
+      
+      <!-- 1. Oura Ring -->
+      <div class="offer-card" data-category="sleep">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">💍</div>
+              <div>
+                <div class="offer-brand-name">Oura Health</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Sleep &amp; Biohacking</span>
+          </div>
+          <div class="offer-headline">$40 Off Gen3 Horizon Ring + 6 Mo. Membership</div>
+          <p class="offer-desc">
+            Ultra-precise biometric smart ring tracking sleep stages, readiness scores, heart rate variability (HRV), and body temperature trends.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 350 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('Oura Health', '💍', '$40 Off Horizon Ring + 6 Months Free Membership', 'HP-OURA-2026', 'https://ouraring.com', 'Apply code at checkout on Oura website or redeem directly using your HabitPulse Pixel Wallet.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. WHOOP -->
+      <div class="offer-card" data-category="wellness">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">⚡</div>
+              <div>
+                <div class="offer-brand-name">WHOOP</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Health &amp; Recovery</span>
+          </div>
+          <div class="offer-headline">1 Month Free + Onyx Peak Performance Band</div>
+          <p class="offer-desc">
+            24/7 wearable sensor providing clinical-grade cardiovascular strain tracking, muscular recovery metrics, and intelligent sleep coaching.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 200 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('WHOOP', '⚡', '1 Month Free + Onyx Peak Band', 'WHOOP-PULSE', 'https://whoop.com', 'Use this exclusive link and promo code to unlock your free trial month and complimentary band.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+      <!-- 3. Eight Sleep -->
+      <div class="offer-card" data-category="sleep">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">🛏️</div>
+              <div>
+                <div class="offer-brand-name">Eight Sleep</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Sleep &amp; Biohacking</span>
+          </div>
+          <div class="offer-headline">$150 Off Pod 4 Smart Temperature Mattress</div>
+          <p class="offer-desc">
+            Dynamic dual-zone hydro-cooling and active heating with sleep autopilot that optimizes bed temperature based on real-time sleep cycles.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 500 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('Eight Sleep', '🛏️', '$150 Off Pod 4 Mattress Cover', 'POD4-HABITPULSE', 'https://eightsleep.com', 'Enter coupon during checkout to save $150 on any Pod smart mattress system.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+      <!-- 4. AG1 (Athletic Greens) -->
+      <div class="offer-card" data-category="nutrition">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">🥬</div>
+              <div>
+                <div class="offer-brand-name">AG1 Nutrition</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Nutrition &amp; Fuel</span>
+          </div>
+          <div class="offer-headline">Free 1-Year Vitamin D3+K2 &amp; 5 Travel Packs</div>
+          <p class="offer-desc">
+            Comprehensive daily foundation with 75 vitamins, minerals, and whole-food sourced superfoods to support gut health and natural vitality.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 150 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('AG1 Nutrition', '🥬', 'Free 1-Yr Vitamin D3+K2 + 5 Travel Packs', 'AG1-PULSE-GIFT', 'https://drinkag1.com', 'Redeemable with your first AG1 monthly subscription order.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+      <!-- 5. Headspace -->
+      <div class="offer-card" data-category="wellness">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">🧘</div>
+              <div>
+                <div class="offer-brand-name">Headspace Health</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Health &amp; Recovery</span>
+          </div>
+          <div class="offer-headline">40% Off Annual Mindful Meditation Plan</div>
+          <p class="offer-desc">
+            Guided mindfulness practices, SOS anti-anxiety breathing exercises, restorative focus audio tracks, and peaceful sleep soundscapes.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 100 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('Headspace', '🧘', '40% Off Annual Subscription', 'HEADSPACE-HP40', 'https://headspace.com', 'Unlock 40% discount on 1-year unlimited access to all meditation and sleep courses.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+      <!-- 6. Notion Plus -->
+      <div class="offer-card" data-category="tech">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">📝</div>
+              <div>
+                <div class="offer-brand-name">Notion Labs</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Productivity &amp; Tech</span>
+          </div>
+          <div class="offer-headline">3 Months Free Notion Plus + AI Unlimited</div>
+          <p class="offer-desc">
+            The connected all-in-one workspace for habit documentation, daily goal journals, project timelines, and smart note-taking.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 250 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('Notion', '📝', '3 Months Free Notion Plus + AI', 'NOTION-PULSE-Q4', 'https://notion.so', 'Apply to new and existing free workspaces for 3 complimentary months of Plus tier.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+      <!-- 7. Hyperice -->
+      <div class="offer-card" data-category="wellness">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">🔨</div>
+              <div>
+                <div class="offer-brand-name">Hyperice Recovery</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Health &amp; Recovery</span>
+          </div>
+          <div class="offer-headline">$50 Off Hypervolt 2 Percussion Massager</div>
+          <p class="offer-desc">
+            QuietGlide percussion massage therapy accelerating muscle warmup, reducing post-workout soreness, and improving range of motion.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 300 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('Hyperice', '🔨', '$50 Off Hypervolt 2 Massager', 'HYPER-HABIT-50', 'https://hyperice.com', 'Valid on Hypervolt 2 and Hypervolt 2 Pro percussion massage guns.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+      <!-- 8. Four Sigmatic -->
+      <div class="offer-card" data-category="nutrition">
+        <div>
+          <div class="offer-card-top">
+            <div class="offer-partner-brand">
+              <div class="offer-logo-wrap">☕</div>
+              <div>
+                <div class="offer-brand-name">Four Sigmatic</div>
+                <div class="offer-verified-badge">✓ Verified Partner</div>
+              </div>
+            </div>
+            <span class="offer-category-tag">Nutrition &amp; Fuel</span>
+          </div>
+          <div class="offer-headline">25% Off Organic Lion's Mane &amp; Chaga Coffee</div>
+          <p class="offer-desc">
+            Fair-trade dark roast coffee infused with organic functional mushrooms to support sustained mental clarity without jitters or midday crashes.
+          </p>
+        </div>
+        <div class="offer-footer">
+          <div class="offer-pixel-perk">
+            <span>✨</span>
+            <span>Redeemable with 120 Px</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openClaimModal('Four Sigmatic', '☕', '25% Off Functional Mushroom Coffee', 'SHROOM-PULSE-25', 'https://foursigmatic.com', 'Receive 25% off storewide on all mushroom coffee blends and elixirs.')">
+            Claim Offer
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- SECTION 2: TRENDING LIFE SUGGESTIONS                           -->
+  <!-- ============================================================== -->
+  <div id="pane-trending-suggestions" class="collab-tab-pane" style="display: {% if active_tab == 'suggestions' %}block{% else %}none{% endif %};">
+    
+    <!-- Category Filter Bar -->
+    <div class="collab-filter-bar" id="protocolFilterBar">
+      <button type="button" class="collab-filter-chip active" onclick="filterProtocols('all', this)">All Protocols (8)</button>
+      <button type="button" class="collab-filter-chip" onclick="filterProtocols('morning', this)">🌅 Morning Rituals</button>
+      <button type="button" class="collab-filter-chip" onclick="filterProtocols('focus', this)">🧠 Deep Focus &amp; Cognition</button>
+      <button type="button" class="collab-filter-chip" onclick="filterProtocols('fitness', this)">🏃 Vitality &amp; Fitness</button>
+      <button type="button" class="collab-filter-chip" onclick="filterProtocols('recovery', this)">🌙 Sleep &amp; Longevity</button>
+    </div>
+
+    <!-- Protocols Grid -->
+    <div class="collab-grid" id="protocolsGrid">
+
+      <!-- 1. Huberman Morning Sunlight -->
+      <div class="protocol-card" data-category="morning">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">☀️</div>
+              <span class="protocol-category-badge">Morning Ritual</span>
+            </div>
+            <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success); font-weight: 700; font-size: 0.72rem;">Beginner</span>
+          </div>
+          <div class="protocol-title">Huberman Early Morning Sunlight Protocol</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 10–15 mins</div>
+            <div class="protocol-meta-item"><span>🎯</span> Within 30 min of waking</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Photons striking retinal ganglion cells reset the suprachiasmatic nucleus (SCN), generating a healthy morning cortisol surge and timing evening melatonin release 14 hours later.
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+10 Px / Day</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=Huberman+Morning+Sunlight+Protocol&description=Get+10-15+minutes+of+natural+outdoor+sunlight+within+30+minutes+of+waking+to+anchor+circadian+clock." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+      <!-- 2. Cold Plunge & Sauna -->
+      <div class="protocol-card" data-category="recovery">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">🧊</div>
+              <span class="protocol-category-badge">Recovery &amp; Longevity</span>
+            </div>
+            <span class="badge" style="background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 700; font-size: 0.72rem;">Advanced</span>
+          </div>
+          <div class="protocol-title">Cold Plunge &amp; Sauna Contrast Therapy</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>3x / Week</strong> · 25 mins</div>
+            <div class="protocol-meta-item"><span>🌡️</span> 20 min Sauna + 3 min Cold (50°F)</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Contrast thermal stress triggers heat shock proteins (HSPs) and elevates plasma norepinephrine by up to 250%, stimulating cellular autophagy and stress inoculation.
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+25 Px / Session</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=Cold+Plunge+%26+Sauna+Contrast&description=Perform+20+minutes+of+hot+sauna+followed+by+3+minutes+of+cold+immersion+(50°F)+for+rapid+cellular+recovery." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+      <!-- 3. Zone 2 Aerobic Base -->
+      <div class="protocol-card" data-category="fitness">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">🏃</div>
+              <span class="protocol-category-badge">Vitality &amp; Fitness</span>
+            </div>
+            <span class="badge" style="background: rgba(234,179,8,0.15); color: var(--primary); font-weight: 700; font-size: 0.72rem;">Intermediate</span>
+          </div>
+          <div class="protocol-title">Zone 2 Aerobic Base (150 min / Week)</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>3–4x / Week</strong> · 45 mins</div>
+            <div class="protocol-meta-item"><span>💓</span> Conversational Pace (Lactate &lt; 2mM)</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Sustained low-intensity cardiovascular conditioning stimulates mitochondrial biogenesis in Type I muscle fibers, maximizing fat oxidation and metabolic flexibility.
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+20 Px / Session</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=Zone+2+Cardio+Base+(45m)&description=Complete+45+minutes+of+steady-state+conversational+aerobic+work+(jogging,+cycling,+or+rowing)+at+Zone+2+heart+rate." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+      <!-- 4. 90-Minute Ultradian Deep Work -->
+      <div class="protocol-card" data-category="focus">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">🎯</div>
+              <span class="protocol-category-badge">Deep Focus</span>
+            </div>
+            <span class="badge" style="background: rgba(234,179,8,0.15); color: var(--primary); font-weight: 700; font-size: 0.72rem;">Intermediate</span>
+          </div>
+          <div class="protocol-title">90-Minute Ultradian Deep Work Blocks</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 90 mins</div>
+            <div class="protocol-meta-item"><span>🔕</span> Zero phone / notifications</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Human cognition cycles in 90-minute basic rest-activity cycles (BRAC). Deep focus without context switching maximizes theta-to-beta brainwave synchronization.
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+15 Px / Day</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=90-Minute+Ultradian+Deep+Work&description=Execute+one+uninterrupted+90-minute+focused+work+session+with+notifications+silenced+and+phone+in+another+room." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+      <!-- 5. Digital Sunset -->
+      <div class="protocol-card" data-category="recovery">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">📵</div>
+              <span class="protocol-category-badge">Sleep &amp; Longevity</span>
+            </div>
+            <span class="badge" style="background: rgba(234,179,8,0.15); color: var(--primary); font-weight: 700; font-size: 0.72rem;">Intermediate</span>
+          </div>
+          <div class="protocol-title">Digital Sunset (No Screens 90m Before Bed)</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>Nightly</strong> · Starts 9:00 PM</div>
+            <div class="protocol-meta-item"><span>🌙</span> Dim warm lighting only</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Blue and high-intensity overhead lighting suppresses pineal melatonin secretion by up to 85%. Shifting to amber light shortens sleep latency and deepens slow-wave rest.
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+12 Px / Night</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=Digital+Sunset+(No+Screens)&description=Power+down+all+laptops,+tablets,+and+smartphones+90+minutes+before+sleep+to+protect+deep+REM+architecture." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+      <!-- 6. Zero Refined Sugar Sprint -->
+      <div class="protocol-card" data-category="fitness">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">🚫</div>
+              <span class="protocol-category-badge">Vitality &amp; Nutrition</span>
+            </div>
+            <span class="badge" style="background: rgba(239,68,68,0.15); color: #ef4444; font-weight: 700; font-size: 0.72rem;">Hard</span>
+          </div>
+          <div class="protocol-title">30-Day Zero Refined Sugar Sprint</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 30-day streak</div>
+            <div class="protocol-meta-item"><span>🥗</span> Whole natural foods only</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Eliminating added sucrose and high-fructose corn syrup flattens insulin spikes, eliminates postprandial reactive hypoglycemia, and dramatically reduces C-reactive protein (CRP).
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+30 Px / Day</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=Zero+Refined+Sugar+Sprint&description=Avoid+all+added+sugars,+desserts,+and+sweetened+beverages+for+the+entire+day+to+reset+insulin+sensitivity." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+      <!-- 7. NSDR (Non-Sleep Deep Rest) -->
+      <div class="protocol-card" data-category="focus">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">🧘</div>
+              <span class="protocol-category-badge">Deep Focus</span>
+            </div>
+            <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success); font-weight: 700; font-size: 0.72rem;">Beginner</span>
+          </div>
+          <div class="protocol-title">NSDR (Non-Sleep Deep Rest) / Yoga Nidra</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · 15–20 mins</div>
+            <div class="protocol-meta-item"><span>🔋</span> Midday energy replenishment</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Guided bodily relaxation and breathwork shifts the nervous system into parasympathetic dominance, replenishing striatal dopamine reserves and enhancing motor learning.
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+10 Px / Day</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=NSDR+Yoga+Nidra+(20m)&description=Complete+a+15-20+minute+guided+Non-Sleep+Deep+Rest+session+during+the+afternoon+energy+dip." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+      <!-- 8. 10,000 Daily Steps (NEAT) -->
+      <div class="protocol-card" data-category="fitness">
+        <div>
+          <div class="protocol-top">
+            <div class="protocol-icon-title">
+              <div class="protocol-icon-wrap">👟</div>
+              <span class="protocol-category-badge">Vitality &amp; Fitness</span>
+            </div>
+            <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success); font-weight: 700; font-size: 0.72rem;">Beginner</span>
+          </div>
+          <div class="protocol-title">10,000 Daily Steps (NEAT Movement)</div>
+          <div class="protocol-meta-strip">
+            <div class="protocol-meta-item"><span>⏱️</span> <strong>Daily</strong> · Cumulative 10K</div>
+            <div class="protocol-meta-item"><span>🚶</span> Walking meetings, stairs &amp; strides</div>
+          </div>
+          <div class="protocol-mechanism">
+            <strong>Biological Mechanism:</strong> Non-Exercise Activity Thermogenesis (NEAT) regulates glucose transporter 4 (GLUT4) translocation, maintaining all-day metabolic burn and preventing sedentary vascular stiffness.
+          </div>
+        </div>
+        <div class="protocol-footer">
+          <div class="protocol-reward-pill">
+            <span>💎</span>
+            <span>+15 Px / Day</span>
+          </div>
+          <a href="{% url 'habit_create' %}?name=10,000+Daily+Steps&description=Accumulate+at+least+10,000+steps+throughout+the+day+using+walking+meetings,+outdoor+strolls,+and+stairs." class="btn btn-outline btn-sm" style="font-weight: 700;">
+            ➕ Adopt as Habit
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================== -->
+<!-- CLAIM OFFER MODAL                                              -->
+<!-- ============================================================== -->
+<div class="collab-modal-backdrop" id="claimOfferModal">
+  <div class="collab-modal-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <div style="display: flex; align-items: center; gap: 0.65rem;">
+        <div id="modalLogoWrap" style="font-size: 1.6rem; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: var(--surface-raised); border-radius: 10px; border: 1px solid var(--border);"></div>
+        <div>
+          <h3 id="modalPartnerName" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main);"></h3>
+          <div style="font-size: 0.78rem; color: var(--primary); font-weight: 700;">✓ Official Ecosystem Partner</div>
+        </div>
+      </div>
+      <button type="button" onclick="closeClaimModal()" class="btn btn-sm" style="background: none; border: none; font-size: 1.35rem; color: var(--text-muted); cursor: pointer;">✕</button>
+    </div>
+
+    <div id="modalHeadline" style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.6rem; line-height: 1.35;"></div>
+    <p id="modalInstructions" style="font-size: 0.85rem; color: var(--text-muted); margin: 0 0 1rem 0; line-height: 1.45;"></p>
+
+    <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Your Exclusive Partner Code:</div>
+    <div class="promo-code-box">
+      <span class="promo-code-text" id="modalPromoCode"></span>
+      <button type="button" class="btn btn-outline btn-sm" id="btnCopyCode" onclick="copyPromoCode()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem;">
+        <span id="copyIcon">📋</span>
+        <span id="copyLabel">Copy Code</span>
+      </button>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeClaimModal()">Close</button>
+      <a id="modalExternalLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="font-weight: 700;">
+        Visit Partner Site &rarr;
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // -------------------------------------------------------------
+  // TAB SWITCHING LOGIC (Matching Segmented Chevron Ribbon)
+  // -------------------------------------------------------------
+  function switchCollaboratorTab(tabKey) {
+    const isOffers = (tabKey === 'offers');
+    const offersBtn = document.getElementById('chevron-btn-offers');
+    const suggestionsBtn = document.getElementById('chevron-btn-suggestions');
+    const offersPane = document.getElementById('pane-curated-offers');
+    const suggestionsPane = document.getElementById('pane-trending-suggestions');
+    const node1 = document.querySelector('#chevron-btn-offers .chevron-node');
+
+    if (isOffers) {
+      offersBtn.classList.add('active');
+      offersBtn.setAttribute('aria-selected', 'true');
+      suggestionsBtn.classList.remove('active');
+      suggestionsBtn.setAttribute('aria-selected', 'false');
+      if (node1) node1.classList.remove('active-highlight');
+
+      offersPane.style.display = 'block';
+      suggestionsPane.style.display = 'none';
+    } else {
+      offersBtn.classList.remove('active');
+      offersBtn.setAttribute('aria-selected', 'false');
+      suggestionsBtn.classList.add('active');
+      suggestionsBtn.setAttribute('aria-selected', 'true');
+      if (node1) node1.classList.add('active-highlight');
+
+      offersPane.style.display = 'none';
+      suggestionsPane.style.display = 'block';
+    }
+
+    // Preserve URL state without full reload
+    if (window.history && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tabKey);
+      window.history.replaceState(null, '', url.toString());
+    }
+  }
+
+  // -------------------------------------------------------------
+  // CATEGORY FILTERING (Offers)
+  // -------------------------------------------------------------
+  function filterOffers(category, btnElem) {
+    const bar = document.getElementById('offerFilterBar');
+    bar.querySelectorAll('.collab-filter-chip').forEach(btn => btn.classList.remove('active'));
+    if (btnElem) btnElem.classList.add('active');
+
+    const cards = document.querySelectorAll('#offersGrid .offer-card');
+    cards.forEach(card => {
+      if (category === 'all' || card.getAttribute('data-category') === category) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // CATEGORY FILTERING (Protocols)
+  // -------------------------------------------------------------
+  function filterProtocols(category, btnElem) {
+    const bar = document.getElementById('protocolFilterBar');
+    bar.querySelectorAll('.collab-filter-chip').forEach(btn => btn.classList.remove('active'));
+    if (btnElem) btnElem.classList.add('active');
+
+    const cards = document.querySelectorAll('#protocolsGrid .protocol-card');
+    cards.forEach(card => {
+      if (category === 'all' || card.getAttribute('data-category') === category) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // CLAIM MODAL LOGIC
+  // -------------------------------------------------------------
+  let currentPromoCode = '';
+
+  function openClaimModal(brand, logo, headline, code, link, instructions) {
+    document.getElementById('modalLogoWrap').textContent = logo;
+    document.getElementById('modalPartnerName').textContent = brand;
+    document.getElementById('modalHeadline').textContent = headline;
+    document.getElementById('modalPromoCode').textContent = code;
+    document.getElementById('modalInstructions').textContent = instructions;
+    document.getElementById('modalExternalLink').href = link;
+    currentPromoCode = code;
+
+    // Reset copy button state
+    document.getElementById('copyIcon').textContent = '📋';
+    document.getElementById('copyLabel').textContent = 'Copy Code';
+
+    const modal = document.getElementById('claimOfferModal');
+    modal.style.display = 'flex';
+  }
+
+  function closeClaimModal() {
+    document.getElementById('claimOfferModal').style.display = 'none';
+  }
+
+  function copyPromoCode() {
+    if (!currentPromoCode) return;
+    navigator.clipboard.writeText(currentPromoCode).then(() => {
+      document.getElementById('copyIcon').textContent = '✅';
+      document.getElementById('copyLabel').textContent = 'Copied!';
+      setTimeout(() => {
+        document.getElementById('copyIcon').textContent = '📋';
+        document.getElementById('copyLabel').textContent = 'Copy Code';
+      }, 3000);
+    }).catch(err => {
+      console.warn('Clipboard write failed:', err);
+    });
+  }
+
+  // Close modal when clicking on backdrop
+  document.getElementById('claimOfferModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      closeClaimModal();
+    }
+  });
+
+  // Check URL param on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    if (tab === 'suggestions' || tab === 'offers') {
+      switchCollaboratorTab(tab);
+    }
+  });
+</script>
+{% endblock %}
