@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Raise Pixel Request - HabitPulse{% endblock %}
+
+{% block container_class %}app-container container-wide{% endblock %}
+
+{% block content %}
+<div style="max-width: 760px; margin: 0 auto 3rem auto;">
+
+  <!-- Header Navigation Toolbar -->
+  <div class="admin-toolbar" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="{% url 'pixel_wallet' %}" class="btn btn-outline btn-sm">&larr; Back to Pixel Wallet</a>
+      <h1 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+        <span>⚡</span> Raise Pixel Request
+      </h1>
+    </div>
+    <div>
+      <span class="badge" style="background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-border); font-weight: 700;">
+        Redemption &amp; Settlement
+      </span>
+    </div>
+  </div>
+
+  <!-- Available Balance Summary Banner -->
+  <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(234, 179, 8, 0.08) 0%, rgba(56, 189, 248, 0.06) 100%); border: 1px solid var(--primary-border); padding: 1.5rem; text-align: center;">
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 999px; background: var(--primary-light); border: 2px solid var(--primary-border); margin-bottom: 0.75rem;">
+      <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels" style="width: 36px; height: 36px; object-fit: contain;">
+    </div>
+    <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">
+      Available Pixel Balance
+    </div>
+    <div style="font-size: 3.25rem; font-weight: 900; color: var(--primary); line-height: 1; margin: 0.35rem 0 0.5rem 0;">
+      <span id="max-available-val">{{ available_balance }}</span>
+      <span style="font-size: 1.5rem; font-weight: 700; color: var(--text-muted);">Px</span>
+    </div>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0; max-width: 520px; margin: 0 auto; line-height: 1.45;">
+      You can raise a request for up to your full available balance (<strong>max {{ available_balance }} Px</strong>) or any lower amount.
+      Once submitted, the requested pixels are placed on hold and sent to Admin for review.
+    </p>
+  </div>
+
+  <!-- Request Form Card -->
+  <div class="card" style="box-shadow: var(--shadow); padding: 1.75rem 2rem;">
+    <form method="post" action="{% url 'pixel_request_create' %}" id="pixel-request-form">
+      {% csrf_token %}
+
+      <!-- Amount Input Field -->
+      <div class="form-group" style="margin-bottom: 1.35rem;">
+        <label for="id_amount" class="form-label" style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.45rem; display: flex; justify-content: space-between;">
+          <span>Requested Pixels Amount <span style="color: var(--danger);">*</span></span>
+          <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Min: 1 Px &bull; Max: {{ available_balance }} Px</span>
+        </label>
+        <div style="position: relative;">
+          <input type="number"
+                 name="amount"
+                 id="id_amount"
+                 class="form-control"
+                 placeholder="Enter amount (e.g., 500)"
+                 min="1"
+                 max="{{ available_balance }}"
+                 value="{{ entered_amount|default:'' }}"
+                 required
+                 style="font-size: 1.35rem; font-weight: 800; padding: 0.75rem 3.5rem 0.75rem 1rem; color: var(--text-main); height: auto;">
+          <span style="position: absolute; right: 1.25rem; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--text-muted); font-size: 1rem; pointer-events: none;">
+            Px
+          </span>
+        </div>
+
+        <!-- Quick Percentage Preset Buttons -->
+        {% if available_balance > 0 %}
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.65rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-outline btn-sm preset-btn" data-pct="0.25" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">
+            25%
+          </button>
+          <button type="button" class="btn btn-outline btn-sm preset-btn" data-pct="0.50" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">
+            50%
+          </button>
+          <button type="button" class="btn btn-outline btn-sm preset-btn" data-pct="0.75" style="font-size: 0.78rem; padding: 0.25rem 0.65rem;">
+            75%
+          </button>
+          <button type="button" class="btn btn-outline btn-sm preset-btn" data-pct="1.00" style="font-size: 0.78rem; padding: 0.25rem 0.65rem; font-weight: 700; color: var(--primary); border-color: var(--primary);">
+            Max ({{ available_balance }} Px)
+          </button>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Real-Time Dynamic Impact Preview Box -->
+      <div style="background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 1.15rem 1.25rem; margin-bottom: 1.35rem;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.65rem;">
+          Transaction Impact Preview
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; text-align: center;">
+          <div style="padding: 0.5rem; background: var(--surface); border-radius: 4px; border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Current Wallet</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-top: 0.15rem;">
+              {{ available_balance }} Px
+            </div>
+          </div>
+          <div style="padding: 0.5rem; background: var(--surface); border-radius: 4px; border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Requested / On Hold</div>
+            <div id="preview-requested" style="font-size: 1.15rem; font-weight: 800; color: #f59e0b; margin-top: 0.15rem;">
+              0 Px
+            </div>
+          </div>
+          <div style="padding: 0.5rem; background: var(--surface); border-radius: 4px; border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted);">Remaining Available</div>
+            <div id="preview-remaining" style="font-size: 1.15rem; font-weight: 800; color: #10b981; margin-top: 0.15rem;">
+              {{ available_balance }} Px
+            </div>
+          </div>
+        </div>
+        <div id="validation-warning" style="display: none; margin-top: 0.65rem; font-size: 0.8rem; color: #ef4444; font-weight: 600; text-align: center;">
+          ⚠️ Requested amount exceeds available balance.
+        </div>
+      </div>
+
+      <!-- Notes / Purpose Field -->
+      <div class="form-group" style="margin-bottom: 1.75rem;">
+        <label for="id_user_notes" class="form-label" style="font-weight: 600; font-size: 0.9rem; margin-bottom: 0.4rem;">
+          Request Note / Purpose <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span>
+        </label>
+        <textarea name="user_notes"
+                  id="id_user_notes"
+                  rows="3"
+                  class="form-control"
+                  placeholder="Explain the purpose of this redemption or any specific note for admin review..."
+                  style="font-size: 0.875rem; line-height: 1.45;">{{ user_notes|default:'' }}</textarea>
+      </div>
+
+      <!-- Form Actions -->
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem;">
+        <a href="{% url 'pixel_wallet' %}" class="btn btn-outline">
+          Cancel
+        </a>
+        <button type="submit" id="submit-btn" class="btn btn-primary" style="padding: 0.65rem 1.75rem; font-weight: 700; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 0.45rem;">
+          <span>⚡</span>
+          <span>Confirm &amp; Submit Request</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- User Past Requests Ledger -->
+  {% if user_recent_requests %}
+  <div class="card" style="margin-top: 2rem; box-shadow: var(--shadow); padding: 0; overflow: hidden;">
+    <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-strong); background-color: var(--surface-raised);">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0;">
+        Your Recent Pixel Requests
+      </h3>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="admin-table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Date</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th>Approved Amount</th>
+            <th>Settled Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in user_recent_requests %}
+            <tr>
+              <td style="font-weight: 700;">#{{ r.pk }}</td>
+              <td style="color: var(--text-muted); font-size: 0.8rem;">{{ r.created_at|date:"M d, Y H:i" }}</td>
+              <td style="font-weight: 800; color: var(--primary);">{{ r.requested_amount }} Px</td>
+              <td>
+                {% with badge=r.get_status_badge %}
+                  <span class="badge" style="background: {{ badge.bg }}; color: {{ badge.color }}; border: 1px solid {{ badge.border }}; font-weight: 700; font-size: 0.72rem;">
+                    {{ badge.label }}
+                  </span>
+                {% endwith %}
+              </td>
+              <td>
+                {% if r.status == 'PENDING' %}
+                  <span style="color: #f59e0b; font-size: 0.8rem; font-style: italic;">Under Review</span>
+                {% elif r.status == 'APPROVED' %}
+                  <span style="font-weight: 700; color: #10b981;">{{ r.approved_amount }} Px</span>
+                {% elif r.status == 'PARTIALLY_APPROVED' %}
+                  <span style="font-weight: 700; color: #38bdf8;">{{ r.approved_amount }} Px</span>
+                {% else %}
+                  <span style="color: #ef4444;">0 Px (Declined)</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.final_balance_after_settlement is not None %}
+                  <span style="font-weight: 700;">{{ r.final_balance_after_settlement }} Px</span>
+                {% else %}
+                  <span style="color: var(--text-muted); font-size: 0.8rem;">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const amountInput = document.getElementById('id_amount');
+  const availableBal = parseInt(document.getElementById('max-available-val').innerText, 10) || 0;
+  const previewReq = document.getElementById('preview-requested');
+  const previewRem = document.getElementById('preview-remaining');
+  const warning = document.getElementById('validation-warning');
+  const submitBtn = document.getElementById('submit-btn');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  function updatePreview() {
+    const val = parseInt(amountInput.value, 10) || 0;
+    previewReq.innerText = val + ' Px';
+
+    if (val > availableBal) {
+      previewRem.innerText = '0 Px';
+      warning.style.display = 'block';
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.6';
+    } else {
+      warning.style.display = 'none';
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      const rem = Math.max(0, availableBal - val);
+      previewRem.innerText = rem + ' Px';
+    }
+  }
+
+  amountInput.addEventListener('input', updatePreview);
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      const pct = parseFloat(this.getAttribute('data-pct')) || 0;
+      const calculated = Math.max(1, Math.floor(availableBal * pct));
+      amountInput.value = calculated;
+      updatePreview();
+    });
+  });
+
+  updatePreview();
+});
+</script>
+{% endblock %}
+

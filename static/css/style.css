@@ -3217,3 +3217,657 @@ select.form-control option {
     display: none !important;
   }
 }
+
+
+/* ==========================================================================
+   COMPREHENSIVE MOBILE & SMALL SCREEN RESPONSIVE DESIGN SYSTEM
+   Ensures 100% clarity, zero overflow, adaptive layout, and touch ergonomics
+   across phones (320px - 480px), large phones/tablets (481px - 768px),
+   and landscape/small laptop displays (769px - 1024px).
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Universal Mobile Layout & Safe Scrolling
+   -------------------------------------------------------------------------- */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.app-shell {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.app-main-layout {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Fluid responsive media & icons */
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+.pixel-icon-sm {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  vertical-align: -2px;
+  flex-shrink: 0;
+}
+
+.pixel-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  vertical-align: -3px;
+  flex-shrink: 0;
+}
+
+.pixel-icon-lg {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   2. Weekday Selector Item Enhancements
+   -------------------------------------------------------------------------- */
+.weekday-item input[type="checkbox"] {
+  display: none;
+}
+
+.weekday-item label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 0.65rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  color: var(--text-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.weekday-item label:hover {
+  filter: brightness(1.1);
+  color: var(--text-main);
+}
+
+.weekday-item input[type="checkbox"]:checked + label {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   3. Responsive Tables & Horizontal Scroll Wrappers
+   -------------------------------------------------------------------------- */
+.admin-table-container,
+.table-responsive,
+div[style*="overflow-x: auto"],
+div[style*="overflow-x:auto"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.admin-table,
+.wallet-breakdown-table {
+  min-width: 520px;
+}
+
+/* --------------------------------------------------------------------------
+   4. Breakpoint: Large Screens to Tablets (<= 991px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 991px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    width: min(280px, 85vw);
+    max-width: 85vw;
+    transform: translateX(-100%);
+    z-index: 1000;
+    box-shadow: 0 0 28px rgba(0, 0, 0, 0.55);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle-btn {
+    display: inline-flex;
+  }
+
+  .app-container {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Breakpoint: Standard Tablets & Mobile Phones (<= 768px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  /* Container Padding */
+  .app-container {
+    padding: 1.25rem 0.85rem;
+  }
+
+  /* Sticky Topbar */
+  .app-topbar {
+    min-height: 58px !important;
+    height: auto !important;
+    padding: 0.45rem 0.75rem !important;
+    gap: 0.4rem !important;
+  }
+
+  .topbar-left {
+    gap: 0.4rem !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .topbar-left .tenant-badge {
+    max-width: 150px !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .tenant-badge-text {
+    max-width: 80px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+  }
+
+  .tenant-role-tag {
+    display: none !important;
+  }
+
+  .topbar-right {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.35rem !important;
+    margin-left: auto !important;
+  }
+
+  .topbar-actions-row,
+  .topbar-controls-row {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+  }
+
+  .topbar-btn-text,
+  .theme-label-text {
+    display: none !important;
+  }
+
+  .topbar-admin-dropdown .btn,
+  .pwa-install-btn,
+  .btn-logout {
+    padding: 0 !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+  }
+
+  .topbar-admin-dropdown .btn svg,
+  .pwa-install-btn svg,
+  .btn-logout svg {
+    margin: 0 !important;
+  }
+
+  .topbar-admin-dropdown .dropdown-arrow {
+    display: none !important;
+  }
+
+  .topbar-theme-row {
+    padding: 0.15rem 0.35rem !important;
+  }
+
+  .topbar-theme-select {
+    padding: 0.15rem 0.3rem !important;
+    font-size: 0.72rem !important;
+    max-width: 58px !important;
+  }
+
+  /* Habit Notifications Menu Full-Width Floating Sheet */
+  .habit-notification-menu {
+    position: fixed !important;
+    top: 60px !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 74px) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .habit-notif-header {
+    padding: 0.75rem 1rem 0.65rem !important;
+  }
+
+  .habit-notif-title {
+    font-size: 1rem !important;
+  }
+
+  .habit-notif-tabs-bar {
+    padding: 0 1rem 0.5rem !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .habit-notif-body {
+    max-height: calc(100vh - 210px) !important;
+    padding: 0.5rem 0.75rem 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .habit-notif-row {
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .habit-notif-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 1.1rem !important;
+  }
+
+  .habit-notif-actions-row {
+    flex-wrap: wrap !important;
+  }
+
+  /* Dashboard Header */
+  .dashboard-header {
+    margin-bottom: 1.25rem !important;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.6rem !important;
+  }
+
+  /* Dashboard Wallet Banner */
+  .dashboard-wallet-banner {
+    padding: 0.85rem 1rem !important;
+  }
+
+  .dashboard-wallet-top-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.85rem !important;
+  }
+
+  .dashboard-wallet-energy-group {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+
+  .dashboard-wallet-balance-group {
+    justify-content: space-between !important;
+    width: 100% !important;
+    text-align: left !important;
+  }
+
+  .dashboard-wallet-balance-sub {
+    text-align: left !important;
+  }
+
+  .dashboard-wallet-balance-sub .balance-row {
+    justify-content: flex-start !important;
+  }
+
+  .dashboard-wallet-callout {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  .dashboard-wallet-callout .callout-content {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Dashboard Habit Grid */
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .habit-card {
+    padding: 1rem !important;
+  }
+
+  .card-title {
+    font-size: 1.05rem !important;
+  }
+
+  .habit-card-compact-header {
+    gap: 0.5rem !important;
+  }
+
+  .habit-card-actions {
+    flex-wrap: wrap !important;
+    gap: 0.4rem !important;
+  }
+
+  .habit-card-actions .btn {
+    padding: 0.3rem 0.55rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Pixel Wallet Process Stepper Pipeline */
+  .main-section-pipeline {
+    flex-direction: column !important;
+    gap: 0.65rem !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .main-chevron-item {
+    min-height: auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    padding: 0.85rem 1rem !important;
+    margin-left: 0 !important;
+    border-radius: var(--radius-md) !important;
+    border: 1.5px solid var(--border) !important;
+  }
+
+  .main-chevron-item .chevron-bg {
+    clip-path: none !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  .main-chevron-junction {
+    display: none !important;
+  }
+
+  .main-chevron-content {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .main-chevron-title {
+    font-size: 1rem !important;
+  }
+
+  .main-chevron-desc {
+    font-size: 0.75rem !important;
+  }
+
+  .main-chevron-badge {
+    font-size: 0.8rem !important;
+    padding: 0.3rem 0.65rem !important;
+  }
+
+  /* Habits Directory */
+  .habits-catalog-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .pixel-score-pillars-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ERP Sheet & Smart Stat Buttons */
+  .erp-sheet {
+    padding: 1rem 0.85rem !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .erp-identity-summary {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .smart-buttons-bar {
+    justify-content: flex-start !important;
+    width: 100% !important;
+    margin-top: 0.75rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .smart-stat-btn {
+    flex: 1 1 calc(33.333% - 0.35rem) !important;
+    min-width: 80px !important;
+    padding: 0.35rem 0.45rem !important;
+  }
+
+  .smart-stat-val {
+    font-size: 0.95rem !important;
+  }
+
+  .smart-stat-lbl {
+    font-size: 0.65rem !important;
+  }
+
+  .erp-tabs-nav {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .erp-tab-btn {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    padding: 0.6rem 0.85rem !important;
+    font-size: 0.825rem !important;
+  }
+
+  /* Calendar Header & Nav */
+  .calendar-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .calendar-nav {
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+
+  .calendar-nav .btn {
+    flex: 1 !important;
+    text-align: center !important;
+    padding: 0.38rem 0.5rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .calendar-grid {
+    gap: 3px !important;
+  }
+
+  .calendar-weekday {
+    font-size: 0.68rem !important;
+    padding: 0.25rem 0 !important;
+  }
+
+  .calendar-day {
+    min-height: 42px !important;
+    padding: 0.25rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.65rem !important;
+  }
+
+  .metric-card {
+    padding: 0.75rem !important;
+  }
+
+  .metric-value {
+    font-size: 1.35rem !important;
+  }
+
+  .metric-sub {
+    font-size: 0.7rem !important;
+  }
+
+  .stats-rate-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Performance Meter */
+  .perf-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.65rem !important;
+  }
+
+  /* Roles Grid */
+  .roles-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Database Instances Grid */
+  .db-instances-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    padding: 0.5rem !important;
+  }
+
+  .modal-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 94vh !important;
+  }
+
+  .modal-header {
+    padding: 0.85rem 1rem !important;
+  }
+
+  .modal-body {
+    padding: 1rem !important;
+  }
+
+  .modal-footer {
+    padding: 0.75rem 1rem !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Form Elements */
+  .form-control,
+  .form-select,
+  input,
+  select,
+  textarea {
+    font-size: 16px !important; /* Prevents iOS WebKit zoom */
+  }
+
+  /* Weekday Selector */
+  .weekday-selector {
+    gap: 0.35rem !important;
+  }
+
+  .weekday-item label {
+    min-width: 36px !important;
+    height: 36px !important;
+    padding: 0 0.4rem !important;
+    font-size: 0.78rem !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. Breakpoint: Small Mobile Phones (<= 480px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .app-container {
+    padding: 0.85rem 0.65rem;
+  }
+
+  .app-topbar {
+    padding: 0.35rem 0.5rem !important;
+    gap: 0.25rem !important;
+  }
+
+  .topbar-left .tenant-badge {
+    max-width: 110px !important;
+    padding: 0.2rem 0.4rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  .tenant-badge-text {
+    max-width: 55px !important;
+  }
+
+  .sidebar-toggle-btn {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .topbar-admin-dropdown .btn,
+  .pwa-install-btn,
+  .btn-logout,
+  .habit-bell-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+  }
+
+  .topbar-theme-select {
+    max-width: 50px !important;
+  }
+
+  .calendar-day {
+    min-height: 36px !important;
+    padding: 0.15rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .perf-kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .wallet-modal-metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .auth-container {
+    margin: 1.25rem auto !important;
+    padding: 0 0.5rem !important;
+  }
+
+  .auth-container .card {
+    padding: 1.5rem 1.15rem !important;
+  }
+}

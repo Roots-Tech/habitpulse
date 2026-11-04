@@ -32,11 +32,11 @@
 
 {% if wallet_data and wallet_data.habits_count > 0 %}
   <!-- Pixel Wallet Energy Status Banner & Daily Outcome Projection -->
-  <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); border: 1.5px solid rgba(99, 102, 241, 0.28); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+  <div class="dashboard-wallet-banner" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%); border: 1.5px solid rgba(99, 102, 241, 0.28); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
     <!-- Top Row: Total Pixels & Energy Bar (Left) + Your Pixel Wallet & Details Button (Right) -->
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div class="dashboard-wallet-top-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
       <!-- Left side: Total Pixels & Wallet Energy -->
-      <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+      <div class="dashboard-wallet-energy-group" style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
         <!-- Total Pixels on the left -->
         <div>
           <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.15rem;">
@@ -62,7 +62,7 @@
       </div>
 
       <!-- Right side: Crown, Your Pixel Wallet title, Active balance & View Details Button -->
-      <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; justify-content: flex-end;">
+      <div class="dashboard-wallet-balance-group" style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; justify-content: flex-end;">
         <div style="display: flex; align-items: center; gap: 0.65rem; text-align: right;">
           <div>
             <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
@@ -85,8 +85,8 @@
     </div>
 
     <!-- Bottom Row: Dynamic Daily Risk & Projected Outcome Callout -->
-    <div style="margin-top: 0.75rem; padding: 0.6rem 0.9rem; background: var(--surface); border: 1.5px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-sm); font-size: 0.825rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem;">
-      <div style="display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 260px;">
+    <div class="dashboard-wallet-callout" style="margin-top: 0.75rem; padding: 0.6rem 0.9rem; background: var(--surface); border: 1.5px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-sm); font-size: 0.825rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem;">
+      <div class="callout-content" style="display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 200px;">
         {% if wallet_data.today_pending_pixels == 0 and wallet_data.today_scheduled_pixels > 0 %}
           <span style="font-size: 1.25rem; line-height: 1;">🎉</span>
           <div>
@@ -430,7 +430,7 @@
         </div>
 
         <!-- 4 Outcome Metric Cards -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 0.6rem; margin-top: 0.85rem;">
+        <div class="wallet-modal-metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 0.6rem; margin-top: 0.85rem;">
           <div style="background: var(--surface); padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
             <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Current Wallet</div>
             <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); display: inline-flex; align-items: center; gap: 0.25rem;">
@@ -464,8 +464,8 @@
         <span style="font-weight: 600; color: var(--text-muted); font-size: 0.75rem;">Cycle Remaining: {{ wallet_data.pending_days }} days</span>
       </div>
 
-      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-x: auto; margin-bottom: 0.5rem;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+      <div class="table-responsive" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-x: auto; margin-bottom: 0.5rem;">
+        <table class="wallet-breakdown-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left; min-width: 520px;">
           <thead>
             <tr style="background: var(--surface-raised); border-bottom: 1.5px solid var(--border); color: var(--text-dim); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
               <th style="padding: 0.6rem 0.75rem;">Task / Habit</th>

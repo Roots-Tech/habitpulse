@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block title %}Users in {{ role.name }} - Admin Panel - HabitPulse{% endblock %}
+
+{% block container_class %}app-container container-wide{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2.5rem;">
+  <!-- Top Navigation & Breadcrumb Toolbar -->
+  <div class="admin-toolbar" style="margin-bottom: 1.25rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="{% url 'admin_roles_list' %}" class="btn btn-outline btn-sm">&larr; Back to User Roles</a>
+      <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+        <span>{{ role.icon }}</span>
+        <span>{{ role.name }}</span>
+        <span style="color: var(--text-muted); font-weight: 400; font-size: 1.15rem;">— Assigned Users</span>
+      </h1>
+      <span class="badge" style="background-color: {{ role.badge_bg }}; color: {{ role.badge_color }}; border: 1px solid {{ role.badge_color }}; font-weight: 700; font-size: 0.75rem;">
+        {{ role.level }}
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="{% url 'admin_roles_list' %}" class="btn btn-outline btn-sm" title="Configure customizable permission checkboxes for this role">
+        <span>🛡️</span> Permissions Matrix
+      </a>
+      <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm" title="View all application users across all roles">
+        <span>👥</span> All Users
+      </a>
+      <a href="{% url 'admin_user_create' %}" class="btn btn-primary btn-sm">
+        + Add New User
+      </a>
+    </div>
+  </div>
+
+  <!-- Role Navigation Switcher Tabs -->
+  <div style="display: flex; gap: 0.65rem; margin-bottom: 1.35rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+    {% for tab in role_tabs %}
+      <a href="{% url 'admin_role_users' tab.code %}"
+         class="btn btn-sm {% if tab.is_current %}btn-primary{% else %}btn-outline{% endif %}"
+         style="display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 600; font-size: 0.85rem; {% if tab.is_current %}background: {{ tab.badge_color }}; border-color: {{ tab.badge_color }}; color: #000000; font-weight: 700;{% endif %}">
+        <span>{{ tab.icon }}</span>
+        <span>{{ tab.name }}</span>
+        <span class="badge" style="background: {% if tab.is_current %}rgba(0,0,0,0.2){% else %}var(--surface-raised){% endif %}; color: {% if tab.is_current %}#000000{% else %}var(--text-main){% endif %}; font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 10px;">
+          {{ tab.user_count }}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- Role Specification & Overview Banner -->
+  <div class="card" style="margin-bottom: 1.5rem; border-top: 4px solid {{ role.badge_color }}; box-shadow: var(--shadow); padding: 1.25rem 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem;">
+      <div style="max-width: 680px;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+          <span style="font-size: 1.35rem;">{{ role.icon }}</span>
+          <h2 style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin: 0;">{{ role.name }} Overview</h2>
+          <span class="badge" style="background-color: {{ role.badge_bg }}; color: {{ role.badge_color }}; border: 1px solid {{ role.badge_color }}; font-weight: 700;">
+            {{ role.level }}
+          </span>
+        </div>
+        <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; margin: 0;">
+          {{ role.description }}
+        </p>
+      </div>
+
+      <!-- Quick Metrics Counters -->
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <div style="background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0.65rem 1rem; min-width: 110px; text-align: center;">
+          <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Total Assigned</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: {{ role.badge_color }}; margin-top: 0.15rem;">{{ total_count }}</div>
+        </div>
+        <div style="background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0.65rem 1rem; min-width: 110px; text-align: center;">
+          <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Active Status</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #34d399; margin-top: 0.15rem;">{{ active_count }}</div>
+        </div>
+        <div style="background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0.65rem 1rem; min-width: 125px; text-align: center;">
+          <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Custom Overrides</div>
+          <div style="font-size: 1.35rem; font-weight: 800; color: #38bdf8; margin-top: 0.15rem;">{{ custom_overrides_count }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Table Card with Search Toolbar -->
+  <div class="card" style="box-shadow: var(--shadow); padding: 0; overflow: hidden;">
+    <div style="padding: 1.15rem 1.35rem; border-bottom: 1px solid var(--border-strong); background-color: var(--surface-raised); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.2rem 0;">
+          Assigned Users Directory
+        </h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+          All accounts currently granted <strong>{{ role.name }}</strong> permissions.
+        </p>
+      </div>
+
+      <!-- Search Filter Box -->
+      <form method="get" action="{% url 'admin_role_users' role.code %}" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <div class="admin-search-box" style="margin: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" name="q" value="{{ search_query }}" placeholder="Search by name, login, email..." aria-label="Search users in role" style="font-size: 0.825rem; width: 220px;">
+          {% if search_query %}
+            <a href="{% url 'admin_role_users' role.code %}" style="text-decoration: none; color: var(--text-muted); font-size: 1rem; padding: 0 0.25rem;" title="Clear search">&times;</a>
+          {% endif %}
+        </div>
+        {% if search_query %}
+          <span style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">
+            {{ filtered_count }} of {{ total_count }} found
+          </span>
+        {% endif %}
+      </form>
+    </div>
+
+    <!-- Table of Users -->
+    <div style="overflow-x: auto;">
+      <table class="admin-table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>Primary Workspace</th>
+            <th>Access Status</th>
+            <th>Date Joined</th>
+            <th>Last Login</th>
+            <th style="text-align: right; width: 260px;">Role Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in users %}
+            <tr>
+              <td>
+                <div style="display: flex; align-items: center; gap: 0.65rem;">
+                  <span class="user-avatar" style="width: 32px; height: 32px; font-size: 0.85rem; background-color: {{ role.badge_color }}; color: #000000; font-weight: 800;">
+                    {{ row.user.username|slice:":1"|upper }}
+                  </span>
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                      <span style="font-weight: 700; color: var(--text-main);">{{ row.display_name }}</span>
+                      {% if row.is_superuser %}
+                        <span class="badge" style="background: rgba(192, 132, 252, 0.2); color: #c084fc; border: 1px solid #c084fc; font-size: 0.65rem; padding: 0.1rem 0.35rem;">Superuser</span>
+                      {% endif %}
+                      {% if not row.is_active %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; font-size: 0.65rem; padding: 0.1rem 0.35rem;">Inactive</span>
+                      {% endif %}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">@{{ row.username }}</div>
+                  </div>
+                </div>
+              </td>
+
+              <td style="color: var(--text-muted); font-size: 0.85rem;">
+                {{ row.email }}
+              </td>
+
+              <td>
+                <div style="font-size: 0.85rem; color: var(--text-main); font-weight: 500;">
+                  {{ row.tenant_name }}
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  Role: {{ row.tenant_role }}
+                </div>
+              </td>
+
+              <td>
+                {% if row.has_custom %}
+                  <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.72rem; font-weight: 700;" title="User has specific custom permissions granted/restricted beyond this role">
+                    ✨ Custom Overrides Active
+                  </span>
+                {% else %}
+                  <span class="badge" style="background-color: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border-strong); font-size: 0.72rem;">
+                    ✓ Inherited from {{ role.name }}
+                  </span>
+                {% endif %}
+              </td>
+
+              <td style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
+                {{ row.date_joined|date:"M d, Y" }}
+              </td>
+
+              <td style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
+                {% if row.last_login %}
+                  {{ row.last_login|date:"M d, Y H:i" }}
+                {% else %}
+                  <span style="font-style: italic; opacity: 0.6;">Never</span>
+                {% endif %}
+              </td>
+
+              <td style="text-align: right;">
+                <div style="display: inline-flex; align-items: center; gap: 0.45rem;">
+                  <!-- Quick Role Reassignment Form -->
+                  <form method="post" action="{% url 'admin_user_role_change' row.user.id %}" style="display: inline-flex; align-items: center; gap: 0.35rem; margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <select name="role" class="form-control" style="font-size: 0.78rem; padding: 0.25rem 0.45rem; width: auto; min-width: 125px; height: auto;" aria-label="Reassign role">
+                      {% for code, label in role_choices %}
+                        <option value="{{ code }}" {% if row.user.role == code %}selected{% endif %}>
+                          {{ label }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" title="Save new role assignment">
+                      Change
+                    </button>
+                  </form>
+
+                  <!-- Edit User Link -->
+                  <a href="{% url 'admin_user_edit' row.user.id %}" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" title="Edit full user details">
+                    Edit
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 3rem 1.5rem;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                  <span style="font-size: 2.25rem;">👥</span>
+                  <div style="font-weight: 700; font-size: 1rem; color: var(--text-main);">
+                    {% if search_query %}
+                      No users in {{ role.name }} match your search "{{ search_query }}"
+                    {% else %}
+                      No users currently assigned to {{ role.name }}
+                    {% endif %}
+                  </div>
+                  <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0; max-width: 420px;">
+                    {% if search_query %}
+                      Try searching with a different keyword or username.
+                    {% else %}
+                      Users assigned this role will automatically show up here. You can assign users from the main User Roles page or add a new user.
+                    {% endif %}
+                  </p>
+                  <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    {% if search_query %}
+                      <a href="{% url 'admin_role_users' role.code %}" class="btn btn-outline btn-sm">Clear Search</a>
+                    {% endif %}
+                    <a href="{% url 'admin_roles_list' %}" class="btn btn-secondary btn-sm">&larr; Back to Roles</a>
+                    <a href="{% url 'admin_user_create' %}" class="btn btn-primary btn-sm">+ Add New User</a>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

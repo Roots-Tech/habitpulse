@@ -29,6 +29,7 @@ from .models import (
     HabitCategory,
     HabitCompletion,
     PixelAllocation,
+    PixelRequest,
     PixelWallet,
     RuleStrategy,
     seed_default_catalog_habits,
@@ -363,8 +364,101 @@ def pixel_wallet_view(request):
         "month_missed_pixels": month_missed_pixels,
         "active_section": active_section,
         "active_tab": active_tab,
+        "user_pixel_requests": PixelRequest.objects.filter(user=request.user, tenant=tenant).order_by("-created_at")[:15] if tenant else PixelRequest.objects.filter(user=request.user).order_by("-created_at")[:15],
     }
     return render(request, "habits/pixel_wallet.html", context)
+
+@login_required
+def pixel_request_create_view(request):
+    """
+    Allows an authenticated user to raise a pixel redemption/withdrawal request.
+    Enforces maximum request limit: 1 <= requested amount <= current available balance.
+    Upon confirmation, immediately reserves/holds the requested amount from the wallet,
+    records the request with status PENDING, and routes it to the Admin Panel for review.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant and hasattr(request.user, "memberships"):
+        membership = request.user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+        tenant = membership.tenant if membership else None
+
+    today = timezone.localdate()
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
+    available_balance = wallet_data.get("current_balance", 0)
+
+    if request.method == "POST":
+        amount_raw = request.POST.get("amount", "").strip()
+        user_notes = request.POST.get("user_notes", "").strip()
+
+        try:
+            amount = int(amount_raw)
+        except (ValueError, TypeError):
+            messages.error(request, "Please enter a valid whole number of pixels.")
+            return render(request, "habits/pixel_request_form.html", {
+                "available_balance": available_balance,
+                "wallet_data": wallet_data,
+                "user_notes": user_notes,
+                "entered_amount": amount_raw,
+            })
+
+        if amount <= 0:
+            messages.error(request, "Requested pixels must be greater than zero.")
+            return render(request, "habits/pixel_request_form.html", {
+                "available_balance": available_balance,
+                "wallet_data": wallet_data,
+                "user_notes": user_notes,
+                "entered_amount": amount_raw,
+            })
+
+        if amount > available_balance:
+            messages.error(
+                request,
+                f"Requested amount ({amount} Px) exceeds your current available balance of {available_balance} Px."
+            )
+            return render(request, "habits/pixel_request_form.html", {
+                "available_balance": available_balance,
+                "wallet_data": wallet_data,
+                "user_notes": user_notes,
+                "entered_amount": amount_raw,
+            })
+
+        # Ensure tenant is present for foreign key
+        if not tenant:
+            membership = request.user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+            tenant = membership.tenant if membership else None
+
+        req_obj = PixelRequest.objects.create(
+            tenant=tenant,
+            user=request.user,
+            wallet_balance_at_request=available_balance,
+            requested_amount=amount,
+            held_balance=amount,
+            status=PixelRequest.Status.PENDING,
+            user_notes=user_notes,
+        )
+
+        # Refresh wallet calculation to immediately persist held pixels in DB
+        new_wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
+        new_balance = new_wallet_data.get("current_balance", 0)
+
+        messages.success(
+            request,
+            f"Successfully raised Pixel Request #{req_obj.pk} for {amount} Px! "
+            f"Your remaining wallet balance is now {new_balance} Px. The request has been submitted to the Admin Panel for review."
+        )
+        return redirect("pixel_wallet")
+
+    # GET request
+    user_recent_requests = PixelRequest.objects.filter(user=request.user)
+    if tenant:
+        user_recent_requests = user_recent_requests.filter(tenant=tenant)
+    user_recent_requests = user_recent_requests.order_by("-created_at")[:10]
+
+    return render(request, "habits/pixel_request_form.html", {
+        "available_balance": available_balance,
+        "wallet_data": wallet_data,
+        "user_recent_requests": user_recent_requests,
+    })
+
 
 
 @login_required

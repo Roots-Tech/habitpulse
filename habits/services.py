@@ -439,7 +439,21 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
             "is_completed_today": is_completed_today,
         })
 
-    current_balance = max(0, total_allocated - total_lost)
+    from .models import PixelRequest
+    from django.db.models import Sum
+
+    pending_held_pixels = 0
+    approved_redeemed_pixels = 0
+    if user and hasattr(user, "pk") and user.pk:
+        req_filter = {"user": user}
+        if tenant:
+            req_filter["tenant"] = tenant
+        req_qs = PixelRequest.objects.filter(**req_filter)
+        pending_held_pixels = req_qs.filter(status=PixelRequest.Status.PENDING).aggregate(s=Sum("held_balance"))["s"] or 0
+        approved_redeemed_pixels = req_qs.filter(status__in=[PixelRequest.Status.APPROVED, PixelRequest.Status.PARTIALLY_APPROVED]).aggregate(s=Sum("approved_amount"))["s"] or 0
+
+    total_redeemed_or_held = pending_held_pixels + approved_redeemed_pixels
+    current_balance = max(0, total_allocated - total_lost - total_redeemed_or_held)
     health_percent = round((current_balance / total_allocated * 100), 1) if total_allocated > 0 else 100.0
 
     total_habit_pixels = sum(item["daily_score"] for item in habits_breakdown)
@@ -487,7 +501,7 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
         bonus_pixels = getattr(wallet_obj, "bonus_pixels", 0) or 0
         if bonus_pixels > 0:
             total_allocated += bonus_pixels
-            current_balance = max(0, total_allocated - total_lost)
+            current_balance = max(0, total_allocated - total_lost - total_redeemed_or_held)
             health_percent = round((current_balance / total_allocated * 100), 1) if total_allocated > 0 else 100.0
             projected_balance_if_failed = max(0, current_balance - today_pending_pixels)
 
@@ -502,6 +516,9 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
     return {
         "wallet": wallet_obj,
         "bonus_pixels": bonus_pixels,
+        "pending_held_pixels": pending_held_pixels,
+        "approved_redeemed_pixels": approved_redeemed_pixels,
+        "total_redeemed_or_held": total_redeemed_or_held,
         "allocated_pixels": total_allocated,
         "lost_pixels": total_lost,
         "current_balance": current_balance,
