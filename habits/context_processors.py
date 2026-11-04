@@ -24,6 +24,7 @@ def habit_notifications(request):
             "open_alarms_count": 0,
             "upcoming_alarms_count": 0,
             "completed_today_count": 0,
+            "pending_pixel_requests_count": 0,
         }
 
     tenant = getattr(request, "tenant", None)
@@ -203,6 +204,11 @@ def habit_notifications(request):
     open_alarms_count = sum(1 for n in notifications if n["status"] in ("open", "due_today"))
     upcoming_alarms_count = sum(1 for n in notifications if n["status"] == "upcoming")
 
+    pending_pixel_requests_count = 0
+    if request.user.is_authenticated and (getattr(request.user, "is_super_admin", False) or getattr(request.user, "can_manage_users", False) or getattr(request.user, "is_superuser", False)):
+        from habits.models import PixelRequest
+        pending_pixel_requests_count = PixelRequest.objects.filter(status=PixelRequest.Status.PENDING).count()
+
     return {
         "habit_notifications": notifications,
         "unread_alarms_count": len(notifications),
@@ -210,4 +216,5 @@ def habit_notifications(request):
         "open_alarms_count": open_alarms_count,
         "upcoming_alarms_count": upcoming_alarms_count,
         "completed_today_count": len(completed_habit_ids),
+        "pending_pixel_requests_count": pending_pixel_requests_count,
     }

@@ -10,7 +10,9 @@
       <a href="{% url 'profile' %}" class="tenant-badge tenant-badge-btn {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" role="button" title="View Workspace & Access Profile: {{ current_tenant.name|default:'Personal Workspace' }}">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
         <span class="tenant-badge-text">{{ current_tenant.name|default:"Personal Workspace" }}</span>
-        {% if user.role %}
+        {% if request.is_user_view_mode %}
+          <span class="tenant-role-tag" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">#Regular User (Preview)</span>
+        {% elif user.role %}
           <span class="tenant-role-tag">#{{ user.get_role_display|default:user.role }}</span>
         {% endif %}
       </a>
@@ -26,6 +28,46 @@
     {% if user.is_authenticated %}
       {# Top Row: Actions #}
       <div class="topbar-actions-row">
+        {# View Mode Toggle for Super Admins (Admin Mode <-> User Mode Switch) #}
+        {% if user.is_real_super_admin %}
+        <form method="post" action="{% url 'toggle_view_mode' %}" class="view-mode-form" style="margin: 0; display: inline-flex; align-items: center;" title="Switch between Admin and Regular User preview mode">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          {% if request.is_user_view_mode %}
+            <input type="hidden" name="mode" value="admin">
+            <button type="submit" class="view-mode-toggle-btn is-user" title="You are previewing UI as Regular User. Click to return to Admin Mode.">
+              <span class="view-mode-text-group">
+                <span class="view-mode-title">User Mode</span>
+                <span class="view-mode-subtitle">Exit to Admin 👑</span>
+              </span>
+              <span class="view-mode-track is-user" aria-hidden="true">
+                <span class="view-mode-knob">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+              </span>
+            </button>
+          {% else %}
+            <input type="hidden" name="mode" value="user">
+            <button type="submit" class="view-mode-toggle-btn is-admin" title="Preview UI as Regular User (hides admin features temporarily)">
+              <span class="view-mode-text-group">
+                <span class="view-mode-title">Admin Mode</span>
+                <span class="view-mode-subtitle">Switch to User 👤</span>
+              </span>
+              <span class="view-mode-track is-admin" aria-hidden="true">
+                <span class="view-mode-knob">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="2 4 5 20 19 20 22 4 16 10 12 4 8 10 2 4"></polygon>
+                  </svg>
+                </span>
+              </span>
+            </button>
+          {% endif %}
+        </form>
+        {% endif %}
+
         {# Admin Panel Dropdown #}
         {% if user.can_access_admin_panel %}
         <div class="dropdown topbar-admin-dropdown">
@@ -46,6 +88,17 @@
             <a href="{% url 'admin_users_list' %}" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
               Users Directory
+            </a>
+            <a href="{% url 'admin_pixel_requests' %}" class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                Requests
+              </span>
+              {% if pending_pixel_requests_count %}
+                <span class="badge" style="background: #f59e0b; color: #000; font-weight: 800; font-size: 0.68rem; padding: 0.15rem 0.45rem; border-radius: 10px;">
+                  {{ pending_pixel_requests_count }}
+                </span>
+              {% endif %}
             </a>
             <a href="{% url 'admin_performance_meter' %}" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
@@ -370,6 +423,117 @@
   </div>
 
 <style>
+/* Super Admin View Mode Switch (Matching Reference Pill Toggle Design) */
+.view-mode-toggle-btn {
+  background: rgba(18, 20, 26, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 9999px !important;
+  padding: 0.22rem 0.35rem 0.22rem 0.75rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.55rem !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.view-mode-toggle-btn:hover {
+  background: rgba(26, 29, 38, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px) !important;
+}
+
+.view-mode-toggle-btn.is-admin:hover .view-mode-track.is-admin {
+  box-shadow: 0 0 12px rgba(251, 113, 133, 0.5) !important;
+}
+
+.view-mode-toggle-btn.is-user:hover .view-mode-track.is-user {
+  border-color: #64748b !important;
+}
+
+/* Pill Track (Exact styling from user reference image) */
+.view-mode-track {
+  width: 48px;
+  height: 26px;
+  border-radius: 9999px;
+  background-color: #171920;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  box-sizing: border-box;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Left Switch in Image: Coral/Rose glowing outline */
+.view-mode-track.is-admin {
+  border: 1.6px solid #fb7185;
+  box-shadow: 0 0 8px rgba(251, 113, 133, 0.32);
+}
+
+/* Right Switch in Image: Slate/Grey subtle outline */
+.view-mode-track.is-user {
+  border: 1.6px solid #475569;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Circular Thumb Knob inside track */
+.view-mode-knob {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background-color: #0b0c10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f3f4f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+}
+
+/* Admin State: Knob moved to right */
+.view-mode-track.is-admin .view-mode-knob {
+  transform: translateX(21px);
+  color: #fb7185;
+}
+
+/* User State: Knob moved to left */
+.view-mode-track.is-user .view-mode-knob {
+  transform: translateX(0px);
+  color: #34d399;
+}
+
+/* Text Group inside toggle button */
+.view-mode-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.view-mode-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: 0.01em;
+}
+
+.view-mode-subtitle {
+  font-size: 0.67rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.view-mode-toggle-btn.is-admin .view-mode-title {
+  color: #fca5a5;
+}
+
+.view-mode-toggle-btn.is-user .view-mode-title {
+  color: #6ee7b7;
+}
 /* Instant Reference UI styles for Habit Notifications */
 .habit-bell-btn {
   display: inline-flex !important;

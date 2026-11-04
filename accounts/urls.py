@@ -7,6 +7,7 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("profile/", views.profile_view, name="profile"),
     path("settings/", views.general_settings_view, name="general_settings"),
+    path("toggle-view-mode/", views.toggle_view_mode_view, name="toggle_view_mode"),
 
     # Admin Panel - Users
     path("admin-panel/users/", views.admin_users_list_view, name="admin_users_list"),
@@ -18,9 +19,14 @@ urlpatterns = [
 
     # Admin Panel - User Roles & Dynamic Permissions
     path("admin-panel/roles/", views.admin_roles_list_view, name="admin_roles_list"),
+    path("admin-panel/roles/<str:role_code>/users/", views.admin_role_users_view, name="admin_role_users"),
     path("admin-panel/roles/<str:role_code>/permissions/", views.admin_role_permissions_update_view, name="admin_role_permissions_update"),
     path("admin-panel/roles/<int:user_id>/change/", views.admin_user_role_change_view, name="admin_user_role_change"),
     path("admin-panel/roles/user/<int:user_id>/permissions/", views.admin_user_permissions_update_view, name="admin_user_permissions_update"),
+
+    # Admin Panel - Pixel Redemption Requests
+    path("admin-panel/requests/", views.admin_pixel_requests_view, name="admin_pixel_requests"),
+    path("admin-panel/requests/<int:request_id>/review/", views.admin_pixel_request_review_view, name="admin_pixel_request_review"),
 
     # Admin Panel - System Performance Meter & APM
     path("admin-panel/performance/", views.admin_performance_meter_view, name="admin_performance_meter"),
