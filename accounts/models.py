@@ -100,18 +100,46 @@ class User(AbstractUser):
     )
 
     @property
-    def is_super_admin(self):
+    def is_real_super_admin(self):
+        """
+        True if the user is genuinely a Super Admin or superuser in the database,
+        independent of any temporary view-mode preview.
+        """
         return self.role == self.Role.SUPER_ADMIN or self.is_superuser
 
     @property
+    def is_super_admin(self):
+        if getattr(self, "_preview_mode", None) == "user":
+            return False
+        return self.is_real_super_admin
+
+    @property
     def is_technical_user(self):
+        if getattr(self, "_preview_mode", None) == "user":
+            return False
         return self.role == self.Role.TECHNICAL_USER and not self.is_superuser
 
     @property
     def is_regular_user(self):
+        if getattr(self, "_preview_mode", None) == "user":
+            return True
         return self.role == self.Role.REGULAR_USER and not self.is_superuser and self.role != self.Role.TECHNICAL_USER
 
+    def get_role_display(self):
+        if getattr(self, "_preview_mode", None) == "user":
+            return "Regular User (Preview)"
+        return dict(self.Role.choices).get(self.role, str(self.role))
+
     def get_role_badge(self):
+        if getattr(self, "_preview_mode", None) == "user":
+            return {
+                "label": "Regular User (Preview)",
+                "class": "badge-regular-user",
+                "icon": "👤",
+                "color": "#34d399",
+                "bg": "rgba(16, 185, 129, 0.15)",
+                "border": "rgba(16, 185, 129, 0.4)",
+            }
         if self.is_super_admin:
             return {
                 "label": "Super Admin",
@@ -145,6 +173,13 @@ class User(AbstractUser):
         checking user-level custom overrides first, then falling back to role-level permissions.
         Super Admin always retains all permissions with zero database query overhead.
         """
+        if getattr(self, "_preview_mode", None) == "user":
+            try:
+                role_perm = RolePermission.get_for_role(self.Role.REGULAR_USER)
+                return getattr(role_perm, perm_key, False)
+            except Exception:
+                return perm_key in ["view_dashboard", "manage_habits"]
+
         if self.is_superuser or self.role == self.Role.SUPER_ADMIN:
             return True
 

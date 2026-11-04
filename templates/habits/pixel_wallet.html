@@ -933,7 +933,7 @@
     /* -------------------------------------------------------------------------- */
     /* 4. RESPONSIVE BREAKPOINTS                                                  */
     /* -------------------------------------------------------------------------- */
-    @media (max-width: 680px) {
+    @media (max-width: 768px) {
       .main-section-pipeline {
         flex-direction: column;
         gap: 0.65rem;
@@ -944,6 +944,8 @@
       }
       .main-chevron-item {
         min-height: auto;
+        min-width: 0 !important;
+        width: 100% !important;
         padding: 0.95rem 1.15rem !important;
         margin-left: 0 !important;
         border-radius: var(--radius-md) !important;
@@ -952,6 +954,14 @@
       .main-chevron-item .chevron-bg {
         clip-path: none !important;
         border-radius: var(--radius-md);
+      }
+      .main-chevron-content {
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+      }
+      .main-chevron-badge {
+        font-size: 0.8rem !important;
+        padding: 0.3rem 0.65rem !important;
       }
       .main-chevron-junction {
         display: none !important;
@@ -1063,6 +1073,7 @@
   <!-- Exclusively displays the Current Pixel Balance card            -->
   <!-- ============================================================== -->
   <div id="section-pixel-wallet" class="pixel-section-content" style="display: {% if active_section != 'plan' %}block{% else %}none{% endif %};">
+    <!-- Current Pixel Balance Card (Single Centered Top Crown Icon Only) -->
     <div style="background: linear-gradient(135deg, var(--surface) 0%, var(--surface-raised) 100%); border: 2px solid var(--primary-border); border-radius: var(--radius-md); padding: 3.5rem 2rem; box-shadow: var(--shadow-md); text-align: center; max-width: 580px; margin: 2rem auto;">
       <div style="display: inline-flex; align-items: center; justify-content: center; width: 80px; height: 80px; border-radius: 999px; background: var(--primary-light); border: 2px solid var(--primary-border); margin-bottom: 1.5rem;">
         <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels" style="width: 48px; height: 48px; object-fit: contain;">
@@ -1072,8 +1083,8 @@
         Current Pixel Balance
       </div>
 
-      <div style="font-size: 5rem; font-weight: 900; color: var(--primary); line-height: 1; margin: 0.5rem 0 1rem 0; display: flex; align-items: center; justify-content: center; gap: 0.75rem;">
-        <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-lg" alt="Pixels" style="width: 54px; height: 54px; object-fit: contain;">
+      <!-- Balance Number (duplicate left logo removed, single top logo preserved) -->
+      <div style="font-size: 5rem; font-weight: 900; color: var(--primary); line-height: 1; margin: 0.5rem 0 1rem 0; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
         <span>{{ wallet_data.current_balance }}</span>
         <span style="font-size: 2rem; font-weight: 700; color: var(--text-muted);">Px</span>
       </div>
@@ -1081,7 +1092,107 @@
       <div style="font-size: 0.95rem; font-weight: 600; color: var(--success); margin-top: 0.5rem;">
         Active Retained Energy
       </div>
+
+      <!-- Action: Raise Pixel Request Button -->
+      <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="{% url 'pixel_request_create' %}" class="btn btn-primary" style="padding: 0.65rem 1.75rem; font-size: 0.95rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 14px rgba(234, 179, 8, 0.25);">
+          <span>⚡</span>
+          <span>Raise Pixel Request</span>
+        </a>
+      </div>
     </div>
+
+    <!-- My Pixel Requests & Settlements Audit Ledger -->
+    {% if user_pixel_requests %}
+    <div class="card" style="max-width: 960px; margin: 2rem auto; box-shadow: var(--shadow); padding: 0; overflow: hidden;">
+      <div style="padding: 1.15rem 1.35rem; border-bottom: 1px solid var(--border-strong); background-color: var(--surface-raised); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.2rem 0; display: flex; align-items: center; gap: 0.45rem;">
+            <span>📋</span> My Pixel Requests &amp; Settlements
+          </h3>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0;">
+            Track your redemption requests, admin review decisions, held pixels, and settled balances.
+          </p>
+        </div>
+        <a href="{% url 'pixel_request_create' %}" class="btn btn-outline btn-sm" style="font-size: 0.8rem; font-weight: 600;">
+          + New Request
+        </a>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="admin-table" style="margin: 0; width: 100%;">
+          <thead>
+            <tr>
+              <th>Request</th>
+              <th>Date</th>
+              <th>Balance at Request</th>
+              <th>Requested</th>
+              <th>Status</th>
+              <th>Approved Amount</th>
+              <th>Settled Balance</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in user_pixel_requests %}
+              <tr>
+                <td style="font-weight: 700; color: var(--text-main); font-size: 0.85rem;">
+                  #{{ r.pk }}
+                </td>
+                <td style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
+                  {{ r.created_at|date:"M d, Y H:i" }}
+                </td>
+                <td style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;">
+                  {{ r.wallet_balance_at_request }} Px
+                </td>
+                <td style="font-weight: 800; color: var(--primary); font-size: 0.9rem;">
+                  {{ r.requested_amount }} Px
+                </td>
+                <td>
+                  {% with badge=r.get_status_badge %}
+                    <span class="badge" style="background: {{ badge.bg }}; color: {{ badge.color }}; border: 1px solid {{ badge.border }}; font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                      <span>{{ badge.icon }}</span>
+                      <span>{{ badge.label }}</span>
+                    </span>
+                  {% endwith %}
+                </td>
+                <td>
+                  {% if r.status == 'PENDING' %}
+                    <span style="color: #f59e0b; font-size: 0.8rem; font-style: italic;">Under Review</span>
+                  {% elif r.status == 'APPROVED' %}
+                    <span style="font-weight: 700; color: #10b981; font-size: 0.85rem;">{{ r.approved_amount }} Px</span>
+                  {% elif r.status == 'PARTIALLY_APPROVED' %}
+                    <span style="font-weight: 700; color: #38bdf8; font-size: 0.85rem;">{{ r.approved_amount }} Px</span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">({{ r.refunded_amount }} Px refunded)</span>
+                  {% else %}
+                    <span style="color: #ef4444; font-size: 0.8rem; font-weight: 600;">0 Px (Refunded)</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if r.final_balance_after_settlement is not None %}
+                    <span style="font-weight: 800; color: var(--text-main); font-size: 0.85rem;">{{ r.final_balance_after_settlement }} Px</span>
+                  {% else %}
+                    <span style="color: var(--text-muted); font-size: 0.8rem;">Pending Finalization</span>
+                  {% endif %}
+                </td>
+                <td style="max-width: 200px; font-size: 0.78rem; color: var(--text-muted);">
+                  {% if r.admin_notes %}
+                    <div><strong style="color: var(--text-body);">Admin:</strong> {{ r.admin_notes }}</div>
+                  {% endif %}
+                  {% if r.user_notes %}
+                    <div><span style="opacity: 0.8;">User: {{ r.user_notes }}</span></div>
+                  {% endif %}
+                  {% if not r.admin_notes and not r.user_notes %}
+                    <span style="opacity: 0.5;">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
   </div> <!-- end #section-pixel-wallet -->
 
   <!-- ============================================================== -->
