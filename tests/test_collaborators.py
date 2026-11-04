@@ -74,18 +74,16 @@ class CollaboratorsViewTests(TestCase):
         self.assertEqual(resp_offers.status_code, 200)
         self.assertEqual(resp_offers.context["active_tab"], "offers")
 
-    def test_partner_offers_and_life_suggestions_rendered(self):
-        """Verify representative partner perks and lifestyle protocols are rendered."""
+    def test_curated_offers_and_life_suggestions_sections_rendered(self):
+        """Verify Curated Offers empty placeholder and Trending Life Suggestions protocols are rendered."""
         self.client.login(username="collaborator_user", password="securepassword123")
         response = self.client.get(reverse("collaborators"))
         self.assertEqual(response.status_code, 200)
 
-        # Curated Offers checks
-        self.assertContains(response, "Oura Health")
-        self.assertContains(response, "WHOOP")
-        self.assertContains(response, "Eight Sleep")
-        self.assertContains(response, "AG1 Nutrition")
-        self.assertContains(response, "Notion Labs")
+        # Curated Offers checks (all hardcoded offers cleared)
+        self.assertContains(response, "No offers published yet")
+        self.assertNotContains(response, "Oura Health")
+        self.assertNotContains(response, "WHOOP")
 
         # Trending Life Suggestions checks
         self.assertContains(response, "Huberman Early Morning Sunlight Protocol")
