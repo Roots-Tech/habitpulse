@@ -1,5 +1,6 @@
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import User
 from habits.models import Habit
@@ -34,6 +35,17 @@ class AdminViewModeToggleTests(TestCase):
             status="ACTIVE",
         )
 
+        # Super admin habit so dashboard does not redirect to onboarding
+        Habit.objects.create(
+            tenant=self.tenant,
+            created_by=self.super_admin,
+            name="Super Admin Focus",
+            frequency=Habit.Frequency.DAILY,
+            start_date=timezone.localdate(),
+            pixel_score=10,
+            is_active=True,
+        )
+
         # Standard Regular user
         self.regular_user = User.objects.create_user(
             username="regular_bob",
@@ -48,6 +60,17 @@ class AdminViewModeToggleTests(TestCase):
             status="ACTIVE",
         )
 
+        # Regular user habit so dashboard does not redirect to onboarding
+        Habit.objects.create(
+            tenant=self.tenant,
+            created_by=self.regular_user,
+            name="Morning Jog",
+            frequency=Habit.Frequency.DAILY,
+            start_date=timezone.localdate(),
+            pixel_score=10,
+            is_active=True,
+        )
+
     def test_default_mode_is_admin_for_super_admin(self):
         """
         By default, Super Admin sees the full admin interface with Admin Panel dropdown.
@@ -56,13 +79,14 @@ class AdminViewModeToggleTests(TestCase):
         resp = self.client.get(reverse("dashboard"))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Admin Panel")
+        self.assertContains(resp, "adminDropdownBtn")
         self.assertContains(resp, "Admin Mode")
         self.assertContains(resp, "Switch to User")
 
     def test_toggle_to_user_mode_hides_admin_panel_and_shows_preview_banner(self):
         """
         When Super Admin toggles to User Mode:
-        - Admin Panel dropdown is hidden.
+        - Admin Panel dropdown button is hidden.
         - User Mode sticky preview banner is displayed.
         - User role badge reflects Regular User preview.
         - Database record remains untouched.
@@ -81,8 +105,9 @@ class AdminViewModeToggleTests(TestCase):
         resp = self.client.get(reverse("dashboard"))
         self.assertEqual(resp.status_code, 200)
 
-        # Admin Panel dropdown must be completely hidden
-        self.assertNotContains(resp, "topbar-admin-dropdown")
+        # Admin Panel dropdown button must be completely hidden
+        self.assertNotContains(resp, "adminDropdownBtn")
+        self.assertNotContains(resp, "Admin Panel")
 
         # User Preview Mode sticky alert banner must be displayed
         self.assertContains(resp, "User Preview Mode Active")
@@ -107,7 +132,9 @@ class AdminViewModeToggleTests(TestCase):
 
         # Verify currently in user mode
         resp_user = self.client.get(reverse("dashboard"))
-        self.assertNotContains(resp_user, "topbar-admin-dropdown")
+        self.assertEqual(resp_user.status_code, 200)
+        self.assertNotContains(resp_user, "adminDropdownBtn")
+        self.assertNotContains(resp_user, "Admin Panel")
 
         # Toggle back to admin mode
         resp_toggle = self.client.post(reverse("toggle_view_mode"), {
@@ -119,6 +146,7 @@ class AdminViewModeToggleTests(TestCase):
         # Dashboard now has full admin controls restored
         resp_admin = self.client.get(reverse("dashboard"))
         self.assertEqual(resp_admin.status_code, 200)
+        self.assertContains(resp_admin, "adminDropdownBtn")
         self.assertContains(resp_admin, "Admin Panel")
 
     def test_regular_user_cannot_switch_to_admin_mode(self):
@@ -138,6 +166,7 @@ class AdminViewModeToggleTests(TestCase):
 
         # Dashboard remains standard user view with zero admin panels
         resp_dash = self.client.get(reverse("dashboard"))
+        self.assertEqual(resp_dash.status_code, 200)
+        self.assertNotContains(resp_dash, "adminDropdownBtn")
         self.assertNotContains(resp_dash, "Admin Panel")
         self.assertNotContains(resp_dash, "Switch to User")
-
