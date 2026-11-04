@@ -28,24 +28,41 @@
     {% if user.is_authenticated %}
       {# Top Row: Actions #}
       <div class="topbar-actions-row">
-        {# View Mode Toggle for Super Admins (Admin Mode <-> User Mode Preview) #}
+        {# View Mode Toggle for Super Admins (Admin Mode <-> User Mode Switch) #}
         {% if user.is_real_super_admin %}
-        <form method="post" action="{% url 'toggle_view_mode' %}" style="margin: 0; display: inline-flex;" title="Switch view between Admin and Regular User mode">
+        <form method="post" action="{% url 'toggle_view_mode' %}" class="view-mode-form" style="margin: 0; display: inline-flex; align-items: center;" title="Switch between Admin and Regular User preview mode">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
           {% if request.is_user_view_mode %}
             <input type="hidden" name="mode" value="admin">
-            <button type="submit" class="btn btn-sm" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 800; display: inline-flex; align-items: center; gap: 0.4rem; background: #34d399; border: 1px solid #059669; color: #064e3b; border-radius: var(--radius-sm); cursor: pointer; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);" title="You are previewing UI as Regular User. Click to switch back to Admin Mode.">
-              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #064e3b;"></span>
-              <span>User Mode (Preview)</span>
-              <span style="font-size: 0.7rem; font-weight: 800; padding: 0.1rem 0.35rem; background: #064e3b; color: #34d399; border-radius: 3px;">Exit to Admin 👑</span>
+            <button type="submit" class="view-mode-toggle-btn is-user" title="You are previewing UI as Regular User. Click to return to Admin Mode.">
+              <span class="view-mode-text-group">
+                <span class="view-mode-title">User Mode</span>
+                <span class="view-mode-subtitle">Exit to Admin 👑</span>
+              </span>
+              <span class="view-mode-track is-user" aria-hidden="true">
+                <span class="view-mode-knob">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+              </span>
             </button>
           {% else %}
             <input type="hidden" name="mode" value="user">
-            <button type="submit" class="btn btn-outline btn-sm" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.4rem; border-color: rgba(192, 132, 252, 0.45); color: #c084fc; background: rgba(168, 85, 247, 0.1); border-radius: var(--radius-sm); cursor: pointer;" title="Preview UI as Regular User (hides all admin features temporarily)">
-              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 6px #c084fc;"></span>
-              <span>Admin Mode</span>
-              <span style="font-size: 0.7rem; color: var(--text-muted); padding: 0.1rem 0.35rem; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 3px;">Switch to User 👤</span>
+            <button type="submit" class="view-mode-toggle-btn is-admin" title="Preview UI as Regular User (hides admin features temporarily)">
+              <span class="view-mode-text-group">
+                <span class="view-mode-title">Admin Mode</span>
+                <span class="view-mode-subtitle">Switch to User 👤</span>
+              </span>
+              <span class="view-mode-track is-admin" aria-hidden="true">
+                <span class="view-mode-knob">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="2 4 5 20 19 20 22 4 16 10 12 4 8 10 2 4"></polygon>
+                  </svg>
+                </span>
+              </span>
             </button>
           {% endif %}
         </form>
@@ -406,6 +423,117 @@
   </div>
 
 <style>
+/* Super Admin View Mode Switch (Matching Reference Pill Toggle Design) */
+.view-mode-toggle-btn {
+  background: rgba(18, 20, 26, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 9999px !important;
+  padding: 0.22rem 0.35rem 0.22rem 0.75rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.55rem !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.view-mode-toggle-btn:hover {
+  background: rgba(26, 29, 38, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px) !important;
+}
+
+.view-mode-toggle-btn.is-admin:hover .view-mode-track.is-admin {
+  box-shadow: 0 0 12px rgba(251, 113, 133, 0.5) !important;
+}
+
+.view-mode-toggle-btn.is-user:hover .view-mode-track.is-user {
+  border-color: #64748b !important;
+}
+
+/* Pill Track (Exact styling from user reference image) */
+.view-mode-track {
+  width: 48px;
+  height: 26px;
+  border-radius: 9999px;
+  background-color: #171920;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  box-sizing: border-box;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Left Switch in Image: Coral/Rose glowing outline */
+.view-mode-track.is-admin {
+  border: 1.6px solid #fb7185;
+  box-shadow: 0 0 8px rgba(251, 113, 133, 0.32);
+}
+
+/* Right Switch in Image: Slate/Grey subtle outline */
+.view-mode-track.is-user {
+  border: 1.6px solid #475569;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Circular Thumb Knob inside track */
+.view-mode-knob {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background-color: #0b0c10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f3f4f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+}
+
+/* Admin State: Knob moved to right */
+.view-mode-track.is-admin .view-mode-knob {
+  transform: translateX(21px);
+  color: #fb7185;
+}
+
+/* User State: Knob moved to left */
+.view-mode-track.is-user .view-mode-knob {
+  transform: translateX(0px);
+  color: #34d399;
+}
+
+/* Text Group inside toggle button */
+.view-mode-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.view-mode-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: 0.01em;
+}
+
+.view-mode-subtitle {
+  font-size: 0.67rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.view-mode-toggle-btn.is-admin .view-mode-title {
+  color: #fca5a5;
+}
+
+.view-mode-toggle-btn.is-user .view-mode-title {
+  color: #6ee7b7;
+}
 /* Instant Reference UI styles for Habit Notifications */
 .habit-bell-btn {
   display: inline-flex !important;
