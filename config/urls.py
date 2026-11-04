@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.generic import RedirectView, TemplateView
 from config.views import protected_media_view
+from accounts import views as accounts_views
 
 
 class ServiceWorkerView(TemplateView):
@@ -33,6 +34,8 @@ urlpatterns = [
     path("admin-panel/performance/", RedirectView.as_view(pattern_name="admin_performance_meter", permanent=False)),
     path("admin-panel/users/", RedirectView.as_view(pattern_name="admin_users_list", permanent=False)),
     path("admin-panel/roles/", RedirectView.as_view(pattern_name="admin_roles_list", permanent=False)),
+    path("admin-panel/requests/", RedirectView.as_view(pattern_name="admin_pixel_requests", permanent=False)),
+    path("admin-panel/requests/<int:request_id>/review/", accounts_views.admin_pixel_request_review_view, name="admin_pixel_request_review_root_alias"),
     # PWA Endpoints
     path("manifest.json", ManifestView.as_view(), name="pwa_manifest"),
     path("sw.js", ServiceWorkerView.as_view(), name="pwa_service_worker"),

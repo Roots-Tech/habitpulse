@@ -273,3 +273,32 @@ class PixelRedemptionRequestTests(TestCase):
         new_wallet = calculate_user_pixel_wallet(self.user, tenant=self.tenant)
         self.assertEqual(new_wallet["current_balance"], initial_balance)
 
+    def test_admin_direct_root_review_url(self):
+        """
+        Verify that POST to /admin-panel/requests/<id>/review/ works seamlessly without 404.
+        """
+        wallet = calculate_user_pixel_wallet(self.user, tenant=self.tenant)
+        initial_balance = wallet["current_balance"]
+
+        req = PixelRequest.objects.create(
+            tenant=self.tenant,
+            user=self.user,
+            wallet_balance_at_request=initial_balance,
+            requested_amount=25,
+            held_balance=25,
+            status=PixelRequest.Status.PENDING,
+            user_notes="Request 25 Px",
+        )
+
+        self.client.force_login(self.super_admin)
+        # Direct path without /accounts/ prefix
+        direct_url = f"/admin-panel/requests/{req.pk}/review/"
+        resp = self.client.post(direct_url, {
+            "decision": "approve",
+            "admin_notes": "Approved via direct root URL",
+        })
+        self.assertEqual(resp.status_code, 302)
+
+        req.refresh_from_db()
+        self.assertEqual(req.status, PixelRequest.Status.APPROVED)
+        self.assertEqual(req.approved_amount, 25)

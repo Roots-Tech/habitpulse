@@ -396,12 +396,13 @@
 
 <script>
 let currentReqAmount = 0;
+const reviewUrlBase = "{% url 'admin_pixel_request_review' request_id=0 %}";
 
 function openReviewModal(reqId, username, requestedAmount, walletBalance) {
   currentReqAmount = requestedAmount;
   const modal = document.getElementById('review-modal');
   const form = document.getElementById('modal-review-form');
-  form.action = `/admin-panel/requests/${reqId}/review/`;
+  form.action = reviewUrlBase.replace('/0/', `/${reqId}/`);
 
   document.getElementById('modal-title').innerText = `Review Request #${reqId} (${username})`;
   document.getElementById('modal-wallet-balance').innerText = `${walletBalance} Px`;
