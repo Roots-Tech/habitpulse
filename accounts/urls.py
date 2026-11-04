@@ -23,6 +23,10 @@ urlpatterns = [
     path("admin-panel/roles/<int:user_id>/change/", views.admin_user_role_change_view, name="admin_user_role_change"),
     path("admin-panel/roles/user/<int:user_id>/permissions/", views.admin_user_permissions_update_view, name="admin_user_permissions_update"),
 
+    # Admin Panel - Pixel Redemption Requests
+    path("admin-panel/requests/", views.admin_pixel_requests_view, name="admin_pixel_requests"),
+    path("admin-panel/requests/<int:request_id>/review/", views.admin_pixel_request_review_view, name="admin_pixel_request_review"),
+
     # Admin Panel - System Performance Meter & APM
     path("admin-panel/performance/", views.admin_performance_meter_view, name="admin_performance_meter"),
 ]

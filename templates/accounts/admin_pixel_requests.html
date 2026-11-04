@@ -1,0 +1,440 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pixel Redemption Requests - Admin Panel - HabitPulse{% endblock %}
+
+{% block container_class %}app-container container-wide{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2.5rem;">
+  <!-- Admin Navigation & Action Toolbar -->
+  <div class="admin-toolbar" style="margin-bottom: 1.25rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">&larr; Back to Users</a>
+      <h1 style="font-size: 1.35rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+        <span>📥</span> Pixel Redemption Requests
+      </h1>
+      <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--primary); font-size: 0.75rem; font-weight: 700;">
+        Admin Settlement &amp; Review
+      </span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="{% url 'admin_roles_list' %}" class="btn btn-outline btn-sm" title="Manage user roles & access control">
+        <span>🛡️</span> Manage Roles
+      </a>
+      <a href="{% url 'admin_performance_meter' %}" class="btn btn-outline btn-sm" title="System latency & APM">
+        <span>⚡</span> Performance Meter
+      </a>
+      <a href="{% url 'admin_users_list' %}" class="btn btn-outline btn-sm">
+        <span>👥</span> Users Directory
+      </a>
+    </div>
+  </div>
+
+  <!-- Metric Aggregate Summary Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="card" style="padding: 1.15rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-left: 4px solid #f59e0b;">
+      <div style="font-size: 2rem;">⏳</div>
+      <div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Pending Review</div>
+        <div style="font-size: 1.65rem; font-weight: 900; color: #f59e0b; line-height: 1.1; margin-top: 0.15rem;">
+          {{ pending_count }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-left: 4px solid #10b981;">
+      <div style="font-size: 2rem;">✓</div>
+      <div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Approved Requests</div>
+        <div style="font-size: 1.65rem; font-weight: 900; color: #10b981; line-height: 1.1; margin-top: 0.15rem;">
+          {{ approved_count }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-left: 4px solid #38bdf8;">
+      <div style="font-size: 2rem;">⚡</div>
+      <div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Partially Approved</div>
+        <div style="font-size: 1.65rem; font-weight: 900; color: #38bdf8; line-height: 1.1; margin-top: 0.15rem;">
+          {{ partial_count }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1.15rem 1.25rem; display: flex; align-items: center; gap: 1rem; border-left: 4px solid #ef4444;">
+      <div style="font-size: 2rem;">✕</div>
+      <div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Declined Requests</div>
+        <div style="font-size: 1.65rem; font-weight: 900; color: #ef4444; line-height: 1.1; margin-top: 0.15rem;">
+          {{ declined_count }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Filter Switcher Tabs & Search Box -->
+  <div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <!-- Filter Tabs -->
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="{% url 'admin_pixel_requests' %}{% if search_query %}?q={{ search_query }}{% endif %}"
+         class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline{% endif %}">
+        All Requests ({{ total_count }})
+      </a>
+      <a href="{% url 'admin_pixel_requests' %}?status=PENDING{% if search_query %}&q={{ search_query }}{% endif %}"
+         class="btn btn-sm {% if status_filter == 'PENDING' %}btn-primary{% else %}btn-outline{% endif %}"
+         style="{% if status_filter == 'PENDING' %}background: #f59e0b; border-color: #f59e0b; color: #000; font-weight: 800;{% endif %}">
+        ⏳ Pending ({{ pending_count }})
+      </a>
+      <a href="{% url 'admin_pixel_requests' %}?status=APPROVED{% if search_query %}&q={{ search_query }}{% endif %}"
+         class="btn btn-sm {% if status_filter == 'APPROVED' %}btn-primary{% else %}btn-outline{% endif %}"
+         style="{% if status_filter == 'APPROVED' %}background: #10b981; border-color: #10b981; color: #fff; font-weight: 800;{% endif %}">
+        ✓ Approved ({{ approved_count }})
+      </a>
+      <a href="{% url 'admin_pixel_requests' %}?status=PARTIALLY_APPROVED{% if search_query %}&q={{ search_query }}{% endif %}"
+         class="btn btn-sm {% if status_filter == 'PARTIALLY_APPROVED' %}btn-primary{% else %}btn-outline{% endif %}"
+         style="{% if status_filter == 'PARTIALLY_APPROVED' %}background: #38bdf8; border-color: #38bdf8; color: #000; font-weight: 800;{% endif %}">
+        ⚡ Partially Approved ({{ partial_count }})
+      </a>
+      <a href="{% url 'admin_pixel_requests' %}?status=DECLINED{% if search_query %}&q={{ search_query }}{% endif %}"
+         class="btn btn-sm {% if status_filter == 'DECLINED' %}btn-primary{% else %}btn-outline{% endif %}"
+         style="{% if status_filter == 'DECLINED' %}background: #ef4444; border-color: #ef4444; color: #fff; font-weight: 800;{% endif %}">
+        ✕ Declined ({{ declined_count }})
+      </a>
+    </div>
+
+    <!-- Search Form -->
+    <form method="get" action="{% url 'admin_pixel_requests' %}" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+      {% if status_filter %}
+        <input type="hidden" name="status" value="{{ status_filter }}">
+      {% endif %}
+      <div class="admin-search-box" style="margin: 0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Search by user or notes..." aria-label="Search requests" style="font-size: 0.825rem; width: 220px;">
+        {% if search_query %}
+          <a href="{% url 'admin_pixel_requests' %}{% if status_filter %}?status={{ status_filter }}{% endif %}" style="text-decoration: none; color: var(--text-muted); font-size: 1rem; padding: 0 0.25rem;" title="Clear search">&times;</a>
+        {% endif %}
+      </div>
+      {% if search_query %}
+        <span style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;">
+          {{ filtered_count }} of {{ total_count }} found
+        </span>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Requests Table Card -->
+  <div class="card" style="box-shadow: var(--shadow); padding: 0; overflow: hidden;">
+    <div style="overflow-x: auto;">
+      <table class="admin-table" style="margin: 0; width: 100%;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Requested Date</th>
+            <th>Wallet at Request</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th>Settlement Details</th>
+            <th>Notes</th>
+            <th style="text-align: right; width: 200px;">Review Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in requests %}
+            <tr>
+              <td style="font-weight: 700; color: var(--text-main); font-size: 0.875rem;">
+                #{{ r.pk }}
+              </td>
+
+              <td>
+                <div style="display: flex; align-items: center; gap: 0.65rem;">
+                  <span class="user-avatar" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                    {{ r.user.username|slice:":1"|upper }}
+                  </span>
+                  <div>
+                    <div style="font-weight: 700; color: var(--text-main); font-size: 0.875rem;">
+                      {{ r.user.get_full_name|default:r.user.username }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                      @{{ r.user.username }} &bull; {{ r.user.email }}
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <td style="color: var(--text-muted); font-size: 0.8rem; white-space: nowrap;">
+                {{ r.created_at|date:"M d, Y H:i" }}
+              </td>
+
+              <td style="font-weight: 600; color: var(--text-muted); font-size: 0.85rem;">
+                {{ r.wallet_balance_at_request }} Px
+              </td>
+
+              <td style="font-weight: 800; color: var(--primary); font-size: 0.95rem;">
+                {{ r.requested_amount }} Px
+              </td>
+
+              <td>
+                {% with badge=r.get_status_badge %}
+                  <span class="badge" style="background: {{ badge.bg }}; color: {{ badge.color }}; border: 1px solid {{ badge.border }}; font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                    <span>{{ badge.icon }}</span>
+                    <span>{{ badge.label }}</span>
+                  </span>
+                {% endwith %}
+              </td>
+
+              <td>
+                {% if r.status == 'PENDING' %}
+                  <div style="font-size: 0.8rem; color: #f59e0b; font-weight: 600;">
+                    On Hold: {{ r.held_balance }} Px
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted);">
+                    Wallet Available: {{ r.wallet_balance_at_request|add:"-r.held_balance" }} Px
+                  </div>
+                {% elif r.status == 'APPROVED' %}
+                  <div style="font-size: 0.8rem; color: #10b981; font-weight: 700;">
+                    Approved: {{ r.approved_amount }} Px
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted);">
+                    Settled Wallet: {{ r.final_balance_after_settlement }} Px
+                  </div>
+                {% elif r.status == 'PARTIALLY_APPROVED' %}
+                  <div style="font-size: 0.8rem; color: #38bdf8; font-weight: 700;">
+                    Approved: {{ r.approved_amount }} Px
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted);">
+                    Refunded: {{ r.refunded_amount }} Px &bull; Settled Wallet: {{ r.final_balance_after_settlement }} Px
+                  </div>
+                {% else %}
+                  <div style="font-size: 0.8rem; color: #ef4444; font-weight: 700;">
+                    Declined (0 Px)
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted);">
+                    Full {{ r.refunded_amount }} Px refunded &bull; Settled: {{ r.final_balance_after_settlement }} Px
+                  </div>
+                {% endif %}
+              </td>
+
+              <td style="max-width: 220px; font-size: 0.78rem; color: var(--text-muted);">
+                {% if r.user_notes %}
+                  <div><strong style="color: var(--text-body);">User:</strong> {{ r.user_notes }}</div>
+                {% endif %}
+                {% if r.admin_notes %}
+                  <div><strong style="color: #38bdf8;">Admin Note:</strong> {{ r.admin_notes }}</div>
+                {% endif %}
+                {% if not r.user_notes and not r.admin_notes %}
+                  <span style="opacity: 0.5;">—</span>
+                {% endif %}
+              </td>
+
+              <td style="text-align: right;">
+                {% if r.status == 'PENDING' %}
+                  <!-- Review Button Triggering Inline Modal/Form -->
+                  <button type="button"
+                          class="btn btn-primary btn-sm"
+                          onclick="openReviewModal('{{ r.pk }}', '{{ r.user.username }}', {{ r.requested_amount }}, {{ r.wallet_balance_at_request }})"
+                          style="font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.75rem;">
+                    ⚙️ Review Request
+                  </button>
+                {% else %}
+                  <div style="font-size: 0.75rem; color: var(--text-muted); text-align: right;">
+                    Reviewed by <strong style="color: var(--text-body);">{{ r.reviewed_by.username|default:"Admin" }}</strong>
+                    <div style="font-size: 0.7rem; opacity: 0.8;">{{ r.reviewed_at|date:"M d, H:i" }}</div>
+                  </div>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="9" style="text-align: center; padding: 3rem 1.5rem;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+                  <span style="font-size: 2.25rem;">📥</span>
+                  <div style="font-weight: 700; font-size: 1rem; color: var(--text-main);">
+                    {% if search_query %}
+                      No pixel requests match your search "{{ search_query }}"
+                    {% elif status_filter %}
+                      No {{ status_filter|lower }} pixel requests found
+                    {% else %}
+                      No pixel requests have been raised yet
+                    {% endif %}
+                  </div>
+                  <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0; max-width: 420px;">
+                    When users raise requests to withdraw or redeem pixels from their wallet, they will appear here for Admin review and approval.
+                  </p>
+                  {% if search_query or status_filter %}
+                    <a href="{% url 'admin_pixel_requests' %}" class="btn btn-outline btn-sm" style="margin-top: 0.5rem;">
+                      Clear Filters
+                    </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Review & Settlement Modal -->
+<div id="review-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;">
+  <div class="card" style="max-width: 540px; width: 100%; box-shadow: var(--shadow-lg); border: 2px solid var(--primary-border); padding: 1.75rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+      <div>
+        <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0 0 0.25rem 0;" id="modal-title">
+          Review Pixel Request
+        </h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;" id="modal-subtitle">
+          Decide full approval, partial approval, or decline.
+        </p>
+      </div>
+      <button type="button" onclick="closeReviewModal()" style="background: none; border: none; font-size: 1.25rem; color: var(--text-muted); cursor: pointer;">✕</button>
+    </div>
+
+    <!-- Request Details Summary Box -->
+    <div style="background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; text-align: center;">
+      <div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Wallet at Request</div>
+        <div style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-top: 0.15rem;" id="modal-wallet-balance">
+          — Px
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Amount Requested</div>
+        <div style="font-size: 1.2rem; font-weight: 900; color: var(--primary); margin-top: 0.15rem;" id="modal-requested-amount">
+          — Px
+        </div>
+      </div>
+    </div>
+
+    <form method="post" id="modal-review-form" action="">
+      {% csrf_token %}
+
+      <!-- Decision Radios -->
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" style="font-weight: 700; font-size: 0.85rem; margin-bottom: 0.5rem;">
+          Admin Review Decision <span style="color: var(--danger);">*</span>
+        </label>
+
+        <div style="display: grid; gap: 0.65rem;">
+          <label style="display: flex; align-items: center; gap: 0.65rem; padding: 0.65rem 0.85rem; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer;">
+            <input type="radio" name="decision" value="approve" checked onchange="toggleDecisionInputs()" style="cursor: pointer;">
+            <div>
+              <div style="font-weight: 700; color: #10b981; font-size: 0.875rem;">
+                ✓ Approve Full Amount (<span class="modal-req-val">0</span> Px)
+              </div>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">
+                Settles request completely. Held pixels are approved.
+              </div>
+            </div>
+          </label>
+
+          <label style="display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.65rem 0.85rem; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer;">
+            <input type="radio" name="decision" value="partial" id="decision-partial-radio" onchange="toggleDecisionInputs()" style="margin-top: 0.25rem; cursor: pointer;">
+            <div style="flex: 1;">
+              <div style="font-weight: 700; color: #38bdf8; font-size: 0.875rem;">
+                ⚡ Partially Approve (Custom Amount)
+              </div>
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+                Approve any amount below requested. The remainder is automatically refunded to the user's wallet.
+              </div>
+              <div id="partial-input-container" style="display: none; margin-top: 0.5rem;">
+                <label for="partial_approved_amount" style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">
+                  Approved Pixels Amount:
+                </label>
+                <input type="number"
+                       name="partial_approved_amount"
+                       id="partial_approved_amount"
+                       class="form-control"
+                       placeholder="e.g. 300"
+                       min="1"
+                       style="font-size: 0.95rem; font-weight: 700; padding: 0.4rem 0.65rem; width: 100%;">
+              </div>
+            </div>
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 0.65rem; padding: 0.65rem 0.85rem; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer;">
+            <input type="radio" name="decision" value="decline" onchange="toggleDecisionInputs()" style="cursor: pointer;">
+            <div>
+              <div style="font-weight: 700; color: #ef4444; font-size: 0.875rem;">
+                ✕ Decline Request
+              </div>
+              <div style="font-size: 0.72rem; color: var(--text-muted);">
+                Rejects request. Full <span class="modal-req-val">0</span> Px will be refunded back to user's wallet balance.
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Admin Notes Field -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label for="id_admin_notes" class="form-label" style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">
+          Admin Feedback / Settlement Reason <span style="font-weight: 400; color: var(--text-muted); font-size: 0.75rem;">(Optional)</span>
+        </label>
+        <textarea name="admin_notes"
+                  id="id_admin_notes"
+                  rows="2"
+                  class="form-control"
+                  placeholder="Note visible to the user regarding this decision..."
+                  style="font-size: 0.85rem;"></textarea>
+      </div>
+
+      <!-- Modal Action Buttons -->
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" class="btn btn-outline" onclick="closeReviewModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 0.5rem 1.25rem;">
+          Confirm Settlement Decision
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+let currentReqAmount = 0;
+
+function openReviewModal(reqId, username, requestedAmount, walletBalance) {
+  currentReqAmount = requestedAmount;
+  const modal = document.getElementById('review-modal');
+  const form = document.getElementById('modal-review-form');
+  form.action = `/admin-panel/requests/${reqId}/review/`;
+
+  document.getElementById('modal-title').innerText = `Review Request #${reqId} (${username})`;
+  document.getElementById('modal-wallet-balance').innerText = `${walletBalance} Px`;
+  document.getElementById('modal-requested-amount').innerText = `${requestedAmount} Px`;
+
+  const reqSpans = document.querySelectorAll('.modal-req-val');
+  reqSpans.forEach(s => s.innerText = requestedAmount);
+
+  const partialInput = document.getElementById('partial_approved_amount');
+  partialInput.max = requestedAmount - 1;
+  partialInput.value = Math.floor(requestedAmount * 0.75);
+
+  document.querySelector('input[name="decision"][value="approve"]').checked = true;
+  toggleDecisionInputs();
+
+  modal.style.display = 'flex';
+}
+
+function closeReviewModal() {
+  document.getElementById('review-modal').style.display = 'none';
+}
+
+function toggleDecisionInputs() {
+  const isPartial = document.getElementById('decision-partial-radio').checked;
+  const container = document.getElementById('partial-input-container');
+  container.style.display = isPartial ? 'block' : 'none';
+}
+
+// Close on backdrop click
+document.getElementById('review-modal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeReviewModal();
+  }
+});
+</script>
+{% endblock %}

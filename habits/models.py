@@ -719,6 +719,125 @@ class PixelAllocation(models.Model):
         return f"{self.amount} Px to {self.recipient_user.username} by {self.admin_user.username} ({self.created_at:%Y-%m-%d})" 
 
 
+
+class PixelRequest(models.Model):
+    """
+    Tracks a user's request to redeem/withdraw pixels from their active wallet.
+    Enforces balance limits, immediate wallet hold, and complete admin review
+    with full settlement transaction tracking (wallet at request, requested, approved,
+    refunded, and final settled balance).
+    """
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending Review"
+        APPROVED = "APPROVED", "Approved"
+        PARTIALLY_APPROVED = "PARTIALLY_APPROVED", "Partially Approved"
+        DECLINED = "DECLINED", "Declined"
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        related_name="pixel_requests",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="pixel_requests",
+    )
+    wallet_balance_at_request = models.PositiveIntegerField(
+        help_text="User's wallet balance at the time the request was raised",
+    )
+    requested_amount = models.PositiveIntegerField(
+        help_text="Number of pixels requested for redemption",
+    )
+    held_balance = models.PositiveIntegerField(
+        default=0,
+        help_text="Amount currently held from wallet while pending",
+    )
+    approved_amount = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of pixels approved by admin upon review",
+    )
+    refunded_amount = models.PositiveIntegerField(
+        default=0,
+        help_text="Pixels returned to wallet if declined or partially approved",
+    )
+    final_balance_after_settlement = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Snapshot of user's wallet balance after review is finalized",
+    )
+    status = models.CharField(
+        max_length=25,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    user_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="User's explanation or purpose for the request",
+    )
+    admin_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Admin review feedback or reason for partial/declined decision",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_pixel_requests",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["tenant", "user", "status"]),
+            models.Index(fields=["status", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Request #{self.pk} by {self.user.username}: {self.requested_amount} Px ({self.status})"
+
+    def get_status_badge(self):
+        if self.status == self.Status.PENDING:
+            return {
+                "label": "Pending Review",
+                "color": "#f59e0b",
+                "bg": "rgba(245, 158, 11, 0.15)",
+                "border": "rgba(245, 158, 11, 0.4)",
+                "icon": "⏳"
+            }
+        elif self.status == self.Status.APPROVED:
+            return {
+                "label": "Approved",
+                "color": "#10b981",
+                "bg": "rgba(16, 185, 129, 0.15)",
+                "border": "rgba(16, 185, 129, 0.4)",
+                "icon": "✓"
+            }
+        elif self.status == self.Status.PARTIALLY_APPROVED:
+            return {
+                "label": "Partially Approved",
+                "color": "#38bdf8",
+                "bg": "rgba(56, 189, 248, 0.15)",
+                "border": "rgba(56, 189, 248, 0.4)",
+                "icon": "⚡"
+            }
+        else:
+            return {
+                "label": "Declined",
+                "color": "#ef4444",
+                "bg": "rgba(239, 68, 68, 0.15)",
+                "border": "rgba(239, 68, 68, 0.4)",
+                "icon": "✕"
+            }
+
+
 def seed_default_master_data_for_tenant(tenant):
     """
     Seeds baseline master data (Categories and Rule Strategies) for a tenant if not present.

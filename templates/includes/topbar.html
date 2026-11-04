@@ -47,6 +47,17 @@
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
               Users Directory
             </a>
+            <a href="{% url 'admin_pixel_requests' %}" class="dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                Requests
+              </span>
+              {% if pending_pixel_requests_count %}
+                <span class="badge" style="background: #f59e0b; color: #000; font-weight: 800; font-size: 0.68rem; padding: 0.15rem 0.45rem; border-radius: 10px;">
+                  {{ pending_pixel_requests_count }}
+                </span>
+              {% endif %}
+            </a>
             <a href="{% url 'admin_performance_meter' %}" class="dropdown-item">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
               Performance Meter

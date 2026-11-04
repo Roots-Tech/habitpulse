@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from config.performance import performance_tracker
 from .decorators import super_admin_required, technical_or_admin_required
@@ -842,3 +843,139 @@ def admin_performance_meter_view(request):
         "active_tab": "performance",
     })
 
+
+
+# ==============================================================================
+# ADMIN PANEL: PIXEL REDEMPTION REQUESTS & SETTLEMENT
+# ==============================================================================
+
+@super_admin_required
+def admin_pixel_requests_view(request):
+    """
+    Admin panel view listing all user pixel redemption/withdrawal requests.
+    Enables Super Admins to review requests, approve fully, approve partially,
+    or decline, with full settlement transaction auditing.
+    """
+    from habits.models import PixelRequest
+    from django.db.models import Sum
+
+    status_filter = request.GET.get("status", "").strip()
+    search_query = request.GET.get("q", "").strip()
+
+    all_reqs_qs = PixelRequest.objects.select_related("user", "tenant", "reviewed_by").all().order_by("-created_at")
+
+    # Counts for status filter tabs
+    total_count = all_reqs_qs.count()
+    pending_count = all_reqs_qs.filter(status=PixelRequest.Status.PENDING).count()
+    approved_count = all_reqs_qs.filter(status=PixelRequest.Status.APPROVED).count()
+    partial_count = all_reqs_qs.filter(status=PixelRequest.Status.PARTIALLY_APPROVED).count()
+    declined_count = all_reqs_qs.filter(status=PixelRequest.Status.DECLINED).count()
+
+    filtered_qs = all_reqs_qs
+    if status_filter in PixelRequest.Status.values:
+        filtered_qs = filtered_qs.filter(status=status_filter)
+
+    if search_query:
+        filtered_qs = filtered_qs.filter(
+            Q(user__username__icontains=search_query) |
+            Q(user__email__icontains=search_query) |
+            Q(user__first_name__icontains=search_query) |
+            Q(user__last_name__icontains=search_query) |
+            Q(user_notes__icontains=search_query)
+        )
+
+    # Calculate overall aggregates
+    total_requested_sum = all_reqs_qs.aggregate(s=Sum("requested_amount"))["s"] or 0
+    total_approved_sum = all_reqs_qs.aggregate(s=Sum("approved_amount"))["s"] or 0
+
+    return render(request, "accounts/admin_pixel_requests.html", {
+        "requests": filtered_qs,
+        "status_filter": status_filter,
+        "search_query": search_query,
+        "total_count": total_count,
+        "pending_count": pending_count,
+        "approved_count": approved_count,
+        "partial_count": partial_count,
+        "declined_count": declined_count,
+        "filtered_count": filtered_qs.count(),
+        "total_requested_sum": total_requested_sum,
+        "total_approved_sum": total_approved_sum,
+        "status_choices": PixelRequest.Status.choices,
+    })
+
+
+@super_admin_required
+@require_POST
+def admin_pixel_request_review_view(request, request_id):
+    """
+    Processes an admin's review decision for a pending pixel redemption request:
+    1. Full Approval: approves entire requested amount.
+    2. Partial Approval: approves any amount below requested amount; remainder is refunded to user.
+    3. Decline: rejects request; full requested amount is refunded to user.
+    Records initial balance, requested, approved, refunded, and settled balance.
+    """
+    from habits.models import PixelRequest
+    from habits.services import calculate_user_pixel_wallet
+
+    req_obj = get_object_or_404(PixelRequest, pk=request_id)
+
+    if req_obj.status != PixelRequest.Status.PENDING:
+        messages.warning(request, f"Request #{req_obj.pk} was already reviewed and settled as {req_obj.get_status_display()}.")
+        return redirect("admin_pixel_requests")
+
+    decision = request.POST.get("decision", "").strip().lower()
+    admin_notes = request.POST.get("admin_notes", "").strip()
+
+    if decision == "approve":
+        req_obj.approved_amount = req_obj.requested_amount
+        req_obj.refunded_amount = 0
+        req_obj.held_balance = 0
+        req_obj.status = PixelRequest.Status.APPROVED
+        msg_action = f"Request #{req_obj.pk} for {req_obj.requested_amount} Px fully approved for {req_obj.user.username}!"
+
+    elif decision == "partial":
+        partial_amount_raw = request.POST.get("partial_approved_amount", "").strip()
+        try:
+            partial_amount = int(partial_amount_raw)
+        except (ValueError, TypeError):
+            messages.error(request, "Please enter a valid whole number for the partial approved amount.")
+            return redirect("admin_pixel_requests")
+
+        if partial_amount <= 0 or partial_amount >= req_obj.requested_amount:
+            messages.error(
+                request,
+                f"Partial approved amount must be between 1 and {req_obj.requested_amount - 1} Px. "
+                "For full approval, choose 'Approve Full'."
+            )
+            return redirect("admin_pixel_requests")
+
+        req_obj.approved_amount = partial_amount
+        req_obj.refunded_amount = req_obj.requested_amount - partial_amount
+        req_obj.held_balance = 0
+        req_obj.status = PixelRequest.Status.PARTIALLY_APPROVED
+        msg_action = f"Request #{req_obj.pk} partially approved ({partial_amount} Px approved, {req_obj.refunded_amount} Px refunded to wallet)."
+
+    elif decision == "decline":
+        req_obj.approved_amount = 0
+        req_obj.refunded_amount = req_obj.requested_amount
+        req_obj.held_balance = 0
+        req_obj.status = PixelRequest.Status.DECLINED
+        msg_action = f"Request #{req_obj.pk} declined. Full {req_obj.refunded_amount} Px refunded back to {req_obj.user.username}'s wallet."
+
+    else:
+        messages.error(request, "Invalid review action specified.")
+        return redirect("admin_pixel_requests")
+
+    req_obj.reviewed_by = request.user
+    req_obj.reviewed_at = timezone.now()
+    req_obj.admin_notes = admin_notes
+    req_obj.save()
+
+    # Calculate post-settlement wallet balance with updated request state in DB
+    new_wallet = calculate_user_pixel_wallet(req_obj.user, tenant=req_obj.tenant)
+    req_obj.final_balance_after_settlement = new_wallet["current_balance"]
+    req_obj.save(update_fields=["final_balance_after_settlement"])
+
+    messages.success(request, f"{msg_action} User's wallet settled at {req_obj.final_balance_after_settlement} Px.")
+
+    return redirect("admin_pixel_requests")
