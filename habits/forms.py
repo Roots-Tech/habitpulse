@@ -36,22 +36,19 @@ class HabitCategoryForm(forms.ModelForm):
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def __init__(self, *args, tenant=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("tenant", None)
         super().__init__(*args, **kwargs)
-        self.tenant = tenant
-        if not self.tenant and self.instance and self.instance.pk and hasattr(self.instance, "tenant"):
-            self.tenant = self.instance.tenant
 
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
         if not name:
             raise forms.ValidationError("Category name cannot be empty.")
-        if self.tenant:
-            qs = HabitCategory.objects.filter(tenant=self.tenant, name__iexact=name)
-            if self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise forms.ValidationError(f"A habit category named '{name}' already exists in your workspace.")
+        qs = HabitCategory.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(f"A habit category named '{name}' already exists.")
         return name
 
 
@@ -293,12 +290,7 @@ class HabitForm(forms.ModelForm):
             elif habit_type_initial in [Habit.HabitType.PREDEFINED_PURPOSE, Habit.HabitType.EXPERT_PRESCRIBED]:
                 self.initial["is_template"] = True
 
-        if self.tenant:
-            self.fields["category_ref"].queryset = HabitCategory.objects.filter(
-                tenant=self.tenant, is_active=True
-            )
-        else:
-            self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True)
+        self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True)
         self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True)
 
         if not self.instance.pk:
@@ -355,9 +347,8 @@ class HabitForm(forms.ModelForm):
         category_ref = cleaned_data.get("category_ref")
         if category_ref:
             cleaned_data["category"] = category_ref.name
-        elif cleaned_data.get("category") and self.tenant:
+        elif cleaned_data.get("category"):
             cat, _ = HabitCategory.objects.get_or_create(
-                tenant=self.tenant,
                 name=cleaned_data.get("category"),
                 defaults={"is_active": True},
             )

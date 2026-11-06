@@ -11,14 +11,10 @@ from tenants.models import Tenant
 class HabitCategory(models.Model):
     """
     Master Data: Configurable Habit Categories with full CRUD support.
-    Strictly tenant-scoped.
+    Common system-wide master data managed by super admins and technical users,
+    shared across all users and workspaces.
     """
-    tenant = models.ForeignKey(
-        Tenant,
-        on_delete=models.CASCADE,
-        related_name="habit_categories",
-    )
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, default="")
     icon = models.CharField(max_length=20, blank=True, default="📁", help_text="Emoji or icon symbol")
     color = models.CharField(max_length=30, blank=True, default="#38bdf8", help_text="Badge color hex")
@@ -28,7 +24,6 @@ class HabitCategory(models.Model):
 
     class Meta:
         ordering = ["name"]
-        unique_together = [("tenant", "name")]
         verbose_name = "Habit Category"
         verbose_name_plural = "Habit Categories"
 
@@ -458,10 +453,9 @@ class Habit(models.Model):
 
     def save(self, *args, **kwargs):
         # 1. Synchronize category and category_ref
-        if self.category and self.tenant_id:
+        if self.category:
             if not self.category_ref or self.category_ref.name != self.category:
                 cat, _ = HabitCategory.objects.get_or_create(
-                    tenant=self.tenant,
                     name=self.category,
                     defaults={"is_active": True},
                 )
@@ -713,7 +707,7 @@ class PixelAllocation(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.amount} Px to {self.recipient_user.username} by {self.admin_user.username} ({self.created_at:%Y-%m-%d})" 
+        return f"{self.amount} Px to {self.recipient_user.username} by {self.admin_user.username} ({self.created_at:%Y-%m-%d})"
 
 
 
@@ -962,9 +956,11 @@ class PixelRewardConfig(models.Model):
         }
 
 
-def seed_default_master_data_for_tenant(tenant):
+def seed_default_categories():
     """
-    Seeds baseline master data (Categories and Rule Strategies) for a tenant if not present.
+    Seeds baseline system-wide Habit Categories if not present.
+    Common for all users and workspaces across the platform.
+    Idempotent: skips existing entries.
     """
     default_categories = [
         {"name": "Health", "icon": "🍎", "color": "#10b981", "description": "Physical health, nutrition, and well-being."},
@@ -976,7 +972,6 @@ def seed_default_master_data_for_tenant(tenant):
     ]
     for cat in default_categories:
         HabitCategory.objects.get_or_create(
-            tenant=tenant,
             name=cat["name"],
             defaults={
                 "icon": cat["icon"],
@@ -986,6 +981,13 @@ def seed_default_master_data_for_tenant(tenant):
             },
         )
 
+
+def seed_default_master_data_for_tenant(tenant=None):
+    """
+    Seeds baseline master data (Categories and Rule Strategies) if not present.
+    Maintains backward compatibility while ensuring master data is system-wide.
+    """
+    seed_default_categories()
     seed_default_rule_strategies()
 
 
