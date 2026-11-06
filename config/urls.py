@@ -35,6 +35,7 @@ urlpatterns = [
     path("admin-panel/users/", RedirectView.as_view(pattern_name="admin_users_list", permanent=False)),
     path("admin-panel/roles/", RedirectView.as_view(pattern_name="admin_roles_list", permanent=False)),
     path("admin-panel/requests/", RedirectView.as_view(pattern_name="admin_pixel_requests", permanent=False)),
+    path("admin-panel/pixel-configuration/", RedirectView.as_view(pattern_name="admin_pixel_configuration", permanent=False)),
     path("admin-panel/requests/<int:request_id>/review/", accounts_views.admin_pixel_request_review_view, name="admin_pixel_request_review_root_alias"),
     # PWA Endpoints
     path("manifest.json", ManifestView.as_view(), name="pwa_manifest"),

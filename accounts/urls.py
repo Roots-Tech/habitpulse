@@ -28,6 +28,9 @@ urlpatterns = [
     path("admin-panel/requests/", views.admin_pixel_requests_view, name="admin_pixel_requests"),
     path("admin-panel/requests/<int:request_id>/review/", views.admin_pixel_request_review_view, name="admin_pixel_request_review"),
 
+    # Admin Panel - Pixel Reward Allocation Configuration
+    path("admin-panel/pixel-configuration/", views.admin_pixel_configuration_view, name="admin_pixel_configuration"),
+
     # Admin Panel - System Performance Meter & APM
     path("admin-panel/performance/", views.admin_performance_meter_view, name="admin_performance_meter"),
 ]

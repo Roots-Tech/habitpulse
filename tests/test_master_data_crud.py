@@ -45,20 +45,21 @@ class MasterDataCRUDTestCase(TestCase):
 
     def test_seed_default_master_data_for_tenant(self):
         """
-        Verify seeding generates baseline 6 categories per tenant and 5 common rule strategies globally.
+        Verify seeding generates baseline 6 categories and 5 common rule strategies globally.
+        Categories and strategies are shared master data across all users and workspaces.
         """
         seed_default_master_data_for_tenant(self.tenant_a)
-        self.assertEqual(HabitCategory.objects.filter(tenant=self.tenant_a).count(), 6)
+        self.assertEqual(HabitCategory.objects.count(), 6)
         self.assertEqual(RuleStrategy.objects.count(), 5)
 
-        # Idempotence: calling again shouldn't duplicate
+        # Idempotence: calling again shouldn't duplicate categories or rule strategies
         seed_default_master_data_for_tenant(self.tenant_a)
-        self.assertEqual(HabitCategory.objects.filter(tenant=self.tenant_a).count(), 6)
+        self.assertEqual(HabitCategory.objects.count(), 6)
         self.assertEqual(RuleStrategy.objects.count(), 5)
 
-        # Seeding another tenant should NOT duplicate rule strategies (common for everyone)
+        # Seeding another tenant should NOT duplicate categories or rule strategies
         seed_default_master_data_for_tenant(self.tenant_b)
-        self.assertEqual(HabitCategory.objects.filter(tenant=self.tenant_b).count(), 6)
+        self.assertEqual(HabitCategory.objects.count(), 6)
         self.assertEqual(RuleStrategy.objects.count(), 5)
 
     def test_category_crud_workflow(self):
@@ -74,7 +75,7 @@ class MasterDataCRUDTestCase(TestCase):
             "is_active": "on",
         })
         self.assertEqual(create_resp.status_code, 302)
-        cat = HabitCategory.objects.filter(tenant=self.tenant_a, name="Mindfulness and Meditation").first()
+        cat = HabitCategory.objects.filter(name="Mindfulness and Meditation").first()
         self.assertIsNotNone(cat)
         self.assertEqual(cat.icon, "🧘")
         self.assertEqual(cat.color, "#10b981")
@@ -152,34 +153,30 @@ class MasterDataCRUDTestCase(TestCase):
 
     def test_tenant_isolation_on_master_data(self):
         """
-        Verify categories are tenant-isolated, while rule strategies are common system-wide master data.
-        Regular users cannot modify rule strategies; technical users manage common strategies.
+        Verify categories and rule strategies are common system-wide master data.
+        Regular users without permissions get 403 on master data management;
+        authorized technical and super admin users manage common categories and strategies.
         """
         cat_a = HabitCategory.objects.create(
-            tenant=self.tenant_a,
-            name="Confidential Category A",
+            name="Common Category A",
         )
         strat = RuleStrategy.objects.create(
             name="Common Strategy X",
             engine_type=RuleStrategy.EngineType.STANDARD,
         )
 
-        # Log in as user_b (Tenant B, Technical User)
+        # Log in as user_b (Tenant B, Technical User with manage_categories & manage_rule_strategies)
         self.client.login(username="Bob", password="password123")
 
-        # Category list view should not show Tenant A's category
+        # Category list view shows common category to authorized tech user
         list_cat_resp = self.client.get(reverse("category_list"))
-        self.assertNotContains(list_cat_resp, "Confidential Category A")
+        self.assertContains(list_cat_resp, "Common Category A")
 
         # Rule strategy list view shows common strategy to authorized tech user
         list_strat_resp = self.client.get(reverse("rule_strategy_list"))
         self.assertContains(list_strat_resp, "Common Strategy X")
 
-        # Category edit/delete by Tenant B must return 404
-        self.assertEqual(self.client.get(reverse("category_edit", kwargs={"pk": cat_a.pk})).status_code, 404)
-        self.assertEqual(self.client.post(reverse("category_delete", kwargs={"pk": cat_a.pk})).status_code, 404)
-
-        # Regular user without permissions gets 403 on rule strategy management
+        # Regular user without permissions gets 403 on master data management
         reg_user = User.objects.create_user(
             username="Charlie",
             email="charlie@example.com",
@@ -187,6 +184,8 @@ class MasterDataCRUDTestCase(TestCase):
             role=User.Role.REGULAR_USER,
         )
         self.client.login(username="Charlie", password="password123")
+        self.assertEqual(self.client.get(reverse("category_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("category_create")).status_code, 403)
         self.assertEqual(self.client.get(reverse("rule_strategy_list")).status_code, 403)
         self.assertEqual(self.client.get(reverse("rule_strategy_create")).status_code, 403)
 
@@ -195,7 +194,6 @@ class MasterDataCRUDTestCase(TestCase):
         Verify creating a habit with category_ref and rule_strategy_ref syncs correctly.
         """
         cat = HabitCategory.objects.create(
-            tenant=self.tenant_a,
             name="Deep Work",
             icon="⚡",
         )
@@ -251,3 +249,94 @@ class MasterDataCRUDTestCase(TestCase):
         # Rule strategy views return 403 Forbidden
         self.assertEqual(self.client.get(reverse("rule_strategy_list")).status_code, 403)
         self.assertEqual(self.client.get(reverse("rule_strategy_create")).status_code, 403)
+
+    def test_category_shows_multiple_users_and_habits_without_n_plus_one_queries(self):
+        """
+        Verify that multiple habits created by different users under the same category
+        do NOT create duplicate categories. The single category aggregates all related habits
+        and accurately displays which user is using which habit, executed without N+1 query overhead.
+        """
+        from tenants.utils import create_personal_workspace_for_user
+
+        # 1. Ensure canonical Fitness category exists
+        fitness_cat, _ = HabitCategory.objects.get_or_create(
+            name="Fitness",
+            defaults={"icon": "🏋️", "color": "#f59e0b", "is_active": True}
+        )
+
+        # 2. Provision 3 different users with personal workspaces
+        user1 = User.objects.create_user(username="UserAlpha", email="alpha@example.com", password="password123")
+        tenant1, _ = create_personal_workspace_for_user(user1, "Alpha Workspace")
+
+        user2 = User.objects.create_user(username="UserBeta", email="beta@example.com", password="password123")
+        tenant2, _ = create_personal_workspace_for_user(user2, "Beta Workspace")
+
+        user3 = User.objects.create_user(username="UserGamma", email="gamma@example.com", password="password123")
+        tenant3, _ = create_personal_workspace_for_user(user3, "Gamma Workspace")
+
+        # 3. Each user creates a habit under the same Fitness category
+        habit1 = Habit.objects.create(
+            tenant=tenant1,
+            created_by=user1,
+            name="Going to Gym",
+            category="Fitness",
+            category_ref=fitness_cat,
+            frequency=Habit.Frequency.DAILY,
+            start_date=datetime.date.today(),
+            is_active=True,
+        )
+        habit2 = Habit.objects.create(
+            tenant=tenant2,
+            created_by=user2,
+            name="Workout",
+            category="Fitness",
+            category_ref=fitness_cat,
+            frequency=Habit.Frequency.DAILY,
+            start_date=datetime.date.today(),
+            is_active=True,
+        )
+        habit3 = Habit.objects.create(
+            tenant=tenant3,
+            created_by=user3,
+            name="Weight Lifting",
+            category="Fitness",
+            category_ref=fitness_cat,
+            frequency=Habit.Frequency.DAILY,
+            start_date=datetime.date.today(),
+            is_active=True,
+        )
+
+        # 4. Critical assertion: Only ONE Fitness category exists in the entire database
+        self.assertEqual(
+            HabitCategory.objects.filter(name="Fitness").count(),
+            1,
+            "Only one shared Fitness category must exist, not one per user."
+        )
+
+        # 5. Log in as Super Admin to inspect master data
+        self.super_admin = User.objects.create_user(
+            username="MasterAdmin",
+            email="masteradmin@example.com",
+            password="password123",
+            role=User.Role.SUPER_ADMIN,
+            is_superuser=True,
+            is_staff=True,
+        )
+        self.client.login(username="MasterAdmin", password="password123")
+
+        # 6. Verify view executes cleanly with bounded queries (no N+1 query loops)
+        # Bounded query count includes session, user auth, tenant, categories, and prefetched habits
+        with self.assertNumQueries(10):
+            response = self.client.get(reverse("category_list"))
+        self.assertEqual(response.status_code, 200)
+
+        # 7. Verify response shows the 3 habits and the 3 distinct users tracking them
+        content = response.content.decode("utf-8")
+        self.assertIn("Going to Gym", content)
+        self.assertIn("Workout", content)
+        self.assertIn("Weight Lifting", content)
+        self.assertIn("UserAlpha", content)
+        self.assertIn("UserBeta", content)
+        self.assertIn("UserGamma", content)
+        self.assertIn("3 habits", content)
+        self.assertIn("3 users", content)

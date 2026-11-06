@@ -48,5 +48,5 @@ class SetupAdminUsersCommandTestCase(TestCase):
         )
 
         # 5. Verify master data seeding ran successfully
-        self.assertTrue(HabitCategory.objects.filter(tenant=customer_tenant).exists())
+        self.assertTrue(HabitCategory.objects.exists())
         self.assertTrue(RuleStrategy.objects.exists())

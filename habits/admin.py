@@ -4,9 +4,9 @@ from .models import Habit, HabitCategory, HabitCompletion, RuleStrategy
 
 @admin.register(HabitCategory)
 class HabitCategoryAdmin(admin.ModelAdmin):
-    list_display = ["name", "icon", "color", "tenant", "is_active", "created_at"]
-    list_filter = ["tenant", "is_active"]
-    search_fields = ["name", "description", "tenant__name"]
+    list_display = ["name", "icon", "color", "is_active", "created_at"]
+    list_filter = ["is_active"]
+    search_fields = ["name", "description"]
 
 
 @admin.register(RuleStrategy)

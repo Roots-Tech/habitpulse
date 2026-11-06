@@ -91,7 +91,7 @@ class AdminSeedDataFeatureTestCase(TestCase):
         self.assertTrue(Tenant.objects.filter(name="Customer Workspace").exists())
 
         # Verify master data seeded
-        self.assertTrue(HabitCategory.objects.filter(tenant=customer_tenant).exists())
+        self.assertTrue(HabitCategory.objects.exists())
         self.assertTrue(RuleStrategy.objects.exists())
 
         # Verify button is now HIDDEN on users list view

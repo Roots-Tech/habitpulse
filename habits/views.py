@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -33,6 +33,7 @@ from .models import (
     PixelWallet,
     RuleStrategy,
     seed_default_catalog_habits,
+    seed_default_categories,
     seed_default_master_data_for_tenant,
     seed_default_rule_strategies,
 )
@@ -115,7 +116,7 @@ def pixel_wallet_view(request):
     for full_name, short_name, day_idx in weekday_labels:
         day_habits = [
             h for h in active_habits
-            if (h.frequency == Habit.Frequency.DAILY or 
+            if (h.frequency == Habit.Frequency.DAILY or
                 (h.frequency == Habit.Frequency.WEEKDAYS and day_idx in (h.selected_weekdays or [])))
         ]
         day_pixels = sum(h.pixel_score for h in day_habits)
@@ -647,7 +648,13 @@ def habit_create_view(request):
             else:
                 messages.error(request, "Please fix the errors in the habit form.")
     else:
+        initial = {}
+        if request.GET.get('name'):
+            initial['name'] = request.GET.get('name')
+        if request.GET.get('description'):
+            initial['description'] = request.GET.get('description')
         form = HabitForm(
+            initial=initial,
             tenant=tenant,
             user=request.user,
             habit_type_initial=requested_type,
@@ -1060,31 +1067,40 @@ def habit_stats_view(request, pk):
 @category_permission_required
 def category_list_view(request):
     """
-    Master Data: Lists all Habit Categories in the user's active workspace (or all for Super Admin).
+    Master Data: Lists all Habit Categories with all their associated habits and the users tracking them.
+    Optimized with batch prefetch to prevent any N+1 query overhead.
     Supports search query (?q=).
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    if not HabitCategory.objects.filter(tenant=tenant).exists():
-        seed_default_master_data_for_tenant(tenant)
+    if not HabitCategory.objects.exists():
+        seed_default_categories()
 
     q = request.GET.get("q", "").strip()
-    if request.user.is_super_admin:
-        categories = HabitCategory.objects.all().annotate(
-            total_habits=Count("habits")
-        )
-    else:
-        categories = HabitCategory.objects.filter(tenant=tenant).annotate(
-            total_habits=Count("habits")
-        )
+
+    # Optimized prefetch of non-template habits with created_by, tenant, and rule_strategy_ref in a single query
+    habits_prefetch = Prefetch(
+        "habits",
+        queryset=Habit.objects.filter(is_template=False)
+            .select_related("created_by", "tenant", "rule_strategy_ref")
+            .order_by("-is_active", "name"),
+        to_attr="prefetched_habits"
+    )
+
+    categories_qs = HabitCategory.objects.prefetch_related(habits_prefetch).annotate(
+        total_habits=Count("habits", filter=Q(habits__is_template=False))
+    )
+
     if q:
-        categories = categories.filter(
+        categories_qs = categories_qs.filter(
             Q(name__icontains=q) | Q(description__icontains=q)
         )
 
-    categories = categories.order_by("name")
+    categories = list(categories_qs.order_by("name"))
+
+    # Compute distinct active users count and active habits count in Python with 0 extra DB queries
+    for cat in categories:
+        habits = getattr(cat, "prefetched_habits", [])
+        cat.distinct_users_count = len({h.created_by_id for h in habits if h.created_by_id})
+        cat.active_habits_count = sum(1 for h in habits if h.is_active)
 
     return render(request, "habits/category_list.html", {
         "categories": categories,
@@ -1095,24 +1111,18 @@ def category_list_view(request):
 @category_permission_required
 def category_create_view(request):
     """
-    Master Data: Create a new Habit Category for the active tenant.
+    Master Data: Create a new system-wide Habit Category.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
     if request.method == "POST":
-        form = HabitCategoryForm(request.POST, tenant=tenant)
+        form = HabitCategoryForm(request.POST)
         if form.is_valid():
-            category = form.save(commit=False)
-            category.tenant = tenant
-            category.save()
+            category = form.save()
             messages.success(request, f'Category "{category.name}" created successfully!')
             return redirect("category_list")
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitCategoryForm(tenant=tenant)
+        form = HabitCategoryForm()
 
     return render(request, "habits/category_form.html", {
         "form": form,
@@ -1124,18 +1134,12 @@ def category_create_view(request):
 @category_permission_required
 def category_update_view(request, pk):
     """
-    Master Data: Edit an existing Habit Category.
-    Super Admins can edit any category.
+    Master Data: Edit an existing system-wide Habit Category.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    category = get_object_or_404(HabitCategory, pk=pk) if request.user.is_super_admin else get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
-    target_tenant = category.tenant if category.tenant else tenant
+    category = get_object_or_404(HabitCategory, pk=pk)
 
     if request.method == "POST":
-        form = HabitCategoryForm(request.POST, instance=category, tenant=target_tenant)
+        form = HabitCategoryForm(request.POST, instance=category)
         if form.is_valid():
             form.save()
             messages.success(request, f'Category "{category.name}" updated successfully!')
@@ -1143,7 +1147,7 @@ def category_update_view(request, pk):
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitCategoryForm(instance=category, tenant=target_tenant)
+        form = HabitCategoryForm(instance=category)
 
     return render(request, "habits/category_form.html", {
         "form": form,
@@ -1156,14 +1160,10 @@ def category_update_view(request, pk):
 @category_permission_required
 def category_delete_view(request, pk):
     """
-    Master Data: Delete a Habit Category.
-    Super Admins can delete any category.
+    Master Data: Delete a Habit Category with safeguards.
+    Habits referencing this category will have category_ref set to null.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    category = get_object_or_404(HabitCategory, pk=pk) if request.user.is_super_admin else get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
+    category = get_object_or_404(HabitCategory, pk=pk)
     habits_count = category.habits.count()
 
     if request.method == "POST":
@@ -1274,5 +1274,32 @@ def rule_strategy_delete_view(request, pk):
     return render(request, "habits/rule_strategy_confirm_delete.html", {
         "strategy": strategy,
         "habits_count": habits_count,
+    })
+
+
+@login_required
+def collaborators_view(request):
+    """
+    Collaborators & Ecosystem Hub:
+    Two core sections navigated via the segmented chevron pipeline ribbon:
+    1. Curated Offers: Partner perks, biometric device discounts, wellness vouchers, and pixel redemptions.
+    2. Trending Life Suggestions: Science-backed lifestyle protocols, habit templates, and biohacking routines.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        membership = request.user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+        tenant = membership.tenant if membership else None
+
+    today = timezone.localdate()
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
+
+    active_tab = request.GET.get("tab", "offers").lower()
+    if active_tab not in ["offers", "suggestions"]:
+        active_tab = "offers"
+
+    return render(request, "collaborators/collaborators.html", {
+        "wallet_data": wallet_data,
+        "active_tab": active_tab,
+        "current_balance": wallet_data.get("current_balance", 0),
     })
 

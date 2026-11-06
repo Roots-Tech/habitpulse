@@ -27,4 +27,7 @@ urlpatterns = [
     path("rule-strategies/create/", views.rule_strategy_create_view, name="rule_strategy_create"),
     path("rule-strategies/<int:pk>/edit/", views.rule_strategy_update_view, name="rule_strategy_edit"),
     path("rule-strategies/<int:pk>/delete/", views.rule_strategy_delete_view, name="rule_strategy_delete"),
+
+    # Collaborators Hub: Curated Offers & Trending Life Suggestions
+    path("collaborators/", views.collaborators_view, name="collaborators"),
 ]
