@@ -1355,3 +1355,49 @@ def collaborators_view(request):
         "current_balance": wallet_data.get("current_balance", 0),
     })
 
+
+
+
+@login_required
+def habit_check_intent_api(request):
+    """
+    Real-time AJAX endpoint for checking if a habit name/description
+    matches an existing predefined purpose via our AI semantic classifier.
+    """
+    name = request.GET.get("name", "").strip()
+    description = request.GET.get("description", "").strip()
+
+    if not name or len(name) < 3:
+        return JsonResponse({"matches": False})
+
+    from .services import find_matching_predefined_template, query_ollama_intent_classifier
+    from .models import Habit
+
+    active_templates = list(Habit.objects.filter(is_template=True, is_active=True))
+
+    # 1. Fast heuristic check (<1ms)
+    matched_template = find_matching_predefined_template(name, description, use_ai=False)
+    reason = "Predefined standard habit matches this intention."
+    confidence = 0.95
+
+    # 2. Local Ollama AI semantic understanding for creative phrasing/slang
+    if not matched_template:
+        ai_t, conf, ai_reason = query_ollama_intent_classifier(
+            name, description, active_templates=active_templates, timeout=3.5
+        )
+        if ai_t and conf >= 0.80:
+            matched_template = ai_t
+            confidence = conf
+            reason = ai_reason or "AI recognized this as the same core objective as a standardized habit."
+
+    if matched_template:
+        return JsonResponse({
+            "matches": True,
+            "matched_name": matched_template.name,
+            "template_id": matched_template.pk,
+            "category": matched_template.category,
+            "reason": reason,
+            "confidence": confidence,
+        })
+
+    return JsonResponse({"matches": False})

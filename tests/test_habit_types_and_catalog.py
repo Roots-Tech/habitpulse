@@ -594,3 +594,35 @@ class HabitTypesAndCatalogTestCase(TestCase):
             habit.clean()
         self.assertIn("name", cm.exception.message_dict)
         self.assertIn("Consistent Morning Wake-Up", str(cm.exception.message_dict["name"]))
+
+    def test_habit_check_intent_api_endpoint(self):
+        """
+        Tests /habits/api/check-intent/ AJAX endpoint:
+        - Accurately identifies predefined habit purposes (e.g. Wake up at 5am -> Consistent Morning Wake-Up).
+        - Correctly distinguishes distinct concepts (e.g. 'Aqua bath' is NOT 'Daily Deep Hydration').
+        - Returns matches: False for short inputs or unrelated custom habits.
+        """
+        from habits.models import seed_default_catalog_habits
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        # 1. Short input (< 3 chars)
+        res_short = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "hi"})
+        self.assertEqual(res_short.status_code, 200)
+        self.assertFalse(res_short.json().get("matches"))
+
+        # 2. Heuristic / Pattern match: "Wake up at 5am"
+        res_wake = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "Wake up at 5am"})
+        self.assertEqual(res_wake.status_code, 200)
+        self.assertTrue(res_wake.json().get("matches"))
+        self.assertEqual(res_wake.json().get("matched_name"), "Consistent Morning Wake-Up")
+
+        # 3. Unrelated custom habit: "Aqua bath" (distinct activity: hygiene/bath, not hydration)
+        res_aqua_bath = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "Aqua bath"})
+        self.assertEqual(res_aqua_bath.status_code, 200)
+        self.assertFalse(res_aqua_bath.json().get("matches"))
+
+        # 4. Unrelated custom habit: "Learn Spanish Guitar"
+        res_guitar = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "Learn Spanish Guitar"})
+        self.assertEqual(res_guitar.status_code, 200)
+        self.assertFalse(res_guitar.json().get("matches"))
+

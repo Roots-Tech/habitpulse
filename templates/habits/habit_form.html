@@ -107,6 +107,7 @@
               </div>
               <div style="font-size: 0.82rem; color: var(--text-main); line-height: 1.4;">
                 A standardized habit for this purpose already exists: <strong id="suggestion-template-name" style="color: #e11d48;"></strong>.
+                <div id="suggestion-reason" style="font-size: 0.78rem; color: #be123c; margin-top: 0.2rem; font-style: italic;"></div>
                 <span style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
                   Custom habits for this purpose are restricted to eliminate redundant database records and optimize performance. Please adopt and personalize the standardized habit instead.
                 </span>
@@ -305,84 +306,31 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const nameInput = document.getElementById('id_name');
+    const descInput = document.getElementById('id_description');
     const suggestionBox = document.getElementById('predefined-suggestion-box');
     const templateNameSpan = document.getElementById('suggestion-template-name');
-    const templateDescSpan = document.getElementById('suggestion-template-desc');
+    const templateReasonDiv = document.getElementById('suggestion-reason');
     const adoptBtn = document.getElementById('suggestion-adopt-btn');
+    const submitBtn = document.getElementById('btn-submit-habit');
 
     if (!nameInput || !suggestionBox) return;
 
-    let catalogTemplates = [];
-    try {
-      const metaEl = document.getElementById('catalog-templates-meta');
-      if (metaEl) catalogTemplates = JSON.parse(metaEl.textContent);
-    } catch(e) {
-      console.warn("Could not parse catalog templates metadata:", e);
-    }
+    let debounceTimer = null;
+    let currentCheckController = null;
 
-    const keywordMap = {
-      "wake": "Consistent Morning Wake-Up",
-      "waking": "Consistent Morning Wake-Up",
-      "alarm": "Consistent Morning Wake-Up",
-      "morning": "Consistent Morning Wake-Up",
-      "riser": "Circadian Early Riser Protocol",
-      "circadian": "Circadian Early Riser Protocol",
-      "water": "Daily Deep Hydration",
-      "hydration": "Daily Deep Hydration",
-      "hydrate": "Daily Deep Hydration",
-      "drink": "Daily Deep Hydration",
-      "focus": "Deep Work Sprint (45 Mins)",
-      "deep work": "Deep Work Sprint (45 Mins)",
-      "code": "Deep Work Sprint (45 Mins)",
-      "read": "Deliberate Non-Fiction Reading",
-      "reading": "Deliberate Non-Fiction Reading",
-      "book": "Deliberate Non-Fiction Reading",
-      "mobility": "Morning Mobility & Core Routine",
-      "stretch": "Morning Mobility & Core Routine",
-      "core": "Morning Mobility & Core Routine",
-      "cardio": "Cardiologist-Approved Zone 2 Cardio",
-      "jog": "Cardiologist-Approved Zone 2 Cardio",
-      "run": "Cardiologist-Approved Zone 2 Cardio",
-    };
-
-    function checkPredefinedMatch() {
-      const val = (nameInput.value || '').trim().toLowerCase();
-      if (val.length < 3) {
-        suggestionBox.style.display = 'none';
-        return;
-      }
-
-      let matchedTemplate = null;
-
-      // 1. Exact or substring match in catalog names
-      for (const t of catalogTemplates) {
-        const tLower = t.name.toLowerCase();
-        if (tLower.includes(val) || val.includes(tLower)) {
-          matchedTemplate = t;
-          break;
+    function applyMatchState(matched, templateName, templateId, reason) {
+      if (matched) {
+        templateNameSpan.textContent = templateName;
+        if (templateReasonDiv) {
+          templateReasonDiv.textContent = reason ? '💡 ' + reason : '';
         }
-      }
-
-      // 2. Keyword map check
-      if (!matchedTemplate) {
-        for (const [kw, tName] of Object.entries(keywordMap)) {
-          if (val.includes(kw)) {
-            matchedTemplate = catalogTemplates.find(t => t.name.toLowerCase() === tName.toLowerCase());
-            if (matchedTemplate) break;
-          }
-        }
-      }
-
-      const submitBtn = document.getElementById('btn-submit-habit');
-      if (matchedTemplate) {
-        templateNameSpan.textContent = matchedTemplate.name;
-        adoptBtn.href = '/habits/' + matchedTemplate.id + '/adopt/';
+        adoptBtn.href = '/habits/' + templateId + '/adopt/';
         suggestionBox.style.display = 'block';
         if (submitBtn) {
           submitBtn.disabled = true;
           submitBtn.style.opacity = '0.45';
           submitBtn.style.cursor = 'not-allowed';
-          submitBtn.title = 'Custom habit restricted for this purpose. Please adopt ' + matchedTemplate.name + ' instead.';
+          submitBtn.title = 'Custom habit restricted for this purpose. Please adopt ' + templateName + ' instead.';
         }
       } else {
         suggestionBox.style.display = 'none';
@@ -395,8 +343,59 @@
       }
     }
 
-    nameInput.addEventListener('input', checkPredefinedMatch);
-    checkPredefinedMatch();
+    function checkIntent() {
+      const nameVal = (nameInput.value || '').trim();
+      const descVal = descInput ? (descInput.value || '').trim() : '';
+
+      if (nameVal.length < 3) {
+        applyMatchState(false);
+        return;
+      }
+
+      if (currentCheckController) {
+        currentCheckController.abort();
+      }
+      currentCheckController = new AbortController();
+
+      const params = new URLSearchParams({
+        name: nameVal,
+        description: descVal
+      });
+
+      fetch('/habits/api/check-intent/?' + params.toString(), {
+        signal: currentCheckController.signal,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.matches) {
+          applyMatchState(true, data.matched_name, data.template_id, data.reason);
+        } else {
+          applyMatchState(false);
+        }
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') {
+          console.warn('Intent check error:', err);
+        }
+      });
+    }
+
+    function onInputChange() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(checkIntent, 350);
+    }
+
+    nameInput.addEventListener('input', onInputChange);
+    if (descInput) {
+      descInput.addEventListener('input', onInputChange);
+    }
+
+    if (nameInput.value && nameInput.value.trim().length >= 3) {
+      checkIntent();
+    }
   });
 </script>
 {% endif %}

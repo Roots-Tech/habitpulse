@@ -7,6 +7,7 @@ urlpatterns = [
     path("pixel-wallet/request/", views.pixel_request_create_view, name="pixel_request_create"),
     path("habits/", views.habit_list_view, name="habit_list"),
     path("habits/create/", views.habit_create_view, name="habit_create"),
+    path("habits/api/check-intent/", views.habit_check_intent_api, name="habit_check_intent_api"),
     path("habits/<int:pk>/edit/", views.habit_update_view, name="habit_edit"),
     path("habits/<int:pk>/adopt/", views.habit_adopt_view, name="habit_adopt"),
     path("habits/<int:pk>/delete/", views.habit_delete_view, name="habit_delete"),

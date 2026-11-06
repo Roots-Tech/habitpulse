@@ -591,10 +591,88 @@ PREDEFINED_PURPOSE_PATTERNS = {
 }
 
 
-def find_matching_predefined_template(name: str, description: str = ""):
+def query_ollama_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 3.5):
+    """
+    Queries local Ollama (llama3.2:1b) to classify whether the user's habit input
+    semantically represents the same purpose as one of the active predefined templates.
+    Returns (matched_template, confidence, reason) or (None, 0.0, None).
+    Fails safely if Ollama is unreachable.
+    """
+    if not name or not name.strip():
+        return None, 0.0, None
+
+    import json
+    import urllib.request
+    from .models import Habit
+
+    if active_templates is None:
+        active_templates = list(Habit.objects.filter(is_template=True, is_active=True))
+
+    if not active_templates:
+        return None, 0.0, None
+
+    catalog_lines = []
+    for i, t in enumerate(active_templates, 1):
+        desc = (t.description or "").strip()
+        catalog_lines.append(f'{i}. "{t.name}" (Category: {t.category}. Purpose/Summary: {desc[:100]})')
+
+    catalog_text = "\n".join(catalog_lines)
+
+    user_text = f'"{name.strip()}"'
+    if description:
+        user_text += f' (Description: "{description.strip()}")'
+
+    prompt = (
+        "You are a strict Habit Normalization Classifier.\n"
+        "Predefined Habit Catalog:\n"
+        f"{catalog_text}\n\n"
+        f"User Input Habit: {user_text}\n\n"
+        "Task: Does the user input represent the same core objective or underlying daily habit as one of the predefined habits above?\n"
+        "Guidelines:\n"
+        "- If it is a different phrasing, slang, typo, or time variation of a predefined habit (e.g. 'Chug 2 bottles of Aqua' -> 'Daily Deep Hydration', 'Wake up at 5am' -> 'Consistent Morning Wake-Up'), set matches=true.\n"
+        "- If it is a distinct activity that merely shares a word (e.g. 'Aqua bath' is bathing, not drinking water; 'Water plants' is gardening), set matches=false.\n"
+        "- If it is an unrelated custom habit (e.g. guitar practice, coding, painting), set matches=false.\n"
+        "Reply ONLY in valid JSON format:\n"
+        '{"matches": true/false, "matched_name": "Exact Predefined Habit Name from Catalog or null", "confidence": 0.0-1.0, "reason": "brief explanation"}'
+    )
+
+    payload = json.dumps({
+        "model": "llama3.2:1b",
+        "prompt": prompt,
+        "stream": False,
+        "format": "json",
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "http://localhost:11434/api/generate",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            res_data = json.loads(res.read())
+            response_text = res_data.get("response", "{}")
+            parsed = json.loads(response_text)
+            if parsed.get("matches") and parsed.get("matched_name"):
+                matched_name = parsed["matched_name"].strip().lower()
+                for t in active_templates:
+                    if t.name.lower() == matched_name or matched_name in t.name.lower() or t.name.lower() in matched_name:
+                        return t, float(parsed.get("confidence", 0.9)), parsed.get("reason", "")
+    except Exception:
+        # Fallback cleanly if Ollama is not running or timed out
+        pass
+
+    return None, 0.0, None
+
+
+def find_matching_predefined_template(name: str, description: str = "", use_ai: bool = True):
     """
     Evaluates whether a user-submitted habit name/description represents
     the same underlying intention/purpose as an existing predefined or expert habit template.
+    Tier 1: Instant exact or substring match (<1ms).
+    Tier 2: Fast regex pattern matching (<1ms).
+    Tier 3: Local Ollama AI Semantic Classifier (Zero API Cost).
     Returns the matching Habit template instance if found, or None.
     """
     if not name or not name.strip():
@@ -616,7 +694,7 @@ def find_matching_predefined_template(name: str, description: str = ""):
     # 1. Exact or direct substring match against catalog template names
     for t in active_templates:
         t_clean = re.sub(r"[^\w\s]", " ", t.name.lower()).strip()
-        if t_clean in clean_text or clean_text in t_clean:
+        if t_clean == clean_text or (len(clean_text) >= 5 and (t_clean in clean_text or clean_text in t_clean)):
             return t
 
     # 2. Check predefined intent patterns
@@ -629,5 +707,13 @@ def find_matching_predefined_template(name: str, description: str = ""):
                 for t in active_templates:
                     if canonical_name.lower() in t.name.lower():
                         return t
+
+    # 3. Local Ollama AI Semantic Classifier (Zero API Cost)
+    if use_ai:
+        ai_template, confidence, reason = query_ollama_intent_classifier(
+            name, description, active_templates=active_templates, timeout=3.5
+        )
+        if ai_template and confidence >= 0.80:
+            return ai_template
 
     return None
