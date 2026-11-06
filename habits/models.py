@@ -518,7 +518,8 @@ class Habit(models.Model):
         }
 
     def __str__(self):
-        return f"{self.name} ({self.tenant.name})"
+        tenant_name = self.tenant.name if self.tenant else "Catalog Template"
+        return f"{self.name} ({tenant_name})"
 
 
 def tenant_evidence_upload_path(instance, filename):

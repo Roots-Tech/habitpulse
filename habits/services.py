@@ -545,24 +545,28 @@ PREDEFINED_PURPOSE_PATTERNS = {
         r"\bearly\s*riser\b",
         r"\brise\s*(and|&)\s*shine\b",
         r"\bmorning\s*alarm\b",
-        r"\bget\s*up\s*early\b",
-        r"\bup\s*at\s*\d+\b",
-        r"\bwak(e|ing)\s*at\s*\d+\b",
+        r"\bget\s*up\s*(early|\d+)\b",
+        r"\bup\s*(at|by)\s*\d+\b",
+        r"\bwak(e|ing)\s*(at|by)\s*\d+\b",
     ],
     "Circadian Early Riser Protocol": [
         r"\bcircadian\s*(wake|riser|rhythm)\b",
         r"\bearly\s*riser\s*protocol\b",
     ],
     "Daily Deep Hydration": [
-        r"\b(drink|drinking)\s*water\b",
-        r"\bwater\s*(intake|consumption|target)\b",
-        r"\bhydrat(e|ion)\b",
-        r"\b\d+\s*l(iters?)?\s*water\b",
+        r"\b(drink(ing)?|have|having|sip(ping)?|chug(ging)?|consume|intake|gulp)\s*(some\s*|\d+\s*(l|liters?|ml|glasses?|bottles?|cups?)\s*(of\s*)?)?water\b",
+        r"\b(water|hydration)\s*(intake|consumption|target|goal|habit|reminder|tracker)\b",
+        r"\b(daily|more|enough)\s*water\b",
+        r"\bhydrat(e|ion|ing)\b",
+        r"\b\d+\s*l(iters?)?\s*(of\s*)?water\b",
+        r"\b\d+\s*glasses\s*(of\s*)?water\b",
+        r"\bhave\s*water\b",
+        r"\bdrink\s*water\b",
     ],
     "Deep Work Sprint (45 Mins)": [
         r"\bdeep\s*work\b",
         r"\bdeep\s*focus\b",
-        r"\bfocus\s*(block|sprint|session)\b",
+        r"\bfocus\s*(block|sprint|session|time)\b",
         r"\bdistraction\s*free\b",
         r"\bpomodoro\b",
     ],
@@ -586,12 +590,12 @@ PREDEFINED_PURPOSE_PATTERNS = {
     ],
     "Deliberate Non-Fiction Reading": [
         r"\b(daily|book|page|non-?fiction)\s*read(ing)?\b",
-        r"\bread(ing)?\s*(book|pages|non-?fiction|daily)\b",
+        r"\bread(ing)?\s*(a\s*)?(book|pages|non-?fiction|daily)\b",
     ],
 }
 
 
-def query_ollama_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 3.5):
+def query_ollama_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 6.0):
     """
     Queries local Ollama (llama3.2:1b) to classify whether the user's habit input
     semantically represents the same purpose as one of the active predefined templates.
@@ -629,9 +633,12 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
         f"User Input Habit: {user_text}\n\n"
         "Task: Does the user input represent the same core objective or underlying daily habit as one of the predefined habits above?\n"
         "Guidelines:\n"
-        "- If it is a different phrasing, slang, typo, or time variation of a predefined habit (e.g. 'Chug 2 bottles of Aqua' -> 'Daily Deep Hydration', 'Wake up at 5am' -> 'Consistent Morning Wake-Up'), set matches=true.\n"
-        "- If it is a distinct activity that merely shares a word (e.g. 'Aqua bath' is bathing, not drinking water; 'Water plants' is gardening), set matches=false.\n"
-        "- If it is an unrelated custom habit (e.g. guitar practice, coding, painting), set matches=false.\n"
+        "- Any form of drinking water, consuming water, or staying hydrated (e.g., 'Have water', 'Drink H2O', 'Chug 2 bottles of Aqua', 'Water intake', '2L water') MUST match 'Daily Deep Hydration' (matches=true).\n"
+        "- Any form of waking up or rising in the morning (e.g., 'Wake up at 5am', 'Get up early', 'Up at 6') MUST match 'Consistent Morning Wake-Up' or 'Circadian Early Riser Protocol' (matches=true).\n"
+        "- Any form of reading books/literature MUST match 'Deliberate Non-Fiction Reading' (matches=true).\n"
+        "- Any form of focused work/studying MUST match 'Deep Work Sprint (45 Mins)' (matches=true).\n"
+        "- DO NOT match distinct activities that merely share a word (e.g., 'Aqua bath' is bathing/hygiene -> matches=false; 'Water plants' is gardening -> matches=false; 'Cold water plunge' is cryotherapy/bathing -> matches=false).\n"
+        "- DO NOT match unrelated hobbies/habits (e.g., 'Play guitar', 'Practice coding', 'Cook dinner' -> matches=false).\n"
         "Reply ONLY in valid JSON format:\n"
         '{"matches": true/false, "matched_name": "Exact Predefined Habit Name from Catalog or null", "confidence": 0.0-1.0, "reason": "brief explanation"}'
     )

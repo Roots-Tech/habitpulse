@@ -1383,7 +1383,7 @@ def habit_check_intent_api(request):
     # 2. Local Ollama AI semantic understanding for creative phrasing/slang
     if not matched_template:
         ai_t, conf, ai_reason = query_ollama_intent_classifier(
-            name, description, active_templates=active_templates, timeout=3.5
+            name, description, active_templates=active_templates, timeout=6.0
         )
         if ai_t and conf >= 0.80:
             matched_template = ai_t
@@ -1395,7 +1395,7 @@ def habit_check_intent_api(request):
             "matches": True,
             "matched_name": matched_template.name,
             "template_id": matched_template.pk,
-            "category": matched_template.category,
+            "category": str(matched_template.category) if matched_template.category else "General",
             "reason": reason,
             "confidence": confidence,
         })

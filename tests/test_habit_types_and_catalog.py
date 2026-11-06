@@ -551,6 +551,16 @@ class HabitTypesAndCatalogTestCase(TestCase):
         self.assertContains(resp_water, "Daily Deep Hydration")
         self.assertFalse(Habit.objects.filter(tenant=self.reg_tenant, name__icontains="water").exists())
 
+        # 2b. Attempt to create "Have water" -> Restricted by "Daily Deep Hydration"
+        resp_have_water = self.client_regular.post(reverse("habit_create"), {
+            "name": "Have water",
+            "category": "Health",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(resp_have_water.status_code, 200)
+        self.assertContains(resp_have_water, "Daily Deep Hydration")
+
         # 3. Attempt to create "Deep Work Focus Block" -> Restricted by "Deep Work Sprint (45 Mins)"
         resp_focus = self.client_regular.post(reverse("habit_create"), {
             "name": "Deep Work Focus Block",
@@ -625,4 +635,10 @@ class HabitTypesAndCatalogTestCase(TestCase):
         res_guitar = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "Learn Spanish Guitar"})
         self.assertEqual(res_guitar.status_code, 200)
         self.assertFalse(res_guitar.json().get("matches"))
+
+        # 5. Direct synonym check: "Have water" -> Daily Deep Hydration
+        res_have_water = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "Have water"})
+        self.assertEqual(res_have_water.status_code, 200)
+        self.assertTrue(res_have_water.json().get("matches"))
+        self.assertEqual(res_have_water.json().get("matched_name"), "Daily Deep Hydration")
 
