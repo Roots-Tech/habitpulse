@@ -521,4 +521,153 @@
   });
 </script>
 {% endif %}
+
+<script>
+  // Robust Google Maps & Geofence Handler (Runs on both Create & Edit)
+  document.addEventListener('DOMContentLoaded', function() {
+    const isRestrictedCheckbox = document.getElementById('id_is_location_restricted');
+    const geofenceContainer = document.getElementById('location-geofence-container');
+    const mapInput = document.getElementById('id_map_url_input');
+    const parseBtn = document.getElementById('btn-parse-map-url');
+    const statusBox = document.getElementById('map-url-status');
+    const latInput = document.getElementById('id_target_latitude');
+    const lngInput = document.getElementById('id_target_longitude');
+    const nameInput = document.getElementById('id_location_name');
+    const detectBtn = document.getElementById('btn-detect-location');
+    const detectStatus = document.getElementById('location-detection-status');
+
+    // Toggle container on checkbox change
+    if (isRestrictedCheckbox && geofenceContainer) {
+      isRestrictedCheckbox.addEventListener('change', function() {
+        geofenceContainer.style.display = this.checked ? 'block' : 'none';
+      });
+    }
+
+    // Google Maps Extractor
+    if (mapInput && parseBtn && latInput && lngInput) {
+      async function triggerExtraction() {
+        const val = (mapInput.value || '').trim();
+        if (!val) {
+          if (statusBox) {
+            statusBox.style.display = 'block';
+            statusBox.style.background = 'rgba(239, 68, 68, 0.12)';
+            statusBox.style.color = '#ef4444';
+            statusBox.textContent = 'Please paste a Google Maps link or coordinates first.';
+          }
+          return;
+        }
+
+        parseBtn.disabled = true;
+        const origBtnText = parseBtn.innerHTML;
+        parseBtn.innerHTML = '⏳ Extracting...';
+        if (statusBox) {
+          statusBox.style.display = 'block';
+          statusBox.style.background = 'rgba(56, 189, 248, 0.12)';
+          statusBox.style.color = '#0284c7';
+          statusBox.textContent = 'Resolving location and GPS coordinates...';
+        }
+
+        try {
+          const resp = await fetch('/api/v1/resolve-map-url/?url=' + encodeURIComponent(val));
+          const data = await resp.json();
+
+          if (resp.ok && data.success) {
+            latInput.value = Number(data.latitude).toFixed(6);
+            lngInput.value = Number(data.longitude).toFixed(6);
+
+            // Populate venue name if empty
+            if (nameInput && data.location_name && (!nameInput.value.trim() || nameInput.value.trim().length <= 3)) {
+              nameInput.value = data.location_name;
+            }
+
+            // Remove red error alerts if present
+            document.querySelectorAll('#location-geofence-container .form-error').forEach(el => el.remove());
+
+            // Highlight inputs with a green glow
+            [latInput, lngInput, nameInput].forEach(inp => {
+              if (inp) {
+                inp.style.transition = 'box-shadow 0.3s, border-color 0.3s';
+                inp.style.borderColor = '#10b981';
+                inp.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.25)';
+                setTimeout(() => {
+                  inp.style.boxShadow = '';
+                }, 2500);
+              }
+            });
+
+            if (statusBox) {
+              statusBox.style.background = 'rgba(16, 185, 129, 0.15)';
+              statusBox.style.color = '#10b981';
+              statusBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+              const venueText = data.location_name ? ` (${data.location_name})` : '';
+              statusBox.innerHTML = `✅ <strong>Coordinates Auto-Filled:</strong> ${data.latitude}, ${data.longitude}${venueText}`;
+            }
+          } else {
+            if (statusBox) {
+              statusBox.style.background = 'rgba(239, 68, 68, 0.12)';
+              statusBox.style.color = '#ef4444';
+              statusBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+              statusBox.textContent = '⚠️ ' + (data.error || 'Could not extract coordinates from this link.');
+            }
+          }
+        } catch (err) {
+          if (statusBox) {
+            statusBox.style.background = 'rgba(239, 68, 68, 0.12)';
+            statusBox.style.color = '#ef4444';
+            statusBox.textContent = '⚠️ Failed to connect to resolver service. Check network or enter coordinates directly.';
+          }
+        } finally {
+          parseBtn.disabled = false;
+          parseBtn.innerHTML = origBtnText;
+        }
+      }
+
+      parseBtn.addEventListener('click', triggerExtraction);
+      mapInput.addEventListener('paste', () => setTimeout(triggerExtraction, 80));
+      mapInput.addEventListener('change', triggerExtraction);
+    }
+
+    // GPS Detect Button
+    if (detectBtn && latInput && lngInput) {
+      detectBtn.addEventListener('click', function() {
+        if (!navigator.geolocation) {
+          alert('Geolocation is not supported by your browser.');
+          return;
+        }
+        detectBtn.disabled = true;
+        detectBtn.innerHTML = '📍 Detecting...';
+        if (detectStatus) {
+          detectStatus.style.display = 'block';
+          detectStatus.style.background = 'rgba(56, 189, 248, 0.12)';
+          detectStatus.style.color = '#0284c7';
+          detectStatus.textContent = 'Acquiring GPS location...';
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            latInput.value = pos.coords.latitude.toFixed(6);
+            lngInput.value = pos.coords.longitude.toFixed(6);
+            detectBtn.disabled = false;
+            detectBtn.innerHTML = '📍 Detect Current Location';
+            if (detectStatus) {
+              detectStatus.style.background = 'rgba(16, 185, 129, 0.15)';
+              detectStatus.style.color = '#10b981';
+              detectStatus.innerHTML = `✅ Location detected: ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)} (±${Math.round(pos.coords.accuracy)}m)`;
+            }
+          },
+          function(err) {
+            detectBtn.disabled = false;
+            detectBtn.innerHTML = '📍 Detect Current Location';
+            if (detectStatus) {
+              detectStatus.style.background = 'rgba(239, 68, 68, 0.12)';
+              detectStatus.style.color = '#ef4444';
+              detectStatus.textContent = '⚠️ Location error: ' + err.message;
+            }
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+    }
+  });
+</script>
 {% endblock %}

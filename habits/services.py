@@ -1133,7 +1133,7 @@ def parse_google_maps_url_or_coords(input_text: str) -> dict:
     text = input_text.strip()
     import re
     import urllib.parse
-    import requests
+    import urllib.request
 
     def _extract_from_string(target_str):
         # 1. 3d/4d Google protobuf parameters
@@ -1171,22 +1171,21 @@ def parse_google_maps_url_or_coords(input_text: str) -> dict:
     # If coordinates were not found directly and input looks like a URL, follow redirects
     if (lat is None or lng is None) and (text.startswith("http://") or text.startswith("https://")):
         try:
-            resp = requests.get(
+            req = urllib.request.Request(
                 text,
-                allow_redirects=True,
-                timeout=6,
                 headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"},
             )
-            final_url = resp.url
-            lat, lng = _extract_from_string(final_url)
-            if not place_name:
-                place_name = _extract_name_from_string(final_url)
-
-            # If still not in URL, check response text
-            if (lat is None or lng is None) and resp.text:
-                lat, lng = _extract_from_string(resp.text)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                final_url = resp.geturl()
+                lat, lng = _extract_from_string(final_url)
                 if not place_name:
-                    place_name = _extract_name_from_string(resp.text)
+                    place_name = _extract_name_from_string(final_url)
+
+                if lat is None or lng is None:
+                    html_snippet = resp.read(65536).decode("utf-8", errors="ignore")
+                    lat, lng = _extract_from_string(html_snippet)
+                    if not place_name:
+                        place_name = _extract_name_from_string(html_snippet)
         except Exception:
             pass
 
