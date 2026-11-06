@@ -404,7 +404,7 @@ class Habit(models.Model):
 
     @property
     def is_weekly_target(self):
-        return self.frequency == self.Frequency.WEEKLY_TARGET or bool(self.target_days_per_week)
+        return self.frequency == self.Frequency.WEEKLY_TARGET
 
     @property
     def effective_weekly_target(self):

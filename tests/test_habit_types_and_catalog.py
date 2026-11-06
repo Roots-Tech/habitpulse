@@ -861,3 +861,98 @@ class HabitTypesAndCatalogTestCase(TestCase):
         self.assertNotContains(res_tech, "Download Catalog (JSON)")
         self.assertNotContains(res_tech, "Upload Catalog (JSON)")
 
+    def test_three_different_users_adopt_gym_habit_with_three_different_frequencies(self):
+        """
+        Simulates the three distinct user scenarios for the Gym & Strength Training habit:
+        - User 1: Wants to follow it on an everyday/daily basis (DAILY).
+        - User 2: Wants to follow it on selected days of the week, e.g. Mon, Wed, Fri (WEEKDAYS).
+        - User 3: Wants flexible weekly target, e.g. 4 days per week (WEEKLY_TARGET).
+        Verifies individual scheduling, streak evaluation, and weekly/monthly analytics for all 3 users.
+        """
+        from accounts.models import User
+        from tenants.utils import create_personal_workspace_for_user
+        from habits.models import HabitCompletion
+
+        gym_template = Habit.objects.get(name="Gym & Strength Training", is_template=True)
+
+        # Create 3 distinct users and workspaces
+        user1 = User.objects.create_user(username="gym_user_daily", email="daily@example.com", password="PassWord123!")
+        tenant1, _ = create_personal_workspace_for_user(user1, "User 1 Gym Workspace")
+
+        user2 = User.objects.create_user(username="gym_user_weekdays", email="weekdays@example.com", password="PassWord123!")
+        tenant2, _ = create_personal_workspace_for_user(user2, "User 2 Gym Workspace")
+
+        user3 = User.objects.create_user(username="gym_user_weekly_target", email="target@example.com", password="PassWord123!")
+        tenant3, _ = create_personal_workspace_for_user(user3, "User 3 Gym Workspace")
+
+        client1 = Client()
+        client1.force_login(user1)
+        client2 = Client()
+        client2.force_login(user2)
+        client3 = Client()
+        client3.force_login(user3)
+
+        # -------------------------------------------------------------
+        # SCENARIO 1: User 1 adopts Gym as EVERYDAY (DAILY)
+        # -------------------------------------------------------------
+        res1 = client1.post(reverse("habit_adopt", kwargs={"pk": gym_template.pk}), {
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(res1.status_code, 302)
+        h1 = Habit.objects.get(tenant=tenant1, template_source=gym_template)
+        self.assertEqual(h1.frequency, Habit.Frequency.DAILY)
+        self.assertFalse(h1.is_weekly_target)
+        self.assertIsNone(h1.target_days_per_week)
+        # Scheduled for every day
+        self.assertTrue(h1.is_scheduled_for_date(self.today))
+        self.assertEqual(h1.get_frequency_display_custom(), "Every Day")
+
+        # -------------------------------------------------------------
+        # SCENARIO 2: User 2 adopts Gym as SELECTED DAYS (Mon, Wed, Fri)
+        # -------------------------------------------------------------
+        res2 = client2.post(reverse("habit_adopt", kwargs={"pk": gym_template.pk}), {
+            "frequency": Habit.Frequency.WEEKDAYS,
+            "selected_weekdays": ["0", "2", "4"], # Mon, Wed, Fri
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(res2.status_code, 302)
+        h2 = Habit.objects.get(tenant=tenant2, template_source=gym_template)
+        self.assertEqual(h2.frequency, Habit.Frequency.WEEKDAYS)
+        self.assertFalse(h2.is_weekly_target)
+        self.assertEqual(h2.selected_weekdays, [0, 2, 4])
+        self.assertIsNone(h2.target_days_per_week)
+        self.assertEqual(h2.get_weekday_display_names(), "Mon, Wed, Fri")
+
+        # -------------------------------------------------------------
+        # SCENARIO 3: User 3 adopts Gym as FLEXIBLE WEEKLY TARGET (4 Days/Week)
+        # -------------------------------------------------------------
+        res3 = client3.post(reverse("habit_adopt", kwargs={"pk": gym_template.pk}), {
+            "frequency": Habit.Frequency.WEEKLY_TARGET,
+            "target_days_per_week": 4,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(res3.status_code, 302)
+        h3 = Habit.objects.get(tenant=tenant3, template_source=gym_template)
+        self.assertEqual(h3.frequency, Habit.Frequency.WEEKLY_TARGET)
+        self.assertTrue(h3.is_weekly_target)
+        self.assertEqual(h3.target_days_per_week, 4)
+        self.assertEqual(h3.effective_weekly_target, 4)
+        self.assertEqual(h3.monthly_target_days, 16)
+        self.assertEqual(h3.get_frequency_display_custom(), "4 Days / Week")
+
+        # Log 4 days of completions for User 3 and verify weekly accomplishment
+        from habits.services import calculate_weekly_and_monthly_habit_progress
+        # Mon-Thu of current week
+        cal_start = self.today - timezone.timedelta(days=self.today.weekday())
+        for d_offset in range(4):
+            comp_d = cal_start + timezone.timedelta(days=d_offset)
+            HabitCompletion.objects.create(tenant=tenant3, habit=h3, completion_date=comp_d)
+
+        progress = calculate_weekly_and_monthly_habit_progress(h3, year=self.today.year, month=self.today.month, today=self.today)
+        self.assertEqual(progress["weekly_target"], 4)
+        self.assertEqual(progress["monthly_target"], 16)
+        curr_week = [w for w in progress["weeks"] if w["is_current_week"]][0]
+        self.assertTrue(curr_week["is_accomplished"])
+        self.assertIn("Accomplished", curr_week["status"])
+

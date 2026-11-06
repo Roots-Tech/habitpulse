@@ -787,6 +787,7 @@ def habit_adopt_view(request, pk):
                 "target_value",
                 "frequency",
                 "selected_weekdays",
+                "target_days_per_week",
             ]
         )
         if has_custom_params:
@@ -803,9 +804,17 @@ def habit_adopt_view(request, pk):
             target_value = cleaned.get("target_value") if cleaned.get("target_value") is not None else template_habit.target_value
             unit_label = cleaned.get("unit_label") or template_habit.unit_label
             frequency = cleaned.get("frequency") or template_habit.frequency
-            selected_weekdays = cleaned.get("selected_weekdays") or template_habit.selected_weekdays
-            target_days_per_week = cleaned.get("target_days_per_week") or template_habit.target_days_per_week
             start_date = cleaned.get("start_date") or timezone.localdate()
+
+            if frequency == Habit.Frequency.WEEKLY_TARGET:
+                target_days_per_week = cleaned.get("target_days_per_week") or template_habit.target_days_per_week or 3
+                selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
+            elif frequency == Habit.Frequency.WEEKDAYS:
+                selected_weekdays = cleaned.get("selected_weekdays") or [0, 1, 2, 3, 4]
+                target_days_per_week = None
+            else:  # DAILY
+                selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
+                target_days_per_week = None
         else:
             # Fallback for quick one-click adoption using template defaults
             window_start_time = template_habit.window_start_time
