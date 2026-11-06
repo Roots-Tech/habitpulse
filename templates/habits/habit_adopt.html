@@ -220,6 +220,26 @@
         <div id="adopt-location-detection-status" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem;"></div>
 
         <div id="adopt-location-fields" style="{% if not form.is_location_restricted.value and not form.target_latitude.errors and not form.target_longitude.errors %}display: none;{% endif %}">
+          <!-- Google Maps Link Auto-Fill Input -->
+          <div class="form-group" style="background: rgba(99, 102, 241, 0.06); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
+            <label class="form-label" for="id_adopt_map_url_input" style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+              <span style="display: flex; align-items: center; gap: 0.35rem;">
+                <span>🗺️ Paste Google Maps Link or Coordinates</span>
+              </span>
+              <span style="font-size: 0.72rem; color: #818cf8; font-weight: 600;">Auto-fills Lat &amp; Long</span>
+            </label>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="text" id="id_adopt_map_url_input" class="form-control" placeholder="Paste Google Maps URL (e.g. https://maps.app.goo.gl/... or https://google.com/maps/place/...) or raw coordinates" style="font-size: 0.82rem; flex: 1;">
+              <button type="button" id="btn-adopt-parse-map-url" class="btn btn-primary btn-sm" style="font-size: 0.78rem; white-space: nowrap; padding: 0.45rem 0.85rem; font-weight: 600;">
+                Extract &amp; Fill
+              </button>
+            </div>
+            <div id="adopt-map-url-status" style="display: none; font-size: 0.78rem; margin-top: 0.45rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm);"></div>
+            <div class="form-help" style="font-size: 0.75rem; margin-top: 0.35rem; color: var(--text-muted);">
+              Paste any Google Maps link or coordinates. The system automatically extracts the gym name, latitude, and longitude.
+            </div>
+          </div>
+
           <div class="form-group" style="margin-bottom: 0.85rem;">
             <label class="form-label" for="{{ form.location_name.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
               Venue / Gym Name

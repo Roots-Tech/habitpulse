@@ -541,6 +541,177 @@ document.addEventListener("DOMContentLoaded", () => {
     "adopt-location-fields"
   );
 
+  // 3d. Google Maps URL or Coordinates Parser & Auto-Filler
+  function parseGoogleMapsUrlOrCoordsClient(text) {
+    if (!text) return null;
+    text = text.trim();
+
+    // 1. Check direct raw coordinates: "12.978369, 77.640835" or "12.978369,77.640835"
+    const mRaw = text.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+    // 2. Check @lat,lng format
+    const mAt = text.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/);
+    // 3. Check !3dlat!4dlng protobuf format
+    const m3d = text.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/);
+    // 4. Check query params: q=lat,lng or query=lat,lng or ll=lat,lng
+    const mQ = text.match(/[?&](?:q|query|ll|center)=(-?\d{1,2}\.\d+)[,+](-?\d{1,3}\.\d+)/);
+    // 5. Check place name
+    const mPlace = text.match(/\/maps\/place\/([^/@?]+)/);
+    let placeName = null;
+    if (mPlace) {
+      try {
+        placeName = decodeURIComponent(mPlace[1].replace(/\+/g, " "));
+      } catch (e) {
+        placeName = mPlace[1].replace(/\+/g, " ");
+      }
+    }
+
+    let lat = null;
+    let lng = null;
+    if (m3d) {
+      lat = parseFloat(m3d[1]);
+      lng = parseFloat(m3d[2]);
+    } else if (mAt) {
+      lat = parseFloat(mAt[1]);
+      lng = parseFloat(mAt[2]);
+    } else if (mQ) {
+      lat = parseFloat(mQ[1]);
+      lng = parseFloat(mQ[2]);
+    } else if (mRaw) {
+      lat = parseFloat(mRaw[1]);
+      lng = parseFloat(mRaw[2]);
+    }
+
+    if (lat !== null && lng !== null) {
+      return {
+        latitude: lat,
+        longitude: lng,
+        locationName: placeName,
+      };
+    }
+    return null;
+  }
+
+  const setupGoogleMapsExtractor = (inputId, btnId, statusId, latInputId, lngInputId, nameInputId) => {
+    const inputEl = document.getElementById(inputId);
+    const btnEl = document.getElementById(btnId);
+    const statusEl = document.getElementById(statusId);
+    const latInput = document.getElementById(latInputId);
+    const lngInput = document.getElementById(lngInputId);
+    const nameInput = document.getElementById(nameInputId);
+
+    if (!inputEl || !latInput || !lngInput) return;
+
+    const performExtraction = async () => {
+      const val = (inputEl.value || "").trim();
+      if (!val) {
+        if (statusEl) {
+          statusEl.style.display = "block";
+          statusEl.style.background = "rgba(239, 68, 68, 0.12)";
+          statusEl.style.color = "#ef4444";
+          statusEl.textContent = "Please paste a Google Maps link or coordinates first.";
+        }
+        return;
+      }
+
+      // Fast Client-side regex parsing
+      const clientResult = parseGoogleMapsUrlOrCoordsClient(val);
+      if (clientResult) {
+        latInput.value = clientResult.latitude.toFixed(6);
+        lngInput.value = clientResult.longitude.toFixed(6);
+        if (nameInput && clientResult.locationName && !nameInput.value.trim()) {
+          nameInput.value = clientResult.locationName;
+        }
+        if (statusEl) {
+          statusEl.style.display = "block";
+          statusEl.style.background = "rgba(16, 185, 129, 0.12)";
+          statusEl.style.color = "#10b981";
+          const namePart = clientResult.locationName ? ` (${clientResult.locationName})` : "";
+          statusEl.innerHTML = `✓ Coordinates auto-filled from Google Maps: <strong>${clientResult.latitude.toFixed(6)}, ${clientResult.longitude.toFixed(6)}</strong>${namePart}`;
+        }
+        return;
+      }
+
+      // If shortened URL e.g. maps.app.goo.gl, resolve via backend endpoint
+      if (val.startsWith("http://") || val.startsWith("https://")) {
+        const origBtnText = btnEl ? btnEl.innerHTML : "";
+        if (btnEl) {
+          btnEl.disabled = true;
+          btnEl.textContent = "Resolving...";
+        }
+        if (statusEl) {
+          statusEl.style.display = "block";
+          statusEl.style.background = "rgba(56, 189, 248, 0.12)";
+          statusEl.style.color = "#0284c7";
+          statusEl.textContent = "Resolving Google Maps short link and extracting coordinates...";
+        }
+
+        try {
+          const resp = await fetch(`/api/v1/resolve-map-url/?url=${encodeURIComponent(val)}`);
+          const data = await resp.json();
+          if (resp.ok && data.success) {
+            latInput.value = Number(data.latitude).toFixed(6);
+            lngInput.value = Number(data.longitude).toFixed(6);
+            if (nameInput && data.location_name && !nameInput.value.trim()) {
+              nameInput.value = data.location_name;
+            }
+            if (statusEl) {
+              statusEl.style.background = "rgba(16, 185, 129, 0.12)";
+              statusEl.style.color = "#10b981";
+              const namePart = data.location_name ? ` (${data.location_name})` : "";
+              statusEl.innerHTML = `✓ Coordinates resolved from Google Maps: <strong>${data.latitude}, ${data.longitude}</strong>${namePart}`;
+            }
+          } else {
+            if (statusEl) {
+              statusEl.style.background = "rgba(239, 68, 68, 0.12)";
+              statusEl.style.color = "#ef4444";
+              statusEl.textContent = "⚠️ " + (data.error || "Could not detect GPS coordinates from this link.");
+            }
+          }
+        } catch (err) {
+          if (statusEl) {
+            statusEl.style.background = "rgba(239, 68, 68, 0.12)";
+            statusEl.style.color = "#ef4444";
+            statusEl.textContent = "⚠️ Failed to resolve link. Please enter coordinates directly.";
+          }
+        } finally {
+          if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = origBtnText;
+          }
+        }
+      } else {
+        if (statusEl) {
+          statusEl.style.display = "block";
+          statusEl.style.background = "rgba(239, 68, 68, 0.12)";
+          statusEl.style.color = "#ef4444";
+          statusEl.textContent = "⚠️ Unrecognized format. Please paste a Google Maps link or coordinates (e.g. 12.9783, 77.6408).";
+        }
+      }
+    };
+
+    if (btnEl) btnEl.addEventListener("click", performExtraction);
+    inputEl.addEventListener("paste", () => setTimeout(performExtraction, 50));
+    inputEl.addEventListener("change", performExtraction);
+  };
+
+  setupGoogleMapsExtractor(
+    "id_map_url_input",
+    "btn-parse-map-url",
+    "map-url-status",
+    "id_target_latitude",
+    "id_target_longitude",
+    "id_location_name"
+  );
+
+  setupGoogleMapsExtractor(
+    "id_adopt_map_url_input",
+    "btn-adopt-parse-map-url",
+    "adopt-map-url-status",
+    "id_adopt_target_latitude",
+    "id_adopt_target_longitude",
+    "id_adopt_location_name"
+  );
+
   // 4. Navigation & Dropdown Toggle
   const closeAllDropdowns = () => {
     document.querySelectorAll(".dropdown-menu.show").forEach((m) => m.classList.remove("show"));

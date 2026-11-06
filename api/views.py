@@ -442,3 +442,18 @@ def admin_performance_reset_api(request):
     performance_tracker.reset()
     return JsonResponse({"status": "success", "message": "Performance metrics reset successfully."})
 
+
+
+def resolve_map_url_api(request):
+    """
+    GET or POST /api/v1/resolve-map-url/?url=...
+    Extracts geographic coordinates and place name from Google Maps URLs or coordinate strings.
+    """
+    url = request.GET.get("url") or request.POST.get("url")
+    if not url:
+        return JsonResponse({"success": False, "error": "URL or coordinates parameter is required."}, status=400)
+
+    from habits.services import parse_google_maps_url_or_coords
+    result = parse_google_maps_url_or_coords(url)
+    status_code = 200 if result.get("success") else 400
+    return JsonResponse(result, status=status_code)

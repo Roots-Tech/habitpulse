@@ -297,3 +297,51 @@ def test_adopt_template_with_location_personalization(test_setup):
     assert cleaned["is_location_restricted"] is True
     assert cleaned["target_latitude"] == Decimal("13.003120")
     assert cleaned["allowed_radius_meters"] == 200
+from habits.services import parse_google_maps_url_or_coords
+
+
+def test_parse_google_maps_url_or_coords():
+    # 1. Desktop Place URL with @lat,lng and venue name
+    url1 = "https://www.google.com/maps/place/Golds+Gym/@12.978369,77.640835,17z/data=!3m1!4b1"
+    res1 = parse_google_maps_url_or_coords(url1)
+    assert res1["success"] is True
+    assert res1["latitude"] == 12.978369
+    assert res1["longitude"] == 77.640835
+    assert "Golds Gym" in res1["location_name"]
+
+    # 2. Protobuf !3dlat!4dlng
+    url2 = "https://www.google.com/maps/place/Cult+Fit/data=!3m1!1s0x3bae!8m2!3d12.971598!4d77.594566"
+    res2 = parse_google_maps_url_or_coords(url2)
+    assert res2["success"] is True
+    assert res2["latitude"] == 12.971598
+    assert res2["longitude"] == 77.594566
+    assert "Cult Fit" in res2["location_name"]
+
+    # 3. Query string parameter
+    url3 = "https://maps.google.com/?q=13.003120,77.568450"
+    res3 = parse_google_maps_url_or_coords(url3)
+    assert res3["success"] is True
+    assert res3["latitude"] == 13.00312
+    assert res3["longitude"] == 77.56845
+
+    # 4. Direct coordinate string
+    res4 = parse_google_maps_url_or_coords("12.978369, 77.640835")
+    assert res4["success"] is True
+    assert res4["latitude"] == 12.978369
+    assert res4["longitude"] == 77.640835
+
+    # 5. Invalid / blank input
+    res5 = parse_google_maps_url_or_coords("")
+    assert res5["success"] is False
+
+
+def test_resolve_map_url_api_endpoint(test_setup):
+    client = test_setup["client"]
+    test_url = "https://www.google.com/maps/place/Power+Fitness/@12.978369,77.640835,17z"
+    resp = client.get(f"/api/v1/resolve-map-url/?url={test_url}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["latitude"] == 12.978369
+    assert data["longitude"] == 77.640835
+    assert "Power Fitness" in data["location_name"]

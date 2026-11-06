@@ -1119,3 +1119,89 @@ def calculate_weekly_and_monthly_habit_progress(habit, year=None, month=None, to
         "weeks": weeks_summary,
     }
 
+
+
+def parse_google_maps_url_or_coords(input_text: str) -> dict:
+    """
+    Extracts geographic coordinates (latitude, longitude) and venue/location name
+    from Google Maps URLs (desktop, mobile share links like maps.app.goo.gl)
+    or raw coordinate strings.
+    """
+    if not input_text or not isinstance(input_text, str):
+        return {"success": False, "error": "No URL or coordinates provided."}
+
+    text = input_text.strip()
+    import re
+    import urllib.parse
+    import requests
+
+    def _extract_from_string(target_str):
+        # 1. 3d/4d Google protobuf parameters
+        m_3d = re.search(r"!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)", target_str)
+        if m_3d:
+            return float(m_3d.group(1)), float(m_3d.group(2))
+
+        # 2. @lat,lng format
+        m_at = re.search(r"@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)", target_str)
+        if m_at:
+            return float(m_at.group(1)), float(m_at.group(2))
+
+        # 3. Query params: q=lat,lng / query=lat,lng / ll=lat,lng / center=lat,lng
+        m_q = re.search(r"[?&](?:q|query|ll|center)=(-?\d{1,2}\.\d+)[,+](-?\d{1,3}\.\d+)", target_str)
+        if m_q:
+            return float(m_q.group(1)), float(m_q.group(2))
+
+        # 4. Direct coordinate string "12.978369, 77.640835"
+        m_raw = re.search(r"(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)", target_str)
+        if m_raw:
+            return float(m_raw.group(1)), float(m_raw.group(2))
+
+        return None, None
+
+    def _extract_name_from_string(target_str):
+        m_place = re.search(r"/maps/place/([^/@?]+)", target_str)
+        if m_place:
+            raw_name = urllib.parse.unquote_plus(m_place.group(1)).strip()
+            return raw_name
+        return ""
+
+    lat, lng = _extract_from_string(text)
+    place_name = _extract_name_from_string(text)
+
+    # If coordinates were not found directly and input looks like a URL, follow redirects
+    if (lat is None or lng is None) and (text.startswith("http://") or text.startswith("https://")):
+        try:
+            resp = requests.get(
+                text,
+                allow_redirects=True,
+                timeout=6,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"},
+            )
+            final_url = resp.url
+            lat, lng = _extract_from_string(final_url)
+            if not place_name:
+                place_name = _extract_name_from_string(final_url)
+
+            # If still not in URL, check response text
+            if (lat is None or lng is None) and resp.text:
+                lat, lng = _extract_from_string(resp.text)
+                if not place_name:
+                    place_name = _extract_name_from_string(resp.text)
+        except Exception:
+            pass
+
+    if lat is not None and lng is not None:
+        if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lng <= 180.0):
+            return {"success": False, "error": "Extracted coordinates are out of valid geographic range."}
+
+        return {
+            "success": True,
+            "latitude": round(lat, 6),
+            "longitude": round(lng, 6),
+            "location_name": place_name,
+        }
+
+    return {
+        "success": False,
+        "error": "Could not detect GPS coordinates from this Google Maps link. Please verify the link or enter coordinates directly.",
+    }
