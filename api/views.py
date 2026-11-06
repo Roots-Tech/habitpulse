@@ -109,6 +109,11 @@ def dashboard_api(request):
             "requires_modal": habit.requires_modal,
             "requires_evidence": habit.requires_evidence,
             "requires_numeric": habit.requires_numeric,
+            "is_location_restricted": habit.is_location_restricted,
+            "location_name": habit.location_name,
+            "target_latitude": float(habit.target_latitude) if habit.target_latitude is not None else None,
+            "target_longitude": float(habit.target_longitude) if habit.target_longitude is not None else None,
+            "allowed_radius_meters": habit.allowed_radius_meters,
             "target_value": float(habit.target_value) if habit.target_value is not None else None,
             "unit_label": habit.unit_label,
         })
@@ -197,6 +202,23 @@ def habit_complete_api(request, pk):
     else:
         logged_val = None
 
+    raw_lat = request.POST.get("latitude")
+    raw_lng = request.POST.get("longitude")
+    comp_lat = None
+    comp_lng = None
+    comp_dist = None
+    if raw_lat is not None and raw_lng is not None and str(raw_lat).strip() and str(raw_lng).strip():
+        try:
+            comp_lat = Decimal(str(raw_lat).strip())
+            comp_lng = Decimal(str(raw_lng).strip())
+            if habit.target_latitude is not None and habit.target_longitude is not None:
+                from habits.validators import haversine_distance_meters
+                comp_dist = int(round(haversine_distance_meters(
+                    float(comp_lat), float(comp_lng), float(habit.target_latitude), float(habit.target_longitude)
+                )))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
 
@@ -208,6 +230,9 @@ def habit_complete_api(request, pk):
             logged_value=logged_val,
             evidence_file=evidence_file,
             notes=notes,
+            completion_latitude=comp_lat,
+            completion_longitude=comp_lng,
+            completion_distance_meters=comp_dist,
         )
 
     streaks = calculate_streaks(habit, today)

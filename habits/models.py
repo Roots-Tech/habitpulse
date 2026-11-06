@@ -274,6 +274,36 @@ class Habit(models.Model):
         blank=True,
         help_text="Pixel score allotted for completing this habit (2 for User-Created, 5 for Predefined, 10 for Expert).",
     )
+
+    # Location Geofencing Configuration
+    is_location_restricted = models.BooleanField(
+        default=False,
+        help_text="Require user to be physically present at target location to mark complete.",
+    )
+    location_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Venue name (e.g. Gold's Gym Indiranagar, Anytime Fitness, Central Park).",
+    )
+    target_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Target latitude coordinate (-90 to +90).",
+    )
+    target_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Target longitude coordinate (-180 to +180).",
+    )
+    allowed_radius_meters = models.PositiveIntegerField(
+        default=150,
+        help_text="Maximum allowed distance in meters from target location (e.g. 150m).",
+    )
     idempotency_key = models.CharField(
         max_length=64,
         null=True,
@@ -371,6 +401,15 @@ class Habit(models.Model):
                 errors["target_value"] = "Target value must be greater than zero."
             if not self.unit_label or not self.unit_label.strip():
                 errors["unit_label"] = "Unit label is required (e.g. pages, mins, km)."
+
+        # Location Geofencing Validation
+        if self.is_location_restricted:
+            if self.target_latitude is not None and (self.target_latitude < -90 or self.target_latitude > 90):
+                errors["target_latitude"] = "Target latitude must be between -90 and +90 degrees."
+            if self.target_longitude is not None and (self.target_longitude < -180 or self.target_longitude > 180):
+                errors["target_longitude"] = "Target longitude must be between -180 and +180 degrees."
+            if self.allowed_radius_meters is not None and self.allowed_radius_meters < 10:
+                errors["allowed_radius_meters"] = "Allowed radius must be at least 10 meters."
 
         # Pixel Score Rules Validation via Admin Configuration
         config = PixelRewardConfig.get_config(self.tenant)
@@ -612,6 +651,25 @@ class HabitCompletion(models.Model):
         blank=True,
         default="",
         help_text="Optional submission note or reflection.",
+    )
+    completion_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="User latitude coordinate at completion.",
+    )
+    completion_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="User longitude coordinate at completion.",
+    )
+    completion_distance_meters = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Calculated distance in meters from target location at completion.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

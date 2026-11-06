@@ -788,6 +788,11 @@ def habit_adopt_view(request, pk):
                 "frequency",
                 "selected_weekdays",
                 "target_days_per_week",
+                "is_location_restricted",
+                "location_name",
+                "target_latitude",
+                "target_longitude",
+                "allowed_radius_meters",
             ]
         )
         if has_custom_params:
@@ -805,6 +810,11 @@ def habit_adopt_view(request, pk):
             unit_label = cleaned.get("unit_label") or template_habit.unit_label
             frequency = cleaned.get("frequency") or template_habit.frequency
             start_date = cleaned.get("start_date") or timezone.localdate()
+            is_location_restricted = cleaned.get("is_location_restricted", False)
+            location_name = cleaned.get("location_name") or ""
+            target_latitude = cleaned.get("target_latitude")
+            target_longitude = cleaned.get("target_longitude")
+            allowed_radius_meters = cleaned.get("allowed_radius_meters") or 150
 
             if frequency == Habit.Frequency.WEEKLY_TARGET:
                 target_days_per_week = cleaned.get("target_days_per_week") or template_habit.target_days_per_week or 3
@@ -825,6 +835,11 @@ def habit_adopt_view(request, pk):
             selected_weekdays = template_habit.selected_weekdays
             target_days_per_week = template_habit.target_days_per_week
             start_date = timezone.localdate()
+            is_location_restricted = template_habit.is_location_restricted
+            location_name = template_habit.location_name
+            target_latitude = template_habit.target_latitude
+            target_longitude = template_habit.target_longitude
+            allowed_radius_meters = template_habit.allowed_radius_meters
 
         try:
             with transaction.atomic():
@@ -849,6 +864,11 @@ def habit_adopt_view(request, pk):
                     target_days_per_week=target_days_per_week,
                     selected_weekdays=selected_weekdays,
                     start_date=start_date,
+                    is_location_restricted=is_location_restricted,
+                    location_name=location_name,
+                    target_latitude=target_latitude,
+                    target_longitude=target_longitude,
+                    allowed_radius_meters=allowed_radius_meters,
                     is_active=True,
                 )
             messages.success(request, f'Habit "{adopted_habit.name}" has been personalized and added to your habit list!')
@@ -989,6 +1009,23 @@ def habit_complete_view(request, pk):
     else:
         logged_val = None
 
+    raw_lat = request.POST.get("latitude")
+    raw_lng = request.POST.get("longitude")
+    comp_lat = None
+    comp_lng = None
+    comp_dist = None
+    if raw_lat is not None and raw_lng is not None and str(raw_lat).strip() and str(raw_lng).strip():
+        try:
+            comp_lat = Decimal(str(raw_lat).strip())
+            comp_lng = Decimal(str(raw_lng).strip())
+            if habit.target_latitude is not None and habit.target_longitude is not None:
+                from .validators import haversine_distance_meters
+                comp_dist = int(round(haversine_distance_meters(
+                    float(comp_lat), float(comp_lng), float(habit.target_latitude), float(habit.target_longitude)
+                )))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
 
@@ -1001,6 +1038,9 @@ def habit_complete_view(request, pk):
                 evidence_file=evidence_file,
                 logged_value=logged_val,
                 notes=notes,
+                completion_latitude=comp_lat,
+                completion_longitude=comp_lng,
+                completion_distance_meters=comp_dist,
             )
         messages.success(request, f'Nice job! "{habit.name}" verified and completed successfully.')
     except IntegrityError:

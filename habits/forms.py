@@ -161,6 +161,11 @@ class HabitForm(forms.ModelForm):
             "window_end_time",
             "target_value",
             "unit_label",
+            "is_location_restricted",
+            "location_name",
+            "target_latitude",
+            "target_longitude",
+            "allowed_radius_meters",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -230,6 +235,11 @@ class HabitForm(forms.ModelForm):
                 "id": "id_unit_label",
             }),
             "idempotency_key": forms.HiddenInput(attrs={"id": "id_idempotency_key"}),
+            "is_location_restricted": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_is_location_restricted"}),
+            "location_name": forms.TextInput(attrs={"class": "form-control", "id": "id_location_name", "placeholder": "e.g. Gold's Gym Indiranagar, Anytime Fitness, Central Park"}),
+            "target_latitude": forms.NumberInput(attrs={"class": "form-control", "id": "id_target_latitude", "step": "any", "placeholder": "e.g. 12.971598"}),
+            "target_longitude": forms.NumberInput(attrs={"class": "form-control", "id": "id_target_longitude", "step": "any", "placeholder": "e.g. 77.594566"}),
+            "allowed_radius_meters": forms.NumberInput(attrs={"class": "form-control", "id": "id_allowed_radius_meters", "min": "10", "placeholder": "150"}),
         }
 
     def __init__(self, *args, tenant=None, user=None, habit_type_initial=None, is_template_initial=None, **kwargs):
@@ -253,6 +263,18 @@ class HabitForm(forms.ModelForm):
         self.fields["unit_label"].required = False
         self.fields["habit_type"].required = False
         self.fields["is_template"].required = False
+        self.fields["is_location_restricted"].required = False
+        self.fields["location_name"].required = False
+        self.fields["target_latitude"].required = False
+        self.fields["target_longitude"].required = False
+        self.fields["allowed_radius_meters"].required = False
+        self.fields["is_location_restricted"].label = "Location Verification (Geofenced)"
+        self.fields["location_name"].label = "Location / Venue Name"
+        self.fields["target_latitude"].label = "Target Latitude"
+        self.fields["target_longitude"].label = "Target Longitude"
+        self.fields["allowed_radius_meters"].label = "Allowed Radius (Meters)"
+        if not self.instance.pk and "allowed_radius_meters" not in self.initial:
+            self.initial["allowed_radius_meters"] = 150
         self.fields["name"].label = "Habit Name"
         self.fields["category_ref"].label = "Category"
         self.fields["rule_strategy_ref"].label = "Rule Strategy"
@@ -474,6 +496,25 @@ class HabitForm(forms.ModelForm):
             if not unit_label or not unit_label.strip():
                 self.add_error("unit_label", "Please specify a unit label (e.g. mins, km, pages).")
 
+        # Location Geofencing cross-field checks
+        is_loc = cleaned_data.get("is_location_restricted", False)
+        if is_loc:
+            t_lat = cleaned_data.get("target_latitude")
+            t_lng = cleaned_data.get("target_longitude")
+            radius = cleaned_data.get("allowed_radius_meters")
+            if t_lat is None:
+                self.add_error("target_latitude", "Target latitude is required when location geofencing is enabled.")
+            elif not (-90.0 <= float(t_lat) <= 90.0):
+                self.add_error("target_latitude", "Latitude must be between -90 and +90 degrees.")
+
+            if t_lng is None:
+                self.add_error("target_longitude", "Target longitude is required when location geofencing is enabled.")
+            elif not (-180.0 <= float(t_lng) <= 180.0):
+                self.add_error("target_longitude", "Longitude must be between -180 and +180 degrees.")
+
+            if radius is not None and int(radius) < 10:
+                self.add_error("allowed_radius_meters", "Allowed radius must be at least 10 meters.")
+
         # 3. Pixel Score Validation & Enforcement via dynamic Admin Configuration
         reward_config = PixelRewardConfig.get_config(self.tenant)
         if habit_type == Habit.HabitType.GENERAL or not is_admin_or_tech:
@@ -500,6 +541,10 @@ class HabitForm(forms.ModelForm):
 
     def save(self, commit=True):
         habit = super().save(commit=False)
+        if self.tenant and not habit.tenant_id:
+            habit.tenant = self.tenant
+        if self.user and not habit.created_by_id:
+            habit.created_by = self.user
         habit.habit_type = self.cleaned_data.get("habit_type") or habit.habit_type or Habit.HabitType.GENERAL
         habit.is_template = bool(self.cleaned_data.get("is_template", False))
         habit.pixel_score = self.cleaned_data.get("pixel_score") or PixelRewardConfig.get_config(self.tenant).user_defined_pixels
@@ -698,6 +743,37 @@ class AdoptHabitPersonalizationForm(forms.Form):
         widget=forms.DateInput(attrs={"class": "form-control", "type": "date", "id": "id_adopt_start_date"}),
         label="Start Date",
     )
+    is_location_restricted = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_is_location_restricted"}),
+        label="Require Physical Location (Geofenced GPS Check-in)",
+    )
+    location_name = forms.CharField(
+        required=False,
+        max_length=150,
+        widget=forms.TextInput(attrs={"class": "form-control", "id": "id_adopt_location_name", "placeholder": "e.g. Gold's Gym Indiranagar"}),
+        label="Venue / Gym Name",
+    )
+    target_latitude = forms.DecimalField(
+        required=False,
+        max_digits=9,
+        decimal_places=6,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_target_latitude", "step": "any", "placeholder": "e.g. 12.971598"}),
+        label="Target Latitude",
+    )
+    target_longitude = forms.DecimalField(
+        required=False,
+        max_digits=9,
+        decimal_places=6,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_target_longitude", "step": "any", "placeholder": "e.g. 77.594566"}),
+        label="Target Longitude",
+    )
+    allowed_radius_meters = forms.IntegerField(
+        required=False,
+        min_value=10,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_allowed_radius_meters", "placeholder": "150"}),
+        label="Allowed Radius (Meters)",
+    )
 
     def __init__(self, *args, template_habit=None, **kwargs):
         self.template_habit = template_habit
@@ -717,6 +793,11 @@ class AdoptHabitPersonalizationForm(forms.Form):
                     self.fields["target_days_per_week"].initial = 3
                 if template_habit.selected_weekdays:
                     self.fields["selected_weekdays"].initial = [str(d) for d in template_habit.selected_weekdays]
+                self.fields["is_location_restricted"].initial = template_habit.is_location_restricted
+                self.fields["location_name"].initial = template_habit.location_name
+                self.fields["target_latitude"].initial = template_habit.target_latitude
+                self.fields["target_longitude"].initial = template_habit.target_longitude
+                self.fields["allowed_radius_meters"].initial = template_habit.allowed_radius_meters or 150
 
             if template_habit.validation_rule in [Habit.ValidationRule.TIME_WINDOW, Habit.ValidationRule.TIME_AND_EVIDENCE]:
                 self.fields["window_start_time"].required = True
@@ -766,5 +847,25 @@ class AdoptHabitPersonalizationForm(forms.Form):
 
         if not cleaned_data.get("start_date"):
             cleaned_data["start_date"] = timezone.localdate()
+
+        is_loc = cleaned_data.get("is_location_restricted", False)
+        if is_loc:
+            t_lat = cleaned_data.get("target_latitude")
+            t_lng = cleaned_data.get("target_longitude")
+            radius = cleaned_data.get("allowed_radius_meters")
+            if t_lat is None:
+                self.add_error("target_latitude", "Target latitude is required when location restriction is enabled.")
+            elif not (-90.0 <= float(t_lat) <= 90.0):
+                self.add_error("target_latitude", "Latitude must be between -90 and +90 degrees.")
+
+            if t_lng is None:
+                self.add_error("target_longitude", "Target longitude is required when location restriction is enabled.")
+            elif not (-180.0 <= float(t_lng) <= 180.0):
+                self.add_error("target_longitude", "Longitude must be between -180 and +180 degrees.")
+
+            if radius is not None and int(radius) < 10:
+                self.add_error("allowed_radius_meters", "Allowed radius must be at least 10 meters.")
+            if not radius:
+                cleaned_data["allowed_radius_meters"] = 150
 
         return cleaned_data

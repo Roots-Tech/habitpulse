@@ -853,6 +853,11 @@ def export_catalog_templates_to_dict():
             "unit_label": t.unit_label or "",
             "pixel_score": t.pixel_score,
             "purpose_patterns": getattr(t, "purpose_patterns", []) or [],
+            "is_location_restricted": getattr(t, "is_location_restricted", False),
+            "location_name": getattr(t, "location_name", "") or "",
+            "target_latitude": float(t.target_latitude) if getattr(t, "target_latitude", None) is not None else None,
+            "target_longitude": float(t.target_longitude) if getattr(t, "target_longitude", None) is not None else None,
+            "allowed_radius_meters": getattr(t, "allowed_radius_meters", 150) or 150,
         })
 
     return {
@@ -931,6 +936,11 @@ def import_catalog_templates_from_dict(data, creator=None):
             "unit_label": unit_label,
             "pixel_score": pixel_score,
             "purpose_patterns": purpose_patterns,
+            "is_location_restricted": bool(item.get("is_location_restricted", False)),
+            "location_name": item.get("location_name") or "",
+            "target_latitude": item.get("target_latitude"),
+            "target_longitude": item.get("target_longitude"),
+            "allowed_radius_meters": item.get("allowed_radius_meters") or 150,
             "is_template": True,
             "tenant": None,
             "is_active": True,

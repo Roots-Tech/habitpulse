@@ -196,6 +196,75 @@
         {% endif %}
       </div>
 
+      <!-- Location Geofencing Customization -->
+      <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <div style="font-weight: 700; color: var(--gray-900); font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>📍 Physical Location Verification (Geofenced Check-in)</span>
+          </div>
+          <button type="button" id="btn-adopt-detect-location" class="btn btn-outline btn-sm" style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border-color: var(--primary); color: var(--primary);">
+            <span>📍 Auto-Detect My Current GPS</span>
+          </button>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.4;">
+          Optional: Restrict check-in only when physically present at your gym, fitness center, or specific venue.
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0.85rem;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-main);">
+            {{ form.is_location_restricted }}
+            <span>Require location verification when marking complete</span>
+          </label>
+        </div>
+
+        <div id="adopt-location-detection-status" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem;"></div>
+
+        <div id="adopt-location-fields" style="{% if not form.is_location_restricted.value and not form.target_latitude.errors and not form.target_longitude.errors %}display: none;{% endif %}">
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label class="form-label" for="{{ form.location_name.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
+              Venue / Gym Name
+            </label>
+            {{ form.location_name }}
+            {% if form.location_name.errors %}
+              <div class="form-error">{{ form.location_name.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="{{ form.target_latitude.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
+                Target Latitude <span style="color: var(--danger);">*</span>
+              </label>
+              {{ form.target_latitude }}
+              {% if form.target_latitude.errors %}
+                <div class="form-error">{{ form.target_latitude.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="{{ form.target_longitude.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
+                Target Longitude <span style="color: var(--danger);">*</span>
+              </label>
+              {{ form.target_longitude }}
+              {% if form.target_longitude.errors %}
+                <div class="form-error">{{ form.target_longitude.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="{{ form.allowed_radius_meters.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
+              Allowed Radius (Meters)
+            </label>
+            {{ form.allowed_radius_meters }}
+            {% if form.allowed_radius_meters.errors %}
+              <div class="form-error">{{ form.allowed_radius_meters.errors.0 }}</div>
+            {% endif %}
+            <div class="form-help" style="font-size: 0.75rem; margin-top: 0.25rem;">Default: 150m. User must be within this proximity to verify completion.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem;">
         <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 600;">

@@ -17,6 +17,9 @@
     <p style="color: var(--text-muted); font-size: 0.875rem;">
       Started on {{ habit.start_date }} &bull; Frequency: {{ habit.get_weekday_display_names }} &bull; 
       <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-weight: 700; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem;"><img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon-sm" alt="Pixels"> {{ habit.pixel_score }} Pixels</span>
+      {% if habit.is_location_restricted %}
+        &bull; <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.35); font-weight: 600; font-size: 0.75rem;">📍 {{ habit.location_name|default:"Geofenced Venue" }} (radius: {{ habit.allowed_radius_meters }}m)</span>
+      {% endif %}
     </p>
   </div>
 

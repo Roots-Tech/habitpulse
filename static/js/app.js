@@ -146,6 +146,41 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Helper: Acquire current GPS coordinates from browser Geolocation API
+  function getCurrentCoordinates(timeoutMs = 10000) {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser or device."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          });
+        },
+        (err) => {
+          let msg = "Location access denied or unavailable.";
+          if (err.code === 1) {
+            msg = "Location permission denied. Please allow location access in your browser or phone to verify this habit.";
+          } else if (err.code === 2) {
+            msg = "Position unavailable. Please ensure your device GPS/location is turned on.";
+          } else if (err.code === 3) {
+            msg = "Location request timed out. Please try again.";
+          }
+          reject(new Error(msg));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: timeoutMs,
+          maximumAge: 5000,
+        }
+      );
+    });
+  }
+
   // 3. Progressive Enhancement for Habit Completion Forms
   const completionForms = document.querySelectorAll(".ajax-completion-form");
   completionForms.forEach((form) => {
@@ -153,7 +188,28 @@ document.addEventListener("DOMContentLoaded", () => {
       // If Javascript is supported, enhance completion toggle smoothly
       e.preventDefault();
       const submitBtn = form.querySelector("button[type='submit']");
+      const origText = submitBtn ? submitBtn.innerHTML : "";
       if (submitBtn) submitBtn.disabled = true;
+
+      // Handle Location Geofencing Check if required
+      const isLocRestricted = form.getAttribute("data-is-location-restricted") === "true";
+      if (isLocRestricted) {
+        if (submitBtn) submitBtn.innerHTML = "<span>📍 Checking GPS...</span>";
+        try {
+          const coords = await getCurrentCoordinates();
+          const latInput = form.querySelector(".input-latitude");
+          const lngInput = form.querySelector(".input-longitude");
+          if (latInput) latInput.value = coords.latitude;
+          if (lngInput) lngInput.value = coords.longitude;
+        } catch (geoErr) {
+          alert("📍 Location check required: " + geoErr.message);
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origText;
+          }
+          return;
+        }
+      }
 
       try {
         const formData = new FormData(form);
@@ -182,7 +238,10 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           const errMsg = (result && result.error) ? result.error : "Failed to update habit.";
           alert(errMsg);
-          if (submitBtn) submitBtn.disabled = false;
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origText;
+          }
         }
       } catch (err) {
         form.submit();
@@ -202,6 +261,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalNumericHelp = document.getElementById("modal-numeric-help");
     const modalEvidenceGroup = document.getElementById("modal-evidence-group");
     const modalEvidenceFile = document.getElementById("modal-evidence-file");
+    const modalLocationGroup = document.getElementById("modal-location-group");
+    const modalLocationBadge = document.getElementById("modal-location-badge");
+    const modalLocationHelp = document.getElementById("modal-location-help");
+    const modalLocationTargetName = document.getElementById("modal-location-target-name");
+    const modalLatitude = document.getElementById("modal-latitude");
+    const modalLongitude = document.getElementById("modal-longitude");
     const modalAlert = document.getElementById("modal-alert");
     const closeBtn = document.getElementById("close-verification-modal");
     const cancelBtn = document.getElementById("cancel-verification-modal");
@@ -215,6 +280,8 @@ document.addEventListener("DOMContentLoaded", () => {
         modalAlert.style.display = "none";
         modalAlert.textContent = "";
       }
+      if (modalLatitude) modalLatitude.value = "";
+      if (modalLongitude) modalLongitude.value = "";
       if (modalForm) modalForm.reset();
     };
 
@@ -223,6 +290,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const actionUrl = btn.getAttribute("data-action-url") || "";
       const requiresEvidence = btn.getAttribute("data-requires-evidence") === "true";
       const requiresNumeric = btn.getAttribute("data-requires-numeric") === "true";
+      const isLocationRestricted = btn.getAttribute("data-is-location-restricted") === "true";
+      const locationName = btn.getAttribute("data-location-name") || "the designated venue";
+      const allowedRadius = btn.getAttribute("data-allowed-radius") || "150";
       const targetValue = btn.getAttribute("data-target-value") || "";
       const unitLabel = btn.getAttribute("data-unit-label") || "";
       const ruleDesc = btn.getAttribute("data-rule-desc") || "Verify completion";
@@ -255,6 +325,48 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           modalEvidenceGroup.style.display = "none";
           if (modalEvidenceFile) modalEvidenceFile.required = false;
+        }
+      }
+
+      // Handle Location Geofencing
+      if (modalLocationGroup) {
+        if (isLocationRestricted) {
+          modalLocationGroup.style.display = "block";
+          if (modalLocationTargetName) modalLocationTargetName.textContent = locationName;
+          if (modalLocationBadge) {
+            modalLocationBadge.textContent = "Checking GPS...";
+            modalLocationBadge.style.color = "#0284c7";
+            modalLocationBadge.style.background = "rgba(56, 189, 248, 0.2)";
+          }
+          if (modalLocationHelp) {
+            modalLocationHelp.textContent = `Acquiring your GPS coordinates to verify you are within ${allowedRadius}m of ${locationName}...`;
+          }
+
+          getCurrentCoordinates()
+            .then((coords) => {
+              if (modalLatitude) modalLatitude.value = coords.latitude;
+              if (modalLongitude) modalLongitude.value = coords.longitude;
+              if (modalLocationBadge) {
+                modalLocationBadge.textContent = "✓ GPS Acquired";
+                modalLocationBadge.style.color = "#10b981";
+                modalLocationBadge.style.background = "rgba(16, 185, 129, 0.2)";
+              }
+              if (modalLocationHelp) {
+                modalLocationHelp.textContent = `Location verified: ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}. Ready to submit!`;
+              }
+            })
+            .catch((geoErr) => {
+              if (modalLocationBadge) {
+                modalLocationBadge.textContent = "⚠️ GPS Needed";
+                modalLocationBadge.style.color = "#ef4444";
+                modalLocationBadge.style.background = "rgba(239, 68, 68, 0.2)";
+              }
+              if (modalLocationHelp) {
+                modalLocationHelp.textContent = geoErr.message;
+              }
+            });
+        } else {
+          modalLocationGroup.style.display = "none";
         }
       }
 
@@ -296,6 +408,29 @@ document.addEventListener("DOMContentLoaded", () => {
           submitBtn.textContent = "Verifying...";
         }
 
+        // Check if location is required and not yet acquired
+        if (modalLocationGroup && modalLocationGroup.style.display !== "none") {
+          if (!modalLatitude || !modalLatitude.value || !modalLongitude || !modalLongitude.value) {
+            try {
+              const coords = await getCurrentCoordinates();
+              if (modalLatitude) modalLatitude.value = coords.latitude;
+              if (modalLongitude) modalLongitude.value = coords.longitude;
+            } catch (geoErr) {
+              if (modalAlert) {
+                modalAlert.textContent = "📍 " + geoErr.message;
+                modalAlert.style.display = "block";
+              } else {
+                alert("📍 " + geoErr.message);
+              }
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "✓ Submit & Complete";
+              }
+              return;
+            }
+          }
+        }
+
         try {
           const formData = new FormData(modalForm);
           let apiUrl = modalForm.action;
@@ -334,6 +469,77 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
   }
+
+  // 3c. Geofencing Coordinates Detection in Habit Creation and Adoption Forms
+  const setupLocationDetection = (btnId, statusId, latInputId, lngInputId, toggleCheckboxId, containerId) => {
+    const btn = document.getElementById(btnId);
+    const statusEl = document.getElementById(statusId);
+    const latInput = document.getElementById(latInputId);
+    const lngInput = document.getElementById(lngInputId);
+    const checkbox = document.getElementById(toggleCheckboxId);
+    const container = document.getElementById(containerId);
+
+    if (checkbox && container) {
+      const toggleContainer = () => {
+        container.style.display = checkbox.checked ? "block" : "none";
+      };
+      checkbox.addEventListener("change", toggleContainer);
+    }
+
+    if (btn && latInput && lngInput) {
+      btn.addEventListener("click", async () => {
+        const origText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = "<span>📍 Acquiring GPS...</span>";
+        if (statusEl) {
+          statusEl.style.display = "block";
+          statusEl.style.background = "rgba(56, 189, 248, 0.12)";
+          statusEl.style.color = "#0284c7";
+          statusEl.textContent = "Requesting device GPS coordinates...";
+        }
+
+        try {
+          const coords = await getCurrentCoordinates();
+          latInput.value = coords.latitude.toFixed(6);
+          lngInput.value = coords.longitude.toFixed(6);
+          if (statusEl) {
+            statusEl.style.background = "rgba(16, 185, 129, 0.12)";
+            statusEl.style.color = "#10b981";
+            statusEl.innerHTML = `✓ Coordinates detected: <strong>${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}</strong> (Accuracy: ±${Math.round(coords.accuracy || 10)}m)`;
+          }
+        } catch (err) {
+          if (statusEl) {
+            statusEl.style.background = "rgba(239, 68, 68, 0.12)";
+            statusEl.style.color = "#ef4444";
+            statusEl.textContent = "⚠️ " + err.message;
+          } else {
+            alert(err.message);
+          }
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
+      });
+    }
+  };
+
+  setupLocationDetection(
+    "btn-detect-location",
+    "location-detection-status",
+    "id_target_latitude",
+    "id_target_longitude",
+    "id_is_location_restricted",
+    "location-geofence-container"
+  );
+
+  setupLocationDetection(
+    "btn-adopt-detect-location",
+    "adopt-location-detection-status",
+    "id_adopt_target_latitude",
+    "id_adopt_target_longitude",
+    "id_adopt_is_location_restricted",
+    "adopt-location-fields"
+  );
 
   // 4. Navigation & Dropdown Toggle
   const closeAllDropdowns = () => {

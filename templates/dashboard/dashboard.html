@@ -200,6 +200,9 @@
                 {% if item.habit.requires_evidence and not item.habit.has_time_window %}
                   <span>&bull; <span title="Proof of work required">📎 Proof Required</span></span>
                 {% endif %}
+                {% if item.habit.is_location_restricted %}
+                  <span>&bull; <span title="Geofenced location: {{ item.habit.location_name|default:'Venue' }} (within {{ item.habit.allowed_radius_meters }}m)" style="color: #0284c7; font-weight: 600;">📍 {{ item.habit.location_name|default:"Location Check-in"|truncatechars:18 }}</span></span>
+                {% endif %}
               </div>
             </div>
 
@@ -285,16 +288,21 @@
                               data-action-url="{% url 'habit_complete' item.habit.pk %}"
                               data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
                               data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
+                              data-is-location-restricted="{% if item.habit.is_location_restricted %}true{% else %}false{% endif %}"
+                              data-location-name="{{ item.habit.location_name|default:'' }}"
+                              data-allowed-radius="{{ item.habit.allowed_radius_meters|default:150 }}"
                               data-target-value="{{ item.habit.target_value|default:'' }}"
                               data-unit-label="{{ item.habit.unit_label|default:'' }}"
-                              data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% else %}Verify completion{% endif %}">
+                              data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% elif item.habit.is_location_restricted %}Verify physical venue presence{% else %}Verify completion{% endif %}">
                         ✓ Verify &amp; Complete
                       </button>
                     {% else %}
-                      <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
+                      <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;" data-is-location-restricted="{% if item.habit.is_location_restricted %}true{% else %}false{% endif %}" data-location-name="{{ item.habit.location_name|default:'' }}" data-allowed-radius="{{ item.habit.allowed_radius_meters|default:150 }}">
                         {% csrf_token %}
+                        <input type="hidden" name="latitude" class="input-latitude" value="">
+                        <input type="hidden" name="longitude" class="input-longitude" value="">
                         <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.8rem; padding: 0.28rem 0.75rem;">
-                          ✓ Mark Complete
+                          {% if item.habit.is_location_restricted %}📍 Check-in &amp; Complete{% else %}✓ Mark Complete{% endif %}
                         </button>
                       </form>
                     {% endif %}
@@ -310,16 +318,21 @@
                           data-action-url="{% url 'habit_complete' item.habit.pk %}"
                           data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
                           data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
+                          data-is-location-restricted="{% if item.habit.is_location_restricted %}true{% else %}false{% endif %}"
+                          data-location-name="{{ item.habit.location_name|default:'' }}"
+                          data-allowed-radius="{{ item.habit.allowed_radius_meters|default:150 }}"
                           data-target-value="{{ item.habit.target_value|default:'' }}"
                           data-unit-label="{{ item.habit.unit_label|default:'' }}"
-                          data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% else %}Verify completion{% endif %}">
+                          data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% elif item.habit.is_location_restricted %}Verify physical venue presence{% else %}Verify completion{% endif %}">
                     ✓ Verify &amp; Complete
                   </button>
                 {% else %}
-                  <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;">
+                  <form method="post" action="{% url 'habit_complete' item.habit.pk %}" class="ajax-completion-form" style="display: inline;" data-is-location-restricted="{% if item.habit.is_location_restricted %}true{% else %}false{% endif %}" data-location-name="{{ item.habit.location_name|default:'' }}" data-allowed-radius="{{ item.habit.allowed_radius_meters|default:150 }}">
                     {% csrf_token %}
+                    <input type="hidden" name="latitude" class="input-latitude" value="">
+                    <input type="hidden" name="longitude" class="input-longitude" value="">
                     <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.8rem; padding: 0.28rem 0.75rem;">
-                      ✓ Mark Complete
+                      {% if item.habit.is_location_restricted %}📍 Check-in &amp; Complete{% else %}✓ Mark Complete{% endif %}
                     </button>
                   </form>
                 {% endif %}
@@ -353,8 +366,23 @@
 
     <form id="verification-form" method="post" enctype="multipart/form-data" action="">
       {% csrf_token %}
+      <input type="hidden" name="latitude" id="modal-latitude" value="">
+      <input type="hidden" name="longitude" id="modal-longitude" value="">
       <div class="modal-body">
         <div id="modal-alert" class="alert alert-error" style="display: none; margin-bottom: 1rem;"></div>
+
+        <!-- Location Geofencing Status Field -->
+        <div id="modal-location-group" class="form-group" style="display: none; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+          <div style="font-weight: 700; font-size: 0.85rem; color: #0284c7; display: flex; align-items: center; justify-content: space-between;">
+            <span style="display: flex; align-items: center; gap: 0.35rem;">
+              <span>📍 Physical Venue Verification</span>
+            </span>
+            <span id="modal-location-badge" class="badge" style="background: rgba(56, 189, 248, 0.2); color: #0284c7; font-size: 0.72rem;">Checking GPS...</span>
+          </div>
+          <div id="modal-location-help" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.4;">
+            Acquiring your GPS coordinates to verify you are at <strong id="modal-location-target-name">the venue</strong>...
+          </div>
+        </div>
 
         <!-- Numeric Field -->
         <div id="modal-numeric-group" class="form-group" style="display: none;">
