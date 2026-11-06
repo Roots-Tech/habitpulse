@@ -360,6 +360,24 @@ class Habit(models.Model):
             if self.pixel_score is not None and self.pixel_score < 1:
                 errors["pixel_score"] = "Pixel score must be at least 1."
 
+        # Purpose-oriented duplicate restriction
+        if not self.is_template and not self.template_source_id and self.name:
+            is_new = (self.pk is None)
+            name_changed = False
+            if self.pk:
+                orig = Habit.objects.filter(pk=self.pk).values("name").first()
+                if orig and orig["name"].strip().lower() != self.name.strip().lower():
+                    name_changed = True
+            if is_new or name_changed:
+                from .services import find_matching_predefined_template
+                matched_template = find_matching_predefined_template(self.name, self.description)
+                if matched_template and matched_template.pk != self.pk:
+                    errors["name"] = (
+                        f"A standardized predefined habit for this purpose already exists in the library: '{matched_template.name}'. "
+                        f"User-defined custom habits for this purpose are restricted to eliminate redundant database records and maintain system performance. "
+                        f"Please adopt '{matched_template.name}' from the Predefined Catalog to configure your personal schedule."
+                    )
+
         if errors:
             raise ValidationError(errors)
 

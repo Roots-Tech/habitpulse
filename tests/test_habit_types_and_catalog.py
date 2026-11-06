@@ -517,3 +517,80 @@ class HabitTypesAndCatalogTestCase(TestCase):
         self.assertEqual(adopted.window_end_time, time(7, 0))
         # Template source relationship remains intact
         self.assertEqual(adopted.template_source, template)
+
+    def test_user_defined_habit_restricted_when_matching_predefined_purpose_exists(self):
+        """
+        If any purpose-oriented habit exists in the predefined library,
+        user-defined custom habits with the same purpose are strictly restricted.
+        Ensures zero duplicate definitions, preventing database bloat and performance degradation.
+        """
+        # Ensure predefined templates exist
+        from habits.models import seed_default_catalog_habits
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        # 1. Attempt to create "Wake up at 5:00 AM" -> Restricted by "Consistent Morning Wake-Up"
+        resp_wake = self.client_regular.post(reverse("habit_create"), {
+            "name": "Wake up at 5:00 AM",
+            "category": "Health",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(resp_wake.status_code, 200)
+        self.assertContains(resp_wake, "standardized predefined habit for this purpose already exists")
+        self.assertContains(resp_wake, "Consistent Morning Wake-Up")
+        self.assertFalse(Habit.objects.filter(tenant=self.reg_tenant, name__icontains="wake").exists())
+
+        # 2. Attempt to create "Drink 2L Water" -> Restricted by "Daily Deep Hydration"
+        resp_water = self.client_regular.post(reverse("habit_create"), {
+            "name": "Drink 2L Water",
+            "category": "Health",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(resp_water.status_code, 200)
+        self.assertContains(resp_water, "Daily Deep Hydration")
+        self.assertFalse(Habit.objects.filter(tenant=self.reg_tenant, name__icontains="water").exists())
+
+        # 3. Attempt to create "Deep Work Focus Block" -> Restricted by "Deep Work Sprint (45 Mins)"
+        resp_focus = self.client_regular.post(reverse("habit_create"), {
+            "name": "Deep Work Focus Block",
+            "category": "Productivity",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(resp_focus.status_code, 200)
+        self.assertContains(resp_focus, "Deep Work Sprint (45 Mins)")
+        self.assertFalse(Habit.objects.filter(tenant=self.reg_tenant, name__icontains="deep work").exists())
+
+        # 4. Genuinely distinct habit with no predefined purpose (e.g. "Play Spanish Guitar") -> Allowed!
+        resp_guitar = self.client_regular.post(reverse("habit_create"), {
+            "name": "Play Spanish Guitar 20 mins",
+            "category": "Other",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+            "is_active": "on",
+        })
+        self.assertEqual(resp_guitar.status_code, 302)
+        self.assertTrue(Habit.objects.filter(tenant=self.reg_tenant, name="Play Spanish Guitar 20 mins").exists())
+
+    def test_model_clean_raises_validation_error_on_predefined_purpose(self):
+        """
+        Model-level validation (Habit.clean) raises ValidationError when attempting to
+        create an unlinked habit with a predefined purpose.
+        """
+        from habits.models import seed_default_catalog_habits
+        from django.core.exceptions import ValidationError
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        habit = Habit(
+            name="Waking up early",
+            category="Health",
+            tenant=self.reg_tenant,
+            created_by=self.regular_user,
+            is_template=False,
+            template_source=None,
+        )
+        with self.assertRaises(ValidationError) as cm:
+            habit.clean()
+        self.assertIn("name", cm.exception.message_dict)
+        self.assertIn("Consistent Morning Wake-Up", str(cm.exception.message_dict["name"]))

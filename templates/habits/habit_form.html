@@ -98,19 +98,21 @@
         {% endif %}
         <div class="form-help">e.g., "Morning Jog 5km", "Daily Reading", "Drink 3L Water", "Solve 2 DSA problems"</div>
 
-        <!-- Intelligent Predefined Habit Suggestion Banner -->
-        <div id="predefined-suggestion-box" style="display: none; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-top: 0.5rem;">
+        <!-- Intelligent Predefined Habit Restriction Banner -->
+        <div id="predefined-suggestion-box" style="display: none; background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-top: 0.5rem;">
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 220px;">
-              <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: #0284c7; font-size: 0.82rem; margin-bottom: 0.2rem;">
-                <span>💡 Predefined Habit Library Match Available</span>
+              <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: #e11d48; font-size: 0.82rem; margin-bottom: 0.2rem;">
+                <span>🚫 Predefined Standard Habit Exists — Custom Creation Restricted</span>
               </div>
               <div style="font-size: 0.82rem; color: var(--text-main); line-height: 1.4;">
-                Instead of a custom habit, adopt standardized <strong id="suggestion-template-name" style="color: #0284c7;"></strong>:
-                <span id="suggestion-template-desc" style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;"></span>
+                A standardized habit for this purpose already exists: <strong id="suggestion-template-name" style="color: #e11d48;"></strong>.
+                <span style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
+                  Custom habits for this purpose are restricted to eliminate redundant database records and optimize performance. Please adopt and personalize the standardized habit instead.
+                </span>
               </div>
             </div>
-            <a id="suggestion-adopt-btn" href="#" class="btn btn-primary btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; white-space: nowrap;">
+            <a id="suggestion-adopt-btn" href="#" class="btn btn-primary btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; white-space: nowrap; background: #e11d48; border-color: #be123c;">
               ⚙️ Personalize &amp; Adopt Instead
             </a>
           </div>
@@ -371,13 +373,25 @@
         }
       }
 
+      const submitBtn = document.getElementById('btn-submit-habit');
       if (matchedTemplate) {
         templateNameSpan.textContent = matchedTemplate.name;
-        templateDescSpan.textContent = matchedTemplate.description || 'Predefined standardized habit';
         adoptBtn.href = '/habits/' + matchedTemplate.id + '/adopt/';
         suggestionBox.style.display = 'block';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.45';
+          submitBtn.style.cursor = 'not-allowed';
+          submitBtn.title = 'Custom habit restricted for this purpose. Please adopt ' + matchedTemplate.name + ' instead.';
+        }
       } else {
         suggestionBox.style.display = 'none';
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+          submitBtn.title = '';
+        }
       }
     }
 

@@ -313,6 +313,14 @@ class HabitForm(forms.ModelForm):
         name = self.cleaned_data.get("name", "").strip()
         if not name:
             raise forms.ValidationError("Habit name cannot be empty.")
+
+        is_template = bool(
+            (hasattr(self, "data") and self.data.get("is_template") in ["on", "true", "True", "1", True])
+            or self.cleaned_data.get("is_template")
+            or self.initial.get("is_template")
+            or getattr(self.instance, "is_template", False)
+        )
+
         if self.tenant:
             qs = Habit.objects.filter(
                 tenant=self.tenant,
@@ -331,7 +339,6 @@ class HabitForm(forms.ModelForm):
             if qs.filter(created_at__gte=timezone.now() - timezone.timedelta(seconds=15)).exists():
                 return name
 
-            is_template = bool(self.cleaned_data.get("is_template") or self.initial.get("is_template"))
             qs = qs.filter(is_template=is_template)
             if qs.exists():
                 entity_label = "catalog template" if is_template else "active habit"
@@ -355,7 +362,7 @@ class HabitForm(forms.ModelForm):
             cleaned_data["category_ref"] = cat
             cleaned_data["category"] = cat.name
 
-        # 2. Resolve Rule Strategy
+        # 2. Resolve Rule Strategy & Template Designation
         rule_strategy_ref = cleaned_data.get("rule_strategy_ref")
         habit_type = cleaned_data.get("habit_type") or Habit.HabitType.GENERAL
         is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
@@ -365,6 +372,25 @@ class HabitForm(forms.ModelForm):
         else:
             cleaned_data["habit_type"] = habit_type
             cleaned_data["is_template"] = bool(cleaned_data.get("is_template", False))
+
+        is_template = cleaned_data.get("is_template", False)
+
+        # 3. Purpose-oriented duplicate restriction for user-defined habits:
+        if not is_template and getattr(self.instance, "template_source_id", None) is None:
+            name = cleaned_data.get("name", "").strip()
+            is_new = (self.instance.pk is None)
+            name_changed = bool(self.instance.pk and self.instance.name.strip().lower() != name.lower())
+            if (is_new or name_changed) and name:
+                from .services import find_matching_predefined_template
+                desc = cleaned_data.get("description", "")
+                matched_template = find_matching_predefined_template(name, desc)
+                if matched_template and matched_template.pk != getattr(self.instance, "pk", None):
+                    self.add_error(
+                        "name",
+                        f"A standardized predefined habit for this purpose already exists in the library: '{matched_template.name}'. "
+                        f"Creating duplicate custom habits for existing predefined purposes is restricted to optimize database space and performance. "
+                        f"Please adopt and personalize '{matched_template.name}' from the Catalog instead, where you can customize your personal schedule and timing."
+                    )
 
         if rule_strategy_ref:
             rule = rule_strategy_ref.engine_type

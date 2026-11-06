@@ -537,3 +537,97 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
         "projected_balance_if_failed": projected_balance_if_failed,
         "daily_outcome_text": daily_outcome_text,
     }
+
+
+PREDEFINED_PURPOSE_PATTERNS = {
+    "Consistent Morning Wake-Up": [
+        r"\bwak(e|ing)\s*(up)?\b",
+        r"\bearly\s*riser\b",
+        r"\brise\s*(and|&)\s*shine\b",
+        r"\bmorning\s*alarm\b",
+        r"\bget\s*up\s*early\b",
+        r"\bup\s*at\s*\d+\b",
+        r"\bwak(e|ing)\s*at\s*\d+\b",
+    ],
+    "Circadian Early Riser Protocol": [
+        r"\bcircadian\s*(wake|riser|rhythm)\b",
+        r"\bearly\s*riser\s*protocol\b",
+    ],
+    "Daily Deep Hydration": [
+        r"\b(drink|drinking)\s*water\b",
+        r"\bwater\s*(intake|consumption|target)\b",
+        r"\bhydrat(e|ion)\b",
+        r"\b\d+\s*l(iters?)?\s*water\b",
+    ],
+    "Deep Work Sprint (45 Mins)": [
+        r"\bdeep\s*work\b",
+        r"\bdeep\s*focus\b",
+        r"\bfocus\s*(block|sprint|session)\b",
+        r"\bdistraction\s*free\b",
+        r"\bpomodoro\b",
+    ],
+    "Morning Mobility & Core Routine": [
+        r"\bmorning\s*(mobility|stretch(ing)?|yoga)\b",
+        r"\bspine\s*mobility\b",
+        r"\bjoint\s*mobility\b",
+        r"\bcore\s*routine\b",
+    ],
+    "Cardiologist-Approved Zone 2 Cardio": [
+        r"\bzone\s*2\b",
+        r"\bzone\s*two\b",
+        r"\baerobic\s*base\b",
+        r"\bsteady\s*state\s*cardio\b",
+    ],
+    "Circadian Light Exposure Protocol": [
+        r"\b(morning|dawn)\s*sun(light)?\b",
+        r"\bcircadian\s*light\b",
+        r"\bsunlight\s*exposure\b",
+        r"\bphotons?\s*in\s*eyes\b",
+    ],
+    "Deliberate Non-Fiction Reading": [
+        r"\b(daily|book|page|non-?fiction)\s*read(ing)?\b",
+        r"\bread(ing)?\s*(book|pages|non-?fiction|daily)\b",
+    ],
+}
+
+
+def find_matching_predefined_template(name: str, description: str = ""):
+    """
+    Evaluates whether a user-submitted habit name/description represents
+    the same underlying intention/purpose as an existing predefined or expert habit template.
+    Returns the matching Habit template instance if found, or None.
+    """
+    if not name or not name.strip():
+        return None
+
+    import re
+    from .models import Habit
+
+    clean_text = f"{name} {description}".strip().lower()
+    clean_text = re.sub(r"[^\w\s]", " ", clean_text)
+    clean_text = re.sub(r"\s+", " ", clean_text)
+
+    active_templates = list(Habit.objects.filter(is_template=True, is_active=True))
+    if not active_templates:
+        return None
+
+    templates_by_name = {t.name.lower(): t for t in active_templates}
+
+    # 1. Exact or direct substring match against catalog template names
+    for t in active_templates:
+        t_clean = re.sub(r"[^\w\s]", " ", t.name.lower()).strip()
+        if t_clean in clean_text or clean_text in t_clean:
+            return t
+
+    # 2. Check predefined intent patterns
+    for canonical_name, patterns in PREDEFINED_PURPOSE_PATTERNS.items():
+        for pat in patterns:
+            if re.search(pat, clean_text, re.IGNORECASE):
+                matched = templates_by_name.get(canonical_name.lower())
+                if matched:
+                    return matched
+                for t in active_templates:
+                    if canonical_name.lower() in t.name.lower():
+                        return t
+
+    return None
