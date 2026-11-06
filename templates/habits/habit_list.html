@@ -24,6 +24,14 @@
           <span>🩺</span> Publish Expert Habit
         </a>
       {% endif %}
+      {% if is_admin %}
+        <a href="{% url 'catalog_export' %}" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Download all catalog templates as JSON for backup or server migration">
+          <span>📥</span> Download Catalog (JSON)
+        </a>
+        <button type="button" onclick="document.getElementById('catalog-import-modal').style.display='flex';" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Upload and sync catalog templates from JSON">
+          <span>📤</span> Upload Catalog (JSON)
+        </button>
+      {% endif %}
     </div>
   </div>
 
@@ -553,4 +561,43 @@
     </div>
   {% endif %}
 </section>
+
+{% if is_admin %}
+<!-- Dynamic Catalog Templates Upload & Import Modal -->
+<div id="catalog-import-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); z-index: 99999; align-items: center; justify-content: center; padding: 1rem;">
+  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); max-width: 520px; width: 100%; padding: 1.75rem; box-shadow: var(--shadow-xl); position: relative;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <span>📤</span> Upload &amp; Sync Catalog Templates
+      </h3>
+      <button type="button" onclick="document.getElementById('catalog-import-modal').style.display='none';" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; padding: 0.2rem;">&times;</button>
+    </div>
+    
+    <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 1.25rem;">
+      Upload a standardized <code>.json</code> catalog templates backup file. Predefined and expert habits will be created or synchronized dynamically without touching or altering existing user records or tracking history.
+    </p>
+
+    <form method="post" action="{% url 'catalog_import' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="background: var(--surface-raised); border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 1.25rem; text-align: center; margin-bottom: 1.25rem;">
+        <label for="catalog_file_input" style="cursor: pointer; display: block;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
+          <span style="font-size: 0.875rem; font-weight: 600; color: var(--primary); display: block; margin-bottom: 0.25rem;">Choose JSON Template File</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Compatible with exports from HabitPulse instances</span>
+        </label>
+        <input type="file" id="catalog_file_input" name="catalog_file" accept=".json,application/json" required style="margin-top: 0.75rem; font-size: 0.85rem; width: 100%; max-width: 320px;">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" onclick="document.getElementById('catalog-import-modal').style.display='none';" class="btn btn-outline btn-sm">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span>🚀</span> Upload &amp; Import Now
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

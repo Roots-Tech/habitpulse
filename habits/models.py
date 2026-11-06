@@ -128,6 +128,7 @@ class Habit(models.Model):
     class Frequency(models.TextChoices):
         DAILY = "DAILY", "Every Day"
         WEEKDAYS = "WEEKDAYS", "Selected Days of the Week"
+        WEEKLY_TARGET = "WEEKLY_TARGET", "Days per Week (Flexible Weekly Target)"
 
     class ValidationRule(models.TextChoices):
         STANDARD = "STANDARD", "Honor System (One-Click)"
@@ -149,6 +150,16 @@ class Habit(models.Model):
         (4, "Friday"),
         (5, "Saturday"),
         (6, "Sunday"),
+    ]
+
+    WEEKLY_TARGET_CHOICES = [
+        (1, "1 Day / Week"),
+        (2, "2 Days / Week"),
+        (3, "3 Days / Week (Recommended for Gym Beginners / Full Body)"),
+        (4, "4 Days / Week (Upper / Lower Split)"),
+        (5, "5 Days / Week (Push / Pull / Legs Split)"),
+        (6, "6 Days / Week (High Frequency / Advanced)"),
+        (7, "7 Days / Week (Daily Target)"),
     ]
 
     tenant = models.ForeignKey(
@@ -212,6 +223,16 @@ class Habit(models.Model):
         default=list,
         blank=True,
         help_text="List of weekday indices (0=Mon, 6=Sun) when frequency is WEEKDAYS.",
+    )
+    target_days_per_week = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Target frequency of days per week for weekly goal habits (e.g. Gym 3 days/week).",
+    )
+    purpose_patterns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of regex keyword patterns to recognize intent for this template.",
     )
     start_date = models.DateField(default=timezone.localdate)
     is_active = models.BooleanField(default=True)
@@ -382,6 +403,19 @@ class Habit(models.Model):
             raise ValidationError(errors)
 
     @property
+    def is_weekly_target(self):
+        return self.frequency == self.Frequency.WEEKLY_TARGET
+
+    @property
+    def effective_weekly_target(self):
+        return self.target_days_per_week or 3
+
+    @property
+    def monthly_target_days(self):
+        """Standard monthly target: weekly target * 4 weeks."""
+        return self.effective_weekly_target * 4
+
+    @property
     def requires_modal(self):
         """
         True if completion requires user input (evidence file or numeric metric).
@@ -457,17 +491,26 @@ class Habit(models.Model):
             return True
         elif self.frequency == self.Frequency.WEEKDAYS:
             return target_date.weekday() in (self.selected_weekdays or [])
+        elif self.frequency == self.Frequency.WEEKLY_TARGET:
+            return True
         return False
 
     def get_weekday_display_names(self):
         """
-        Returns human-readable abbreviation of active weekdays.
+        Returns human-readable abbreviation of active weekdays or weekly target.
         """
+        if self.frequency == self.Frequency.WEEKLY_TARGET or self.target_days_per_week:
+            return f"{self.effective_weekly_target} Days / Week"
         if self.frequency == self.Frequency.DAILY:
             return "Daily"
         days_map = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
         sorted_days = sorted(self.selected_weekdays or [])
         return ", ".join(days_map[d] for d in sorted_days) if sorted_days else "None"
+
+    def get_frequency_display_custom(self):
+        if self.frequency == self.Frequency.WEEKLY_TARGET or self.target_days_per_week:
+            return f"{self.effective_weekly_target} Days / Week"
+        return self.get_frequency_display()
 
     def save(self, *args, **kwargs):
         # 1. Synchronize category and category_ref
@@ -518,7 +561,8 @@ class Habit(models.Model):
         }
 
     def __str__(self):
-        return f"{self.name} ({self.tenant.name})"
+        tenant_name = self.tenant.name if self.tenant else "Catalog Template"
+        return f"{self.name} ({tenant_name})"
 
 
 def tenant_evidence_upload_path(instance, filename):
@@ -1057,10 +1101,10 @@ def seed_default_rule_strategies():
 def seed_default_catalog_habits(creator=None, tenant=None):
     """
     Seeds curated catalog template habits for:
-    1. Predefined Purposeful Habits
+    1. Predefined Purposeful Habits (e.g. Gym, Wake-up, Hydration, Deep Work)
     2. Expert Prescribed Habits
     Available for all users to add to their personal habit tracking lists.
-    Idempotent: skips existing entries by name.
+    Loads dynamically from habits/fixtures/default_catalog_templates.json.
     """
     from django.contrib.auth import get_user_model
     User = get_user_model()
@@ -1070,120 +1114,5 @@ def seed_default_catalog_habits(creator=None, tenant=None):
     if not creator:
         return
 
-    predefined_templates = [
-        {
-            "name": "Consistent Morning Wake-Up",
-            "category": "Health",
-            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
-            "description": "Establish a consistent circadian wake-up routine. Wake up at your personal target time each morning to optimize energy, focus, and sleep architecture.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
-            "window_start_time": "05:00:00",
-            "window_end_time": "06:30:00",
-        },
-        {
-            "name": "Daily Deep Hydration",
-            "category": "Health",
-            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
-            "description": "Maintain optimal physical hydration and cognitive performance by consuming at least 2 liters of pure water daily.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 2.0,
-            "unit_label": "Liters",
-        },
-        {
-            "name": "Deep Work Sprint (45 Mins)",
-            "category": "Productivity",
-            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
-            "description": "Dedicated 45-minute distraction-free focus block on highest priority project or technical coding problem.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 45,
-            "unit_label": "Mins",
-        },
-        {
-            "name": "Morning Mobility & Core Routine",
-            "category": "Fitness",
-            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
-            "description": "Complete morning stretching, joint mobility, and spine activation between 5:30 AM and 9:00 AM.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
-            "window_start_time": "05:30:00",
-            "window_end_time": "09:00:00",
-        },
-    ]
-
-    expert_templates = [
-        {
-            "name": "Circadian Early Riser Protocol",
-            "category": "Health",
-            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
-            "description": "Sleep specialist circadian alignment protocol: Wake up consistently at your personal morning goal and complete morning check-in to anchor hormonal rhythms.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
-            "window_start_time": "05:00:00",
-            "window_end_time": "07:00:00",
-        },
-        {
-            "name": "Cardiologist-Approved Zone 2 Cardio",
-            "category": "Fitness",
-            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
-            "description": "Clinical aerobic base protocol: 30 minutes of Zone 2 steady-state exercise to improve cardiac output and mitochondrial health.",
-            "frequency": Habit.Frequency.WEEKDAYS,
-            "selected_weekdays": [0, 2, 4],  # Mon, Wed, Fri
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 30,
-            "unit_label": "Mins",
-        },
-        {
-            "name": "Circadian Light Exposure Protocol",
-            "category": "Health",
-            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
-            "description": "Neurobiology circadian reset: View natural sunlight outdoors within 60 minutes of waking (6:00 AM - 8:30 AM) to optimize cortisol and sleep cycles.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
-            "window_start_time": "06:00:00",
-            "window_end_time": "08:30:00",
-        },
-        {
-            "name": "Deliberate Non-Fiction Reading",
-            "category": "Learning",
-            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
-            "description": "Cognitive development protocol: Complete 20 pages of technical, philosophical, or educational reading daily.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 20,
-            "unit_label": "Pages",
-        },
-    ]
-
-    for item in predefined_templates + expert_templates:
-        existing = Habit.objects.filter(name=item["name"], is_template=True).first()
-        if existing:
-            continue
-
-        cat_ref = HabitCategory.objects.filter(name__iexact=item["category"]).first()
-        rule_ref = RuleStrategy.objects.filter(engine_type=item["validation_rule"]).first()
-
-        Habit.objects.create(
-            tenant=tenant,
-            created_by=creator,
-            name=item["name"],
-            category=item["category"],
-            category_ref=cat_ref,
-            rule_strategy_ref=rule_ref,
-            habit_type=item["habit_type"],
-            description=item["description"],
-            frequency=item["frequency"],
-            selected_weekdays=item.get("selected_weekdays", []),
-            validation_rule=item["validation_rule"],
-            target_value=item.get("target_value"),
-            unit_label=item.get("unit_label", ""),
-            window_start_time=item.get("window_start_time"),
-            window_end_time=item.get("window_end_time"),
-            pixel_score=5 if item["habit_type"] == Habit.HabitType.PREDEFINED_PURPOSE else 10,
-            is_template=True,
-            is_active=True,
-        )
-
-
+    from .services import import_catalog_templates_from_file
+    import_catalog_templates_from_file(creator=creator)

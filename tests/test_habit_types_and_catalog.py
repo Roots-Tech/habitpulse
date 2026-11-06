@@ -527,6 +527,18 @@ class HabitTypesAndCatalogTestCase(TestCase):
         # Ensure predefined templates exist
         from habits.models import seed_default_catalog_habits
         seed_default_catalog_habits(creator=self.super_admin)
+        Habit.objects.get_or_create(
+            name="Consistent Morning Wake-Up",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
+        Habit.objects.get_or_create(
+            name="Daily Deep Hydration",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
+        Habit.objects.get_or_create(
+            name="Deep Work Sprint (45 Mins)",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
 
         # 1. Attempt to create "Wake up at 5:00 AM" -> Restricted by "Consistent Morning Wake-Up"
         resp_wake = self.client_regular.post(reverse("habit_create"), {
@@ -550,6 +562,16 @@ class HabitTypesAndCatalogTestCase(TestCase):
         self.assertEqual(resp_water.status_code, 200)
         self.assertContains(resp_water, "Daily Deep Hydration")
         self.assertFalse(Habit.objects.filter(tenant=self.reg_tenant, name__icontains="water").exists())
+
+        # 2b. Attempt to create "Have water" -> Restricted by "Daily Deep Hydration"
+        resp_have_water = self.client_regular.post(reverse("habit_create"), {
+            "name": "Have water",
+            "category": "Health",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(resp_have_water.status_code, 200)
+        self.assertContains(resp_have_water, "Daily Deep Hydration")
 
         # 3. Attempt to create "Deep Work Focus Block" -> Restricted by "Deep Work Sprint (45 Mins)"
         resp_focus = self.client_regular.post(reverse("habit_create"), {
@@ -581,6 +603,10 @@ class HabitTypesAndCatalogTestCase(TestCase):
         from habits.models import seed_default_catalog_habits
         from django.core.exceptions import ValidationError
         seed_default_catalog_habits(creator=self.super_admin)
+        Habit.objects.get_or_create(
+            name="Consistent Morning Wake-Up",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
 
         habit = Habit(
             name="Waking up early",
@@ -604,6 +630,14 @@ class HabitTypesAndCatalogTestCase(TestCase):
         """
         from habits.models import seed_default_catalog_habits
         seed_default_catalog_habits(creator=self.super_admin)
+        Habit.objects.get_or_create(
+            name="Consistent Morning Wake-Up",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
+        Habit.objects.get_or_create(
+            name="Daily Deep Hydration",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
 
         # 1. Short input (< 3 chars)
         res_short = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "hi"})
@@ -625,4 +659,300 @@ class HabitTypesAndCatalogTestCase(TestCase):
         res_guitar = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "Learn Spanish Guitar"})
         self.assertEqual(res_guitar.status_code, 200)
         self.assertFalse(res_guitar.json().get("matches"))
+
+        # 5. Direct synonym check: "Have water" -> Daily Deep Hydration
+        res_have_water = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "Have water"})
+        self.assertEqual(res_have_water.status_code, 200)
+        self.assertTrue(res_have_water.json().get("matches"))
+        self.assertEqual(res_have_water.json().get("matched_name"), "Daily Deep Hydration")
+
+
+    def test_gym_habit_personalization_daily_logging_and_weekly_monthly_progress(self):
+        """
+        Tests the 'Gym & Strength Training' predefined habit:
+        1. Regular user adopts Gym template and personalizes target to 4 days/week.
+        2. Logs completions on Mon, Wed, Fri, Sat in a past week -> 4/4 days (Accomplished).
+        3. Logs completions on Mon, Tue only in another week -> 2/4 days (Failed).
+        4. Calculates monthly progress against baseline (4 days * 4 weeks = 16 days).
+        5. Verifies week-by-week analysis showing over/under achievement notes.
+        """
+        from datetime import date
+        from habits.models import seed_default_catalog_habits
+        from habits.services import calculate_weekly_and_monthly_habit_progress
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        gym_template = Habit.objects.get(name="Gym & Strength Training", is_template=True)
+        self.assertEqual(gym_template.frequency, Habit.Frequency.WEEKLY_TARGET)
+        self.assertEqual(gym_template.target_days_per_week, 3)
+
+        # User personalizes to 4 days per week
+        resp = self.client_regular.post(reverse("habit_adopt", kwargs={"pk": gym_template.pk}), {
+            "frequency": Habit.Frequency.WEEKLY_TARGET,
+            "target_days_per_week": "4",
+            "start_date": "2026-10-01",
+        })
+        self.assertEqual(resp.status_code, 302)
+
+        user_gym = Habit.objects.get(tenant=self.reg_tenant, template_source=gym_template)
+        self.assertEqual(user_gym.target_days_per_week, 4)
+        self.assertEqual(user_gym.effective_weekly_target, 4)
+        self.assertEqual(user_gym.monthly_target_days, 16)
+        self.assertEqual(user_gym.get_weekday_display_names(), "4 Days / Week")
+
+        # Week 1 of October 2026: Mon Oct 5 to Sun Oct 11. Log 4 days (Mon, Wed, Fri, Sat)
+        for day in [date(2026, 10, 5), date(2026, 10, 7), date(2026, 10, 9), date(2026, 10, 10)]:
+            HabitCompletion.objects.create(
+                tenant=self.reg_tenant,
+                habit=user_gym,
+                completion_date=day,
+            )
+
+        # Week 2 of October 2026: Mon Oct 12 to Sun Oct 18. Log only 2 days (Mon, Tue)
+        for day in [date(2026, 10, 12), date(2026, 10, 13)]:
+            HabitCompletion.objects.create(
+                tenant=self.reg_tenant,
+                habit=user_gym,
+                completion_date=day,
+            )
+
+        # Run weekly and monthly analysis for October 2026 (reference date: Nov 1, 2026)
+        progress = calculate_weekly_and_monthly_habit_progress(
+            user_gym, year=2026, month=10, today=date(2026, 11, 1)
+        )
+
+        self.assertEqual(progress["weekly_target"], 4)
+        self.assertEqual(progress["monthly_target"], 16)
+        self.assertEqual(progress["month_total_completions"], 6)
+
+        # Check Week 2 (Oct 5-11): 4 completed out of 4 -> Accomplished
+        w2 = next(w for w in progress["weeks"] if w["start_date"] == date(2026, 10, 5))
+        self.assertEqual(w2["completed_count"], 4)
+        self.assertTrue(w2["is_accomplished"])
+        self.assertEqual(w2["status"], "Accomplished")
+
+        # Check Week 3 (Oct 12-18): 2 completed out of 4 -> Failed
+        w3 = next(w for w in progress["weeks"] if w["start_date"] == date(2026, 10, 12))
+        self.assertEqual(w3["completed_count"], 2)
+        self.assertFalse(w3["is_accomplished"])
+        self.assertEqual(w3["status"], "Failed")
+        self.assertIn("-2 below goal", w3["comparison_note"])
+
+        # Check habit stats view renders the weekly monthly breakdown
+        stats_resp = self.client_regular.get(reverse("habit_stats", kwargs={"pk": user_gym.pk}))
+        self.assertEqual(stats_resp.status_code, 200)
+        self.assertContains(stats_resp, "Weekly &amp; Monthly Consistency Analysis")
+        self.assertContains(stats_resp, "4 Days / Week")
+
+    def test_catalog_templates_export_and_import_endpoints(self):
+        """
+        Tests:
+        1. GET /catalog/export/ downloads all catalog templates as valid JSON.
+        2. Regular users cannot access export or import (PermissionDenied 403).
+        3. POST /catalog/import/ successfully syncs uploaded JSON templates into database.
+        """
+        import json
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from habits.models import seed_default_catalog_habits
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        # 1. Regular user access is denied
+        res_reg_exp = self.client_regular.get(reverse("catalog_export"))
+        self.assertEqual(res_reg_exp.status_code, 403)
+
+        res_reg_imp = self.client_regular.post(reverse("catalog_import"))
+        self.assertEqual(res_reg_imp.status_code, 403)
+
+        # 2. Super Admin exports catalog
+        res_exp = self.client_admin.get(reverse("catalog_export"))
+        self.assertEqual(res_exp.status_code, 200)
+        self.assertEqual(res_exp["Content-Type"], "application/json")
+        self.assertIn("attachment; filename=", res_exp["Content-Disposition"])
+
+        export_data = json.loads(res_exp.content.decode("utf-8"))
+        self.assertIn("templates", export_data)
+        self.assertTrue(any(t["name"] == "Gym & Strength Training" for t in export_data["templates"]))
+
+        # 3. Modify template and upload to test import
+        new_template_payload = {
+            "version": "1.0",
+            "templates": [
+                {
+                    "name": "Pilates Core Flow",
+                    "category": "Fitness",
+                    "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
+                    "description": "Dynamic pilates core strengthening routine.",
+                    "frequency": Habit.Frequency.WEEKLY_TARGET,
+                    "target_days_per_week": 3,
+                    "validation_rule": Habit.ValidationRule.STANDARD,
+                    "pixel_score": 10,
+                    "purpose_patterns": [r"\bpilates\b", r"\bmat\s*pilates\b"]
+                }
+            ]
+        }
+        json_bytes = json.dumps(new_template_payload).encode("utf-8")
+        uploaded_file = SimpleUploadedFile("pilates_catalog.json", json_bytes, content_type="application/json")
+
+        res_imp = self.client_admin.post(reverse("catalog_import"), {"catalog_file": uploaded_file})
+        self.assertEqual(res_imp.status_code, 302)
+
+        # Verify new template was created
+        self.assertTrue(Habit.objects.filter(name="Pilates Core Flow", is_template=True).exists())
+
+    def test_gym_synonym_restriction_in_intent_api(self):
+        """
+        Verifies that custom habits representing gym workouts (e.g. 'Hit the gym', 'Weightlifting')
+        are restricted by 'Gym & Strength Training'.
+        """
+        from habits.models import seed_default_catalog_habits
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        for phrasing in ["Hit the gym", "Weightlifting", "Workout 4 days a week", "Go to gym"]:
+            res = self.client_regular.get(reverse("habit_check_intent_api"), {"name": phrasing})
+            self.assertEqual(res.status_code, 200)
+            self.assertTrue(res.json().get("matches"), f"Expected '{phrasing}' to match Gym template")
+            self.assertEqual(res.json().get("matched_name"), "Gym & Strength Training")
+
+    def test_habit_form_weekly_target_days_customization_and_admin_only_catalog_buttons(self):
+        """
+        Verifies:
+        1. Users can customize target_days_per_week to any count (1-7 days) in HabitForm.
+        2. Catalog download/upload buttons are visible ONLY to Admins, hidden for regular & technical users.
+        3. Only Gym & Strength Training exists in the default catalog.
+        """
+        from habits.models import seed_default_catalog_habits
+        from habits.forms import HabitForm
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        # 1. Verify default catalog has only Gym & Strength Training
+        templates = Habit.objects.filter(is_template=True)
+        self.assertEqual(templates.count(), 1)
+        self.assertEqual(templates.first().name, "Gym & Strength Training")
+
+        # 2. Form supports customizing target days per week (e.g. 4 days/week)
+        form = HabitForm(data={
+            "name": "Violin Practice Routine",
+            "category": "Fitness",
+            "frequency": Habit.Frequency.WEEKLY_TARGET,
+            "target_days_per_week": 4,
+            "start_date": self.today.isoformat(),
+            "is_active": "on",
+        }, tenant=self.reg_tenant, user=self.regular_user)
+        self.assertTrue(form.is_valid(), form.errors)
+        habit_saved = form.save(commit=False)
+        habit_saved.tenant = self.reg_tenant
+        habit_saved.created_by = self.regular_user
+        habit_saved.save()
+
+        self.assertEqual(habit_saved.target_days_per_week, 4)
+        self.assertEqual(habit_saved.effective_weekly_target, 4)
+        self.assertEqual(habit_saved.monthly_target_days, 16)
+        self.assertEqual(habit_saved.get_frequency_display_custom(), "4 Days / Week")
+
+        # 3. Verify habit_list HTML: Catalog download/upload visible to Admin, hidden for regular & tech user
+        res_admin = self.client_admin.get(reverse("habit_list"))
+        self.assertContains(res_admin, "Download Catalog (JSON)")
+        self.assertContains(res_admin, "Upload Catalog (JSON)")
+
+        res_regular = self.client_regular.get(reverse("habit_list"))
+        self.assertNotContains(res_regular, "Download Catalog (JSON)")
+        self.assertNotContains(res_regular, "Upload Catalog (JSON)")
+
+        res_tech = self.client_tech.get(reverse("habit_list"))
+        self.assertNotContains(res_tech, "Download Catalog (JSON)")
+        self.assertNotContains(res_tech, "Upload Catalog (JSON)")
+
+    def test_three_different_users_adopt_gym_habit_with_three_different_frequencies(self):
+        """
+        Simulates the three distinct user scenarios for the Gym & Strength Training habit:
+        - User 1: Wants to follow it on an everyday/daily basis (DAILY).
+        - User 2: Wants to follow it on selected days of the week, e.g. Mon, Wed, Fri (WEEKDAYS).
+        - User 3: Wants flexible weekly target, e.g. 4 days per week (WEEKLY_TARGET).
+        Verifies individual scheduling, streak evaluation, and weekly/monthly analytics for all 3 users.
+        """
+        from accounts.models import User
+        from tenants.utils import create_personal_workspace_for_user
+        from habits.models import HabitCompletion
+
+        gym_template = Habit.objects.get(name="Gym & Strength Training", is_template=True)
+
+        # Create 3 distinct users and workspaces
+        user1 = User.objects.create_user(username="gym_user_daily", email="daily@example.com", password="PassWord123!")
+        tenant1, _ = create_personal_workspace_for_user(user1, "User 1 Gym Workspace")
+
+        user2 = User.objects.create_user(username="gym_user_weekdays", email="weekdays@example.com", password="PassWord123!")
+        tenant2, _ = create_personal_workspace_for_user(user2, "User 2 Gym Workspace")
+
+        user3 = User.objects.create_user(username="gym_user_weekly_target", email="target@example.com", password="PassWord123!")
+        tenant3, _ = create_personal_workspace_for_user(user3, "User 3 Gym Workspace")
+
+        client1 = Client()
+        client1.force_login(user1)
+        client2 = Client()
+        client2.force_login(user2)
+        client3 = Client()
+        client3.force_login(user3)
+
+        # -------------------------------------------------------------
+        # SCENARIO 1: User 1 adopts Gym as EVERYDAY (DAILY)
+        # -------------------------------------------------------------
+        res1 = client1.post(reverse("habit_adopt", kwargs={"pk": gym_template.pk}), {
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(res1.status_code, 302)
+        h1 = Habit.objects.get(tenant=tenant1, template_source=gym_template)
+        self.assertEqual(h1.frequency, Habit.Frequency.DAILY)
+        self.assertFalse(h1.is_weekly_target)
+        self.assertIsNone(h1.target_days_per_week)
+        # Scheduled for every day
+        self.assertTrue(h1.is_scheduled_for_date(self.today))
+        self.assertEqual(h1.get_frequency_display_custom(), "Every Day")
+
+        # -------------------------------------------------------------
+        # SCENARIO 2: User 2 adopts Gym as SELECTED DAYS (Mon, Wed, Fri)
+        # -------------------------------------------------------------
+        res2 = client2.post(reverse("habit_adopt", kwargs={"pk": gym_template.pk}), {
+            "frequency": Habit.Frequency.WEEKDAYS,
+            "selected_weekdays": ["0", "2", "4"], # Mon, Wed, Fri
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(res2.status_code, 302)
+        h2 = Habit.objects.get(tenant=tenant2, template_source=gym_template)
+        self.assertEqual(h2.frequency, Habit.Frequency.WEEKDAYS)
+        self.assertFalse(h2.is_weekly_target)
+        self.assertEqual(h2.selected_weekdays, [0, 2, 4])
+        self.assertIsNone(h2.target_days_per_week)
+        self.assertEqual(h2.get_weekday_display_names(), "Mon, Wed, Fri")
+
+        # -------------------------------------------------------------
+        # SCENARIO 3: User 3 adopts Gym as FLEXIBLE WEEKLY TARGET (4 Days/Week)
+        # -------------------------------------------------------------
+        res3 = client3.post(reverse("habit_adopt", kwargs={"pk": gym_template.pk}), {
+            "frequency": Habit.Frequency.WEEKLY_TARGET,
+            "target_days_per_week": 4,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(res3.status_code, 302)
+        h3 = Habit.objects.get(tenant=tenant3, template_source=gym_template)
+        self.assertEqual(h3.frequency, Habit.Frequency.WEEKLY_TARGET)
+        self.assertTrue(h3.is_weekly_target)
+        self.assertEqual(h3.target_days_per_week, 4)
+        self.assertEqual(h3.effective_weekly_target, 4)
+        self.assertEqual(h3.monthly_target_days, 16)
+        self.assertEqual(h3.get_frequency_display_custom(), "4 Days / Week")
+
+        # Log 4 days of completions for User 3 and verify weekly accomplishment
+        from habits.services import calculate_weekly_and_monthly_habit_progress
+        # Mon-Thu of current week
+        cal_start = self.today - timezone.timedelta(days=self.today.weekday())
+        for d_offset in range(4):
+            comp_d = cal_start + timezone.timedelta(days=d_offset)
+            HabitCompletion.objects.create(tenant=tenant3, habit=h3, completion_date=comp_d)
+
+        progress = calculate_weekly_and_monthly_habit_progress(h3, year=self.today.year, month=self.today.month, today=self.today)
+        self.assertEqual(progress["weekly_target"], 4)
+        self.assertEqual(progress["monthly_target"], 16)
+        curr_week = [w for w in progress["weeks"] if w["is_current_week"]][0]
+        self.assertTrue(curr_week["is_accomplished"])
+        self.assertIn("Accomplished", curr_week["status"])
 

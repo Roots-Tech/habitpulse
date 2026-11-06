@@ -545,24 +545,28 @@ PREDEFINED_PURPOSE_PATTERNS = {
         r"\bearly\s*riser\b",
         r"\brise\s*(and|&)\s*shine\b",
         r"\bmorning\s*alarm\b",
-        r"\bget\s*up\s*early\b",
-        r"\bup\s*at\s*\d+\b",
-        r"\bwak(e|ing)\s*at\s*\d+\b",
+        r"\bget\s*up\s*(early|\d+)\b",
+        r"\bup\s*(at|by)\s*\d+\b",
+        r"\bwak(e|ing)\s*(at|by)\s*\d+\b",
     ],
     "Circadian Early Riser Protocol": [
         r"\bcircadian\s*(wake|riser|rhythm)\b",
         r"\bearly\s*riser\s*protocol\b",
     ],
     "Daily Deep Hydration": [
-        r"\b(drink|drinking)\s*water\b",
-        r"\bwater\s*(intake|consumption|target)\b",
-        r"\bhydrat(e|ion)\b",
-        r"\b\d+\s*l(iters?)?\s*water\b",
+        r"\b(drink(ing)?|have|having|sip(ping)?|chug(ging)?|consume|intake|gulp)\s*(some\s*|\d+\s*(l|liters?|ml|glasses?|bottles?|cups?)\s*(of\s*)?)?water\b",
+        r"\b(water|hydration)\s*(intake|consumption|target|goal|habit|reminder|tracker)\b",
+        r"\b(daily|more|enough)\s*water\b",
+        r"\bhydrat(e|ion|ing)\b",
+        r"\b\d+\s*l(iters?)?\s*(of\s*)?water\b",
+        r"\b\d+\s*glasses\s*(of\s*)?water\b",
+        r"\bhave\s*water\b",
+        r"\bdrink\s*water\b",
     ],
     "Deep Work Sprint (45 Mins)": [
         r"\bdeep\s*work\b",
         r"\bdeep\s*focus\b",
-        r"\bfocus\s*(block|sprint|session)\b",
+        r"\bfocus\s*(block|sprint|session|time)\b",
         r"\bdistraction\s*free\b",
         r"\bpomodoro\b",
     ],
@@ -586,12 +590,88 @@ PREDEFINED_PURPOSE_PATTERNS = {
     ],
     "Deliberate Non-Fiction Reading": [
         r"\b(daily|book|page|non-?fiction)\s*read(ing)?\b",
-        r"\bread(ing)?\s*(book|pages|non-?fiction|daily)\b",
+        r"\bread(ing)?\s*(a\s*)?(book|pages|non-?fiction|daily)\b",
+    ],
+    "Gym & Strength Training": [
+        r"\bgym\b",
+        r"\bworkout\b",
+        r"\bweight\s*lift(ing)?\b",
+        r"\blift(ing)?\s*weights?\b",
+        r"\bstrength\s*train(ing)?\b",
+        r"\bhit\s*the\s*gym\b",
+        r"\bgo(ing)?\s*to\s*(the\s*)?gym\b",
+        r"\bbodybuild(ing)?\b",
+        r"\bcalisthenics\b",
+        r"\biron\s*temple\b",
+        r"\bresistance\s*train(ing)?\b",
     ],
 }
 
 
-def query_ollama_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 3.5):
+CATALOG_DOMAIN_GUARDS = {
+    "daily deep hydration": {
+        "required_any": ["water", "drink", "hydrat", "h2o", "aqua", "sip", "chug", "fluid", "gulp", "thirst"],
+        "forbidden_any": ["bath", "shower", "wash", "plant", "garden", "pool", "swim", "plunge"],
+    },
+    "gym & strength training": {
+        "required_any": ["gym", "workout", "lift", "weight", "fitness", "exercise", "train", "bodybuild", "strength", "iron", "dumbbell", "barbell", "squat", "bench", "deadlift", "reps", "sets", "calisthenic", "muscle"],
+        "forbidden_any": [],
+    },
+    "consistent morning wake-up": {
+        "required_any": ["wake", "waking", "rise", "riser", "alarm", "morning", "early", "dawn", "get up", "up at"],
+        "forbidden_any": [],
+    },
+    "circadian early riser protocol": {
+        "required_any": ["circadian", "wake", "rise", "riser", "dawn", "early"],
+        "forbidden_any": [],
+    },
+    "deliberate non-fiction reading": {
+        "required_any": ["read", "reading", "book", "books", "page", "pages", "literature", "chapter", "non-fiction", "nonfiction"],
+        "forbidden_any": [],
+    },
+    "deep work sprint (45 mins)": {
+        "required_any": ["deep work", "focus", "sprint", "pomodoro", "study", "studying", "distraction free"],
+        "forbidden_any": [],
+    },
+    "morning mobility & core routine": {
+        "required_any": ["mobility", "stretch", "yoga", "core", "joint", "flexibility"],
+        "forbidden_any": [],
+    },
+    "cardiologist-approved zone 2 cardio": {
+        "required_any": ["cardio", "zone 2", "zone two", "aerobic", "jog", "cycling", "endurance"],
+        "forbidden_any": [],
+    },
+}
+
+
+def validate_matched_template_domain(template_name: str, user_text: str) -> bool:
+    """
+    Validates that a candidate template match conforms to domain-specific boundaries,
+    preventing spurious hallucinations (e.g. classifying 'Evening Journaling' as 'Daily Deep Hydration'
+    or 'Aqua bath' as drinking water).
+    """
+    import re
+    name_lower = template_name.lower().strip()
+    text_lower = user_text.lower().strip()
+
+    guard = CATALOG_DOMAIN_GUARDS.get(name_lower)
+    if not guard:
+        return True
+
+    # Check forbidden words (e.g. bathing/gardening for hydration)
+    for f in guard.get("forbidden_any", []):
+        if re.search(r"\b" + re.escape(f), text_lower):
+            return False
+
+    # Check required domain roots
+    for r in guard.get("required_any", []):
+        if re.search(r"\b" + re.escape(r), text_lower) or r in text_lower:
+            return True
+
+    return False
+
+
+def query_ollama_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 6.0):
     """
     Queries local Ollama (llama3.2:1b) to classify whether the user's habit input
     semantically represents the same purpose as one of the active predefined templates.
@@ -629,9 +709,13 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
         f"User Input Habit: {user_text}\n\n"
         "Task: Does the user input represent the same core objective or underlying daily habit as one of the predefined habits above?\n"
         "Guidelines:\n"
-        "- If it is a different phrasing, slang, typo, or time variation of a predefined habit (e.g. 'Chug 2 bottles of Aqua' -> 'Daily Deep Hydration', 'Wake up at 5am' -> 'Consistent Morning Wake-Up'), set matches=true.\n"
-        "- If it is a distinct activity that merely shares a word (e.g. 'Aqua bath' is bathing, not drinking water; 'Water plants' is gardening), set matches=false.\n"
-        "- If it is an unrelated custom habit (e.g. guitar practice, coding, painting), set matches=false.\n"
+        "- Any form of gym workout, lifting weights, resistance training, or physical gym exercises (e.g., 'Hit the gym', 'Weightlifting', 'Go to gym', 'Workout at gym') MUST match 'Gym & Strength Training' (matches=true).\n"
+        "- Any form of drinking water, consuming water, or staying hydrated (e.g., 'Have water', 'Drink H2O', 'Chug 2 bottles of Aqua', 'Water intake', '2L water') MUST match 'Daily Deep Hydration' (matches=true).\n"
+        "- Any form of waking up or rising in the morning (e.g., 'Wake up at 5am', 'Get up early', 'Up at 6') MUST match 'Consistent Morning Wake-Up' or 'Circadian Early Riser Protocol' (matches=true).\n"
+        "- Any form of reading books/literature MUST match 'Deliberate Non-Fiction Reading' (matches=true).\n"
+        "- Any form of focused work/studying MUST match 'Deep Work Sprint (45 Mins)' (matches=true).\n"
+        "- DO NOT match distinct activities that merely share a word (e.g., 'Aqua bath' is bathing/hygiene -> matches=false; 'Water plants' is gardening -> matches=false; 'Cold water plunge' is cryotherapy/bathing -> matches=false; 'Evening Journaling' is writing -> matches=false).\n"
+        "- DO NOT match unrelated hobbies/habits (e.g., 'Evening Journaling', 'Play guitar', 'Practice coding', 'Cook dinner' -> matches=false).\n"
         "Reply ONLY in valid JSON format:\n"
         '{"matches": true/false, "matched_name": "Exact Predefined Habit Name from Catalog or null", "confidence": 0.0-1.0, "reason": "brief explanation"}'
     )
@@ -641,6 +725,10 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
         "prompt": prompt,
         "stream": False,
         "format": "json",
+        "options": {
+            "temperature": 0.0,
+            "seed": 42,
+        },
     }).encode("utf-8")
 
     req = urllib.request.Request(
@@ -658,7 +746,9 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
                 matched_name = parsed["matched_name"].strip().lower()
                 for t in active_templates:
                     if t.name.lower() == matched_name or matched_name in t.name.lower() or t.name.lower() in matched_name:
-                        return t, float(parsed.get("confidence", 0.9)), parsed.get("reason", "")
+                        full_user_input = f"{name} {description}".strip()
+                        if validate_matched_template_domain(t.name, full_user_input):
+                            return t, float(parsed.get("confidence", 0.9)), parsed.get("reason", "")
     except Exception:
         # Fallback cleanly if Ollama is not running or timed out
         pass
@@ -697,23 +787,325 @@ def find_matching_predefined_template(name: str, description: str = "", use_ai: 
         if t_clean == clean_text or (len(clean_text) >= 5 and (t_clean in clean_text or clean_text in t_clean)):
             return t
 
-    # 2. Check predefined intent patterns
+    # 2. Check predefined intent patterns (from database template fields + global patterns)
+    for t in active_templates:
+        template_patterns = list(getattr(t, "purpose_patterns", []) or [])
+        template_patterns.extend(PREDEFINED_PURPOSE_PATTERNS.get(t.name, []))
+
+        for pat in template_patterns:
+            try:
+                if re.search(pat, clean_text, re.IGNORECASE):
+                    return t
+            except re.error:
+                continue
+
     for canonical_name, patterns in PREDEFINED_PURPOSE_PATTERNS.items():
         for pat in patterns:
-            if re.search(pat, clean_text, re.IGNORECASE):
-                matched = templates_by_name.get(canonical_name.lower())
-                if matched:
-                    return matched
-                for t in active_templates:
-                    if canonical_name.lower() in t.name.lower():
-                        return t
+            try:
+                if re.search(pat, clean_text, re.IGNORECASE):
+                    matched = templates_by_name.get(canonical_name.lower())
+                    if matched:
+                        return matched
+                    for t in active_templates:
+                        if canonical_name.lower() in t.name.lower():
+                            return t
+            except re.error:
+                continue
 
     # 3. Local Ollama AI Semantic Classifier (Zero API Cost)
     if use_ai:
         ai_template, confidence, reason = query_ollama_intent_classifier(
             name, description, active_templates=active_templates, timeout=3.5
         )
-        if ai_template and confidence >= 0.80:
+        if ai_template and confidence >= 0.80 and validate_matched_template_domain(ai_template.name, clean_text):
             return ai_template
 
     return None
+
+
+# ==============================================================================
+# CATALOG TEMPLATE EXPORT & IMPORT (DOWNLOAD & UPLOAD)
+# ==============================================================================
+
+def export_catalog_templates_to_dict():
+    """
+    Exports all active catalog templates (Predefined Purpose & Expert Prescribed)
+    to a standardized dictionary suitable for JSON serialization and instance backup.
+    """
+    from .models import Habit
+
+    templates_qs = Habit.objects.filter(is_template=True, is_active=True).order_by("habit_type", "name")
+    templates_data = []
+
+    for t in templates_qs:
+        templates_data.append({
+            "name": t.name,
+            "category": str(t.category or "Other"),
+            "habit_type": t.habit_type,
+            "description": t.description or "",
+            "frequency": t.frequency,
+            "target_days_per_week": t.target_days_per_week,
+            "selected_weekdays": t.selected_weekdays or [],
+            "validation_rule": t.validation_rule,
+            "window_start_time": t.window_start_time.strftime("%H:%M:%S") if t.window_start_time else None,
+            "window_end_time": t.window_end_time.strftime("%H:%M:%S") if t.window_end_time else None,
+            "target_value": float(t.target_value) if t.target_value is not None else None,
+            "unit_label": t.unit_label or "",
+            "pixel_score": t.pixel_score,
+            "purpose_patterns": getattr(t, "purpose_patterns", []) or [],
+        })
+
+    return {
+        "version": "1.0",
+        "exported_at": timezone.now().isoformat(),
+        "template_count": len(templates_data),
+        "templates": templates_data,
+    }
+
+
+def import_catalog_templates_from_dict(data, creator=None):
+    """
+    Idempotently imports catalog templates from dictionary/JSON data.
+    Updates existing templates by name or creates new ones.
+    Ensures zero data loss for existing user habits and tracking history.
+    """
+    if isinstance(data, dict):
+        templates_list = data.get("templates", [])
+    elif isinstance(data, list):
+        templates_list = data
+    else:
+        raise ValueError("Invalid template data format. Must be a JSON object or list.")
+
+    from django.contrib.auth import get_user_model
+    from .models import Habit, HabitCategory
+
+    User = get_user_model()
+    if creator is None:
+        creator = User.objects.filter(is_superuser=True).first() or User.objects.first()
+
+    created_count = 0
+    updated_count = 0
+    errors = []
+
+    for item in templates_list:
+        name = (item.get("name") or "").strip()
+        if not name:
+            continue
+
+        cat_name = (item.get("category") or "Other").strip()
+        cat_obj, _ = HabitCategory.objects.get_or_create(
+            name=cat_name,
+            defaults={"is_active": True}
+        )
+
+        habit_type = item.get("habit_type") or Habit.HabitType.PREDEFINED_PURPOSE
+        frequency = item.get("frequency") or Habit.Frequency.DAILY
+        target_days_per_week = item.get("target_days_per_week")
+        if target_days_per_week is not None:
+            try:
+                target_days_per_week = int(target_days_per_week)
+            except (ValueError, TypeError):
+                target_days_per_week = None
+
+        validation_rule = item.get("validation_rule") or Habit.ValidationRule.STANDARD
+        window_start = item.get("window_start_time")
+        window_end = item.get("window_end_time")
+        target_val = item.get("target_value")
+        unit_label = item.get("unit_label") or ""
+        pixel_score = item.get("pixel_score") or 10
+        purpose_patterns = item.get("purpose_patterns") or []
+
+        defaults = {
+            "created_by": creator,
+            "category": cat_name,
+            "category_ref": cat_obj,
+            "habit_type": habit_type,
+            "description": item.get("description", ""),
+            "frequency": frequency,
+            "target_days_per_week": target_days_per_week,
+            "selected_weekdays": item.get("selected_weekdays") or [],
+            "validation_rule": validation_rule,
+            "window_start_time": window_start,
+            "window_end_time": window_end,
+            "target_value": target_val,
+            "unit_label": unit_label,
+            "pixel_score": pixel_score,
+            "purpose_patterns": purpose_patterns,
+            "is_template": True,
+            "tenant": None,
+            "is_active": True,
+        }
+
+        existing = Habit.objects.filter(is_template=True, name__iexact=name).first()
+        if existing:
+            for k, v in defaults.items():
+                if k != "created_by":
+                    setattr(existing, k, v)
+            existing.save()
+            updated_count += 1
+        else:
+            Habit.objects.create(name=name, **defaults)
+            created_count += 1
+
+    return {
+        "created": created_count,
+        "updated": updated_count,
+        "total": created_count + updated_count,
+        "errors": errors,
+    }
+
+
+def import_catalog_templates_from_file(file_path=None, creator=None):
+    """
+    Imports catalog templates from a JSON fixture file.
+    Defaults to habits/fixtures/default_catalog_templates.json.
+    """
+    import os
+    import json
+
+    if file_path is None:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(base_dir, "fixtures", "default_catalog_templates.json")
+
+    if not os.path.exists(file_path):
+        return {"created": 0, "updated": 0, "errors": [f"File not found: {file_path}"]}
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    return import_catalog_templates_from_dict(data, creator=creator)
+
+
+# ==============================================================================
+# WEEKLY & MONTHLY HABIT PROGRESS & ACCOMPLISHMENT (e.g. Gym 3 Days/Week)
+# ==============================================================================
+
+def calculate_weekly_and_monthly_habit_progress(habit, year=None, month=None, today=None):
+    """
+    Computes daily, weekly, and monthly accomplishment for a habit with weekly targets (e.g. Gym).
+    Breaks down the target month into calendar weeks (Monday to Sunday) and calculates:
+    - Days attended in each week vs weekly goal (e.g. 3/3 -> Accomplished).
+    - Overall monthly total vs monthly target (goal * 4, e.g. 12 days).
+    - Identifies which weeks the user did more or less than their weekly goal.
+    """
+    from .models import HabitCompletion
+
+    if today is None:
+        today = timezone.localdate()
+    if year is None:
+        year = today.year
+    if month is None:
+        month = today.month
+
+    cal = calendar.Calendar(firstweekday=0) # Monday first
+    month_weeks = cal.monthdatescalendar(year, month)
+
+    weekly_target = getattr(habit, "effective_weekly_target", habit.target_days_per_week or 3)
+    monthly_target = weekly_target * 4 # Standard 4 weeks per month baseline
+
+    first_date = month_weeks[0][0]
+    last_date = month_weeks[-1][-1]
+    completed_dates = set(
+        HabitCompletion.objects.filter(
+            habit=habit,
+            completion_date__gte=first_date,
+            completion_date__lte=last_date,
+        ).values_list("completion_date", flat=True)
+    )
+
+    weeks_summary = []
+    month_total_completions = 0
+    accomplished_weeks_count = 0
+    total_evaluated_weeks = 0
+
+    for idx, week_dates in enumerate(month_weeks, start=1):
+        mon = week_dates[0]
+        sun = week_dates[-1]
+
+        week_completed_dates = [d for d in week_dates if d in completed_dates]
+        week_completed_count = len(week_completed_dates)
+
+        for d in week_completed_dates:
+            if d.month == month:
+                month_total_completions += 1
+
+        is_current_week = (mon <= today <= sun)
+        is_past_week = (sun < today)
+        is_future_week = (mon > today)
+
+        is_accomplished = week_completed_count >= weekly_target
+        if is_past_week:
+            total_evaluated_weeks += 1
+            if is_accomplished:
+                accomplished_weeks_count += 1
+            status = "Accomplished" if is_accomplished else "Failed"
+            status_class = "success" if is_accomplished else "danger"
+        elif is_current_week:
+            total_evaluated_weeks += 1
+            if is_accomplished:
+                accomplished_weeks_count += 1
+                status = "Accomplished (Target Met!)"
+                status_class = "success"
+            else:
+                remaining = weekly_target - week_completed_count
+                status = f"In Progress ({remaining} day{'s' if remaining > 1 else ''} left)"
+                status_class = "warning"
+        else:
+            status = "Upcoming"
+            status_class = "muted"
+
+        diff_from_target = week_completed_count - weekly_target
+        comparison_note = ""
+        if week_completed_count > weekly_target:
+            comparison_note = f"+{diff_from_target} above goal"
+        elif week_completed_count < weekly_target and (is_past_week or (is_current_week and today.weekday() == 6)):
+            comparison_note = f"{diff_from_target} below goal"
+        elif is_accomplished:
+            comparison_note = "Goal met exactly"
+
+        weeks_summary.append({
+            "week_number": idx,
+            "start_date": mon,
+            "end_date": sun,
+            "date_range_display": f"{mon.strftime('%b %d')} - {sun.strftime('%b %d')}",
+            "completed_count": week_completed_count,
+            "target": weekly_target,
+            "is_accomplished": is_accomplished,
+            "status": status,
+            "status_class": status_class,
+            "is_current_week": is_current_week,
+            "is_past_week": is_past_week,
+            "is_future_week": is_future_week,
+            "comparison_note": comparison_note,
+            "days": [
+                {
+                    "date": d,
+                    "day_name": d.strftime("%a"),
+                    "day_number": d.day,
+                    "in_month": d.month == month,
+                    "is_completed": d in completed_dates,
+                    "is_today": d == today,
+                    "is_future": d > today,
+                }
+                for d in week_dates
+            ]
+        })
+
+    monthly_progress_pct = min(100.0, round((month_total_completions / monthly_target) * 100, 1)) if monthly_target > 0 else 0
+    is_monthly_accomplished = month_total_completions >= monthly_target
+
+    return {
+        "habit": habit,
+        "year": year,
+        "month": month,
+        "month_name": calendar.month_name[month],
+        "weekly_target": weekly_target,
+        "monthly_target": monthly_target,
+        "month_total_completions": month_total_completions,
+        "monthly_progress_pct": monthly_progress_pct,
+        "is_monthly_accomplished": is_monthly_accomplished,
+        "accomplished_weeks_count": accomplished_weeks_count,
+        "total_evaluated_weeks": total_evaluated_weeks,
+        "weeks": weeks_summary,
+    }
+

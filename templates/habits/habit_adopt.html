@@ -162,6 +162,23 @@
         </div>
       </div>
 
+      <!-- Weekly Target Selection (Conditional for WEEKLY_TARGET e.g. Gym) -->
+      <div id="weekly-target-block" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem; {% if template_habit.is_weekly_target or form.frequency.value == 'WEEKLY_TARGET' %}display: block;{% else %}display: none;{% endif %}">
+        <label class="form-label" for="{{ form.target_days_per_week.id_for_label }}" style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;">
+          <span>🎯 {{ form.target_days_per_week.label }}</span>
+        </label>
+        {{ form.target_days_per_week }}
+        {% if form.target_days_per_week.errors %}
+          <div class="form-error">{{ form.target_days_per_week.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help" style="margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-muted);">
+          {{ form.target_days_per_week.help_text }}
+          <span style="display: block; margin-top: 0.2rem; color: #10b981; font-weight: 500;">
+            💡 Monitored daily: accomplish your target days each week to maintain your consistency streak, with monthly breakdown reports.
+          </span>
+        </div>
+      </div>
+
       <!-- Weekday Checkboxes (Conditional) -->
       <div id="weekday-selection-block" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.5rem; display: none;">
         <label class="form-label" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">
@@ -197,19 +214,21 @@
     const freqSelect = document.getElementById('id_adopt_frequency');
     const weekdayBlock = document.getElementById('weekday-selection-block');
 
-    function updateWeekdayVisibility() {
-      if (freqSelect && weekdayBlock) {
-        if (freqSelect.value === 'WEEKDAYS') {
-          weekdayBlock.style.display = 'block';
-        } else {
-          weekdayBlock.style.display = 'none';
-        }
+    const weeklyTargetBlock = document.getElementById('weekly-target-block');
+
+    function updateVisibility() {
+      if (!freqSelect) return;
+      if (weekdayBlock) {
+        weekdayBlock.style.display = (freqSelect.value === 'WEEKDAYS') ? 'block' : 'none';
+      }
+      if (weeklyTargetBlock) {
+        weeklyTargetBlock.style.display = (freqSelect.value === 'WEEKLY_TARGET') ? 'block' : 'none';
       }
     }
 
     if (freqSelect) {
-      freqSelect.addEventListener('change', updateWeekdayVisibility);
-      updateWeekdayVisibility();
+      freqSelect.addEventListener('change', updateVisibility);
+      updateVisibility();
     }
   });
 </script>

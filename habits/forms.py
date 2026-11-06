@@ -121,6 +121,19 @@ class HabitForm(forms.ModelForm):
         label="Select Scheduled Days",
         help_text="Required when frequency is set to 'Selected Days of the Week'.",
     )
+    target_days_per_week = forms.TypedChoiceField(
+        choices=Habit.WEEKLY_TARGET_CHOICES,
+        coerce=int,
+        empty_value=None,
+        required=False,
+        widget=forms.Select(attrs={
+            "class": "form-control",
+            "id": "id_target_days_per_week",
+            "style": "font-weight: 600;",
+        }),
+        label="Target Days per Week",
+        help_text="Choose how many days per week you commit to achieving this habit (1-7 days).",
+    )
     idempotency_key = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -139,6 +152,7 @@ class HabitForm(forms.ModelForm):
             "category",
             "rule_strategy_ref",
             "frequency",
+            "target_days_per_week",
             "selected_weekdays",
             "start_date",
             "is_active",
@@ -253,6 +267,12 @@ class HabitForm(forms.ModelForm):
         self.fields["frequency"].label = "Frequency"
         self.fields["start_date"].label = "Start Date"
         self.fields["is_active"].label = "Active Habit"
+        self.fields["target_days_per_week"].label = "Target Days per Week"
+        self.fields["target_days_per_week"].required = False
+        if self.instance and self.instance.pk and self.instance.target_days_per_week:
+            self.initial["target_days_per_week"] = self.instance.target_days_per_week
+        elif "target_days_per_week" not in self.initial:
+            self.initial["target_days_per_week"] = 3
 
         is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
 
@@ -419,6 +439,22 @@ class HabitForm(forms.ModelForm):
                     self.instance.selected_weekdays = chosen
                 except ValueError:
                     self.add_error("weekdays", "Invalid weekday selection.")
+        elif frequency == Habit.Frequency.WEEKLY_TARGET:
+            target_days = cleaned_data.get("target_days_per_week")
+            if not target_days:
+                target_days = 3
+                cleaned_data["target_days_per_week"] = 3
+            try:
+                target_days_int = int(target_days)
+                if not (1 <= target_days_int <= 7):
+                    self.add_error("target_days_per_week", "Please select a target between 1 and 7 days per week.")
+                else:
+                    cleaned_data["target_days_per_week"] = target_days_int
+                    self.instance.target_days_per_week = target_days_int
+            except (ValueError, TypeError):
+                self.add_error("target_days_per_week", "Invalid weekly target selection.")
+            cleaned_data["selected_weekdays"] = [0, 1, 2, 3, 4, 5, 6]
+            self.instance.selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
         else:
             cleaned_data["selected_weekdays"] = [0, 1, 2, 3, 4, 5, 6]
             self.instance.selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
@@ -637,6 +673,15 @@ class AdoptHabitPersonalizationForm(forms.Form):
         label="Metric Unit",
         help_text="Unit of measurement (e.g., Liters, Mins, Pages, Steps).",
     )
+    target_days_per_week = forms.TypedChoiceField(
+        choices=Habit.WEEKLY_TARGET_CHOICES,
+        coerce=int,
+        empty_value=None,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_adopt_target_days_per_week", "style": "font-weight: 600;"}),
+        label="Weekly Commitment (Days per Week)",
+        help_text="Choose how many days per week you plan to achieve this habit (e.g. 3, 4, or 5 days/week for gym).",
+    )
     frequency = forms.ChoiceField(
         choices=Habit.Frequency.choices,
         widget=forms.Select(attrs={"class": "form-control", "id": "id_adopt_frequency"}),
@@ -666,6 +711,10 @@ class AdoptHabitPersonalizationForm(forms.Form):
                 self.fields["target_value"].initial = template_habit.target_value
                 self.fields["unit_label"].initial = template_habit.unit_label
                 self.fields["start_date"].initial = timezone.localdate()
+                if template_habit.target_days_per_week:
+                    self.fields["target_days_per_week"].initial = template_habit.target_days_per_week
+                elif template_habit.frequency == Habit.Frequency.WEEKLY_TARGET:
+                    self.fields["target_days_per_week"].initial = 3
                 if template_habit.selected_weekdays:
                     self.fields["selected_weekdays"].initial = [str(d) for d in template_habit.selected_weekdays]
 
@@ -700,6 +749,9 @@ class AdoptHabitPersonalizationForm(forms.Form):
                 self.add_error("unit_label", "Unit label is required (e.g. liters, mins).")
 
         freq = cleaned_data.get("frequency")
+        if freq == Habit.Frequency.WEEKLY_TARGET:
+            if not cleaned_data.get("target_days_per_week"):
+                cleaned_data["target_days_per_week"] = 3
         if freq == Habit.Frequency.WEEKDAYS:
             days = cleaned_data.get("selected_weekdays")
             if not days:

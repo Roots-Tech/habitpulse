@@ -4,21 +4,23 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // 1. Weekday Selector Toggle in Habit Form
+  // 1. Frequency (Weekdays & Weekly Target) Toggles in Habit Form
   const frequencySelect = document.getElementById("id_frequency");
   const weekdayContainer = document.getElementById("weekday-selector-container");
+  const weeklyTargetContainer = document.getElementById("weekly-target-container");
 
-  if (frequencySelect && weekdayContainer) {
-    const updateWeekdayVisibility = () => {
-      if (frequencySelect.value === "WEEKDAYS") {
-        weekdayContainer.style.display = "block";
-      } else {
-        weekdayContainer.style.display = "none";
+  if (frequencySelect) {
+    const updateFrequencyVisibility = () => {
+      if (weekdayContainer) {
+        weekdayContainer.style.display = (frequencySelect.value === "WEEKDAYS") ? "block" : "none";
+      }
+      if (weeklyTargetContainer) {
+        weeklyTargetContainer.style.display = (frequencySelect.value === "WEEKLY_TARGET") ? "block" : "none";
       }
     };
 
-    frequencySelect.addEventListener("change", updateWeekdayVisibility);
-    updateWeekdayVisibility(); // Initial check on load
+    frequencySelect.addEventListener("change", updateFrequencyVisibility);
+    updateFrequencyVisibility(); // Initial check on load
   }
 
   // 1b. Validation Rule / Rule Strategy Toggle in Habit Form
