@@ -11,14 +11,10 @@ from tenants.models import Tenant
 class HabitCategory(models.Model):
     """
     Master Data: Configurable Habit Categories with full CRUD support.
-    Strictly tenant-scoped.
+    Common system-wide master data managed by super admins and technical users,
+    shared across all users and workspaces.
     """
-    tenant = models.ForeignKey(
-        Tenant,
-        on_delete=models.CASCADE,
-        related_name="habit_categories",
-    )
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, default="")
     icon = models.CharField(max_length=20, blank=True, default="📁", help_text="Emoji or icon symbol")
     color = models.CharField(max_length=30, blank=True, default="#38bdf8", help_text="Badge color hex")
@@ -28,7 +24,6 @@ class HabitCategory(models.Model):
 
     class Meta:
         ordering = ["name"]
-        unique_together = [("tenant", "name")]
         verbose_name = "Habit Category"
         verbose_name_plural = "Habit Categories"
 
@@ -133,6 +128,7 @@ class Habit(models.Model):
     class Frequency(models.TextChoices):
         DAILY = "DAILY", "Every Day"
         WEEKDAYS = "WEEKDAYS", "Selected Days of the Week"
+        WEEKLY_TARGET = "WEEKLY_TARGET", "Days per Week (Flexible Weekly Target)"
 
     class ValidationRule(models.TextChoices):
         STANDARD = "STANDARD", "Honor System (One-Click)"
@@ -154,6 +150,16 @@ class Habit(models.Model):
         (4, "Friday"),
         (5, "Saturday"),
         (6, "Sunday"),
+    ]
+
+    WEEKLY_TARGET_CHOICES = [
+        (1, "1 Day / Week"),
+        (2, "2 Days / Week"),
+        (3, "3 Days / Week (Recommended for Gym Beginners / Full Body)"),
+        (4, "4 Days / Week (Upper / Lower Split)"),
+        (5, "5 Days / Week (Push / Pull / Legs Split)"),
+        (6, "6 Days / Week (High Frequency / Advanced)"),
+        (7, "7 Days / Week (Daily Target)"),
     ]
 
     tenant = models.ForeignKey(
@@ -217,6 +223,16 @@ class Habit(models.Model):
         default=list,
         blank=True,
         help_text="List of weekday indices (0=Mon, 6=Sun) when frequency is WEEKDAYS.",
+    )
+    target_days_per_week = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Target frequency of days per week for weekly goal habits (e.g. Gym 3 days/week).",
+    )
+    purpose_patterns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of regex keyword patterns to recognize intent for this template.",
     )
     start_date = models.DateField(default=timezone.localdate)
     is_active = models.BooleanField(default=True)
@@ -356,16 +372,48 @@ class Habit(models.Model):
             if not self.unit_label or not self.unit_label.strip():
                 errors["unit_label"] = "Unit label is required (e.g. pages, mins, km)."
 
-        # Pixel Score Rules Validation
+        # Pixel Score Rules Validation via Admin Configuration
+        config = PixelRewardConfig.get_config(self.tenant)
         if self.habit_type == self.HabitType.GENERAL:
-            if self.pixel_score is not None and self.pixel_score != 2:
-                errors["pixel_score"] = "User-created personal habits have a fixed pixel score of 2."
+            if self.pixel_score is not None and self.pixel_score != config.user_defined_pixels:
+                errors["pixel_score"] = f"User-created personal habits have an allotted pixel score of {config.user_defined_pixels}."
         else:
             if self.pixel_score is not None and self.pixel_score < 1:
                 errors["pixel_score"] = "Pixel score must be at least 1."
 
+        # Purpose-oriented duplicate restriction
+        if not self.is_template and not self.template_source_id and self.name:
+            is_new = (self.pk is None)
+            name_changed = False
+            if self.pk:
+                orig = Habit.objects.filter(pk=self.pk).values("name").first()
+                if orig and orig["name"].strip().lower() != self.name.strip().lower():
+                    name_changed = True
+            if is_new or name_changed:
+                from .services import find_matching_predefined_template
+                matched_template = find_matching_predefined_template(self.name, self.description)
+                if matched_template and matched_template.pk != self.pk:
+                    errors["name"] = (
+                        f"A standardized predefined habit for this purpose already exists in the library: '{matched_template.name}'. "
+                        f"User-defined custom habits for this purpose are restricted to eliminate redundant database records and maintain system performance. "
+                        f"Please adopt '{matched_template.name}' from the Predefined Catalog to configure your personal schedule."
+                    )
+
         if errors:
             raise ValidationError(errors)
+
+    @property
+    def is_weekly_target(self):
+        return self.frequency == self.Frequency.WEEKLY_TARGET
+
+    @property
+    def effective_weekly_target(self):
+        return self.target_days_per_week or 3
+
+    @property
+    def monthly_target_days(self):
+        """Standard monthly target: weekly target * 4 weeks."""
+        return self.effective_weekly_target * 4
 
     @property
     def requires_modal(self):
@@ -443,24 +491,32 @@ class Habit(models.Model):
             return True
         elif self.frequency == self.Frequency.WEEKDAYS:
             return target_date.weekday() in (self.selected_weekdays or [])
+        elif self.frequency == self.Frequency.WEEKLY_TARGET:
+            return True
         return False
 
     def get_weekday_display_names(self):
         """
-        Returns human-readable abbreviation of active weekdays.
+        Returns human-readable abbreviation of active weekdays or weekly target.
         """
+        if self.frequency == self.Frequency.WEEKLY_TARGET or self.target_days_per_week:
+            return f"{self.effective_weekly_target} Days / Week"
         if self.frequency == self.Frequency.DAILY:
             return "Daily"
         days_map = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
         sorted_days = sorted(self.selected_weekdays or [])
         return ", ".join(days_map[d] for d in sorted_days) if sorted_days else "None"
 
+    def get_frequency_display_custom(self):
+        if self.frequency == self.Frequency.WEEKLY_TARGET or self.target_days_per_week:
+            return f"{self.effective_weekly_target} Days / Week"
+        return self.get_frequency_display()
+
     def save(self, *args, **kwargs):
         # 1. Synchronize category and category_ref
-        if self.category and self.tenant_id:
+        if self.category:
             if not self.category_ref or self.category_ref.name != self.category:
                 cat, _ = HabitCategory.objects.get_or_create(
-                    tenant=self.tenant,
                     name=self.category,
                     defaults={"is_active": True},
                 )
@@ -487,16 +543,12 @@ class Habit(models.Model):
         elif self.rule_strategy_ref:
             self.validation_rule = self.rule_strategy_ref.engine_type
 
-        # 3. Enforce pixel score rules
+        # 3. Enforce pixel score rules via dynamic Admin Configuration
+        config = PixelRewardConfig.get_config(self.tenant)
         if self.habit_type == self.HabitType.GENERAL:
-            self.pixel_score = 2
+            self.pixel_score = config.user_defined_pixels
         elif not self.pixel_score or self.pixel_score < 1:
-            if self.habit_type == self.HabitType.PREDEFINED_PURPOSE:
-                self.pixel_score = 5
-            elif self.habit_type == self.HabitType.EXPERT_PRESCRIBED:
-                self.pixel_score = 10
-            else:
-                self.pixel_score = 2
+            self.pixel_score = config.get_pixel_for_type(self.habit_type)
 
         super().save(*args, **kwargs)
 
@@ -509,7 +561,8 @@ class Habit(models.Model):
         }
 
     def __str__(self):
-        return f"{self.name} ({self.tenant.name})"
+        tenant_name = self.tenant.name if self.tenant else "Catalog Template"
+        return f"{self.name} ({tenant_name})"
 
 
 def tenant_evidence_upload_path(instance, filename):
@@ -716,7 +769,7 @@ class PixelAllocation(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.amount} Px to {self.recipient_user.username} by {self.admin_user.username} ({self.created_at:%Y-%m-%d})" 
+        return f"{self.amount} Px to {self.recipient_user.username} by {self.admin_user.username} ({self.created_at:%Y-%m-%d})"
 
 
 
@@ -838,9 +891,138 @@ class PixelRequest(models.Model):
             }
 
 
-def seed_default_master_data_for_tenant(tenant):
+class PixelRewardConfig(models.Model):
     """
-    Seeds baseline master data (Categories and Rule Strategies) for a tenant if not present.
+    Master Data & Administrative Configuration:
+    Defines how many pixels are allotted and awarded for each habit classification:
+    1. User-Defined Habits (GENERAL / Honor System)
+    2. Predefined Purposeful Habits (PREDEFINED_PURPOSE)
+    3. Expert Prescribed Habits (EXPERT_PRESCRIBED)
+
+    Enables administrators to adjust accomplishment rewards dynamically across the platform.
+    """
+    DEFAULT_USER_DEFINED = 2
+    DEFAULT_PREDEFINED = 5
+    DEFAULT_EXPERT_PRESCRIBED = 10
+
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="pixel_reward_configs",
+        help_text="Workspace scope (null for system-wide global configuration)",
+    )
+    user_defined_pixels = models.PositiveIntegerField(
+        default=DEFAULT_USER_DEFINED,
+        help_text="Pixels awarded per accomplishment for user-defined personal habits",
+    )
+    predefined_pixels = models.PositiveIntegerField(
+        default=DEFAULT_PREDEFINED,
+        help_text="Pixels awarded per accomplishment for predefined purposeful habits",
+    )
+    expert_prescribed_pixels = models.PositiveIntegerField(
+        default=DEFAULT_EXPERT_PRESCRIBED,
+        help_text="Pixels awarded per accomplishment for expert prescribed habits",
+    )
+    auto_sync_active_habits = models.BooleanField(
+        default=True,
+        help_text="Automatically update existing active habits to match newly configured pixel rates.",
+    )
+    notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Administrative notes or rationale for these reward thresholds",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_pixel_configs",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Pixel Reward Configuration"
+        verbose_name_plural = "Pixel Reward Configurations"
+
+    def __str__(self):
+        scope = self.tenant.name if self.tenant else "Global"
+        return f"PixelRewardConfig ({scope}): User={self.user_defined_pixels} Px, Predefined={self.predefined_pixels} Px, Expert={self.expert_prescribed_pixels} Px"
+
+    @classmethod
+    def get_config(cls, tenant=None):
+        """
+        Retrieves the active pixel reward configuration for the tenant,
+        falling back to global configuration if tenant-specific does not exist.
+        Initializes default record if neither exists.
+        """
+        try:
+            if tenant:
+                cfg = cls.objects.filter(tenant=tenant).first()
+                if cfg:
+                    return cfg
+            global_cfg = cls.objects.filter(tenant__isnull=True).first()
+            if global_cfg:
+                return global_cfg
+            # Create default global config
+            return cls.objects.create(
+                user_defined_pixels=cls.DEFAULT_USER_DEFINED,
+                predefined_pixels=cls.DEFAULT_PREDEFINED,
+                expert_prescribed_pixels=cls.DEFAULT_EXPERT_PRESCRIBED,
+                notes="System initial default reward configuration.",
+            )
+        except Exception:
+            # Fallback during initial migrations or isolated mock runs
+            return cls(
+                user_defined_pixels=cls.DEFAULT_USER_DEFINED,
+                predefined_pixels=cls.DEFAULT_PREDEFINED,
+                expert_prescribed_pixels=cls.DEFAULT_EXPERT_PRESCRIBED,
+            )
+
+    def get_pixel_for_type(self, habit_type):
+        """
+        Returns the configured pixel award for a given Habit.HabitType.
+        """
+        if habit_type == Habit.HabitType.EXPERT_PRESCRIBED:
+            return self.expert_prescribed_pixels
+        elif habit_type == Habit.HabitType.PREDEFINED_PURPOSE:
+            return self.predefined_pixels
+        return self.user_defined_pixels
+
+    def sync_to_habits(self, tenant=None):
+        """
+        Synchronizes all active habits and templates to reflect the updated pixel allocations.
+        """
+        filter_kwargs = {}
+        if tenant:
+            filter_kwargs["tenant"] = tenant
+
+        u_count = Habit.objects.filter(habit_type=Habit.HabitType.GENERAL, **filter_kwargs).update(
+            pixel_score=self.user_defined_pixels
+        )
+        p_count = Habit.objects.filter(habit_type=Habit.HabitType.PREDEFINED_PURPOSE, **filter_kwargs).update(
+            pixel_score=self.predefined_pixels
+        )
+        e_count = Habit.objects.filter(habit_type=Habit.HabitType.EXPERT_PRESCRIBED, **filter_kwargs).update(
+            pixel_score=self.expert_prescribed_pixels
+        )
+        return {
+            "user_defined": u_count,
+            "predefined": p_count,
+            "expert": e_count,
+            "total": u_count + p_count + e_count,
+        }
+
+
+def seed_default_categories():
+    """
+    Seeds baseline system-wide Habit Categories if not present.
+    Common for all users and workspaces across the platform.
+    Idempotent: skips existing entries.
     """
     default_categories = [
         {"name": "Health", "icon": "🍎", "color": "#10b981", "description": "Physical health, nutrition, and well-being."},
@@ -852,7 +1034,6 @@ def seed_default_master_data_for_tenant(tenant):
     ]
     for cat in default_categories:
         HabitCategory.objects.get_or_create(
-            tenant=tenant,
             name=cat["name"],
             defaults={
                 "icon": cat["icon"],
@@ -862,7 +1043,15 @@ def seed_default_master_data_for_tenant(tenant):
             },
         )
 
+
+def seed_default_master_data_for_tenant(tenant=None):
+    """
+    Seeds baseline master data (Categories, Rule Strategies, and Catalog Templates) if not present.
+    Maintains backward compatibility while ensuring master data is system-wide.
+    """
+    seed_default_categories()
     seed_default_rule_strategies()
+    seed_default_catalog_habits(tenant=tenant)
 
 
 def seed_default_rule_strategies():
@@ -912,13 +1101,11 @@ def seed_default_rule_strategies():
 def seed_default_catalog_habits(creator=None, tenant=None):
     """
     Seeds curated catalog template habits for:
-    1. Predefined Purposeful Habits
+    1. Predefined Purposeful Habits (e.g. Gym, Wake-up, Hydration, Deep Work)
     2. Expert Prescribed Habits
     Available for all users to add to their personal habit tracking lists.
+    Loads dynamically from habits/fixtures/default_catalog_templates.json.
     """
-    if Habit.objects.filter(is_template=True).exists():
-        return
-
     from django.contrib.auth import get_user_model
     User = get_user_model()
     if creator is None:
@@ -927,91 +1114,5 @@ def seed_default_catalog_habits(creator=None, tenant=None):
     if not creator:
         return
 
-    predefined_templates = [
-        {
-            "name": "Daily Deep Hydration",
-            "category": "Health",
-            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
-            "description": "Maintain optimal physical hydration and cognitive performance by consuming at least 2 liters of pure water daily.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 2.0,
-            "unit_label": "Liters",
-        },
-        {
-            "name": "Deep Work Sprint (45 Mins)",
-            "category": "Productivity",
-            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
-            "description": "Dedicated 45-minute distraction-free focus block on highest priority project or technical coding problem.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 45,
-            "unit_label": "Mins",
-        },
-        {
-            "name": "Morning Mobility & Core Routine",
-            "category": "Fitness",
-            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
-            "description": "Complete morning stretching, joint mobility, and spine activation between 5:30 AM and 9:00 AM.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
-            "window_start_time": "05:30:00",
-            "window_end_time": "09:00:00",
-        },
-    ]
-
-    expert_templates = [
-        {
-            "name": "Cardiologist-Approved Zone 2 Cardio",
-            "category": "Fitness",
-            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
-            "description": "Clinical aerobic base protocol: 30 minutes of Zone 2 steady-state exercise to improve cardiac output and mitochondrial health.",
-            "frequency": Habit.Frequency.WEEKDAYS,
-            "selected_weekdays": [0, 2, 4],  # Mon, Wed, Fri
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 30,
-            "unit_label": "Mins",
-        },
-        {
-            "name": "Circadian Light Exposure Protocol",
-            "category": "Health",
-            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
-            "description": "Neurobiology circadian reset: View natural sunlight outdoors within 60 minutes of waking (6:00 AM - 8:30 AM) to optimize cortisol and sleep cycles.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
-            "window_start_time": "06:00:00",
-            "window_end_time": "08:30:00",
-        },
-        {
-            "name": "Deliberate Non-Fiction Reading",
-            "category": "Learning",
-            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
-            "description": "Cognitive development protocol: Complete 20 pages of technical, philosophical, or educational reading daily.",
-            "frequency": Habit.Frequency.DAILY,
-            "validation_rule": Habit.ValidationRule.NUMERIC_TARGET,
-            "target_value": 20,
-            "unit_label": "Pages",
-        },
-    ]
-
-    for item in predefined_templates + expert_templates:
-        Habit.objects.create(
-            tenant=tenant,
-            created_by=creator,
-            name=item["name"],
-            category=item["category"],
-            habit_type=item["habit_type"],
-            description=item["description"],
-            frequency=item["frequency"],
-            selected_weekdays=item.get("selected_weekdays", []),
-            validation_rule=item["validation_rule"],
-            target_value=item.get("target_value"),
-            unit_label=item.get("unit_label", ""),
-            window_start_time=item.get("window_start_time"),
-            window_end_time=item.get("window_end_time"),
-            pixel_score=5 if item["habit_type"] == Habit.HabitType.PREDEFINED_PURPOSE else 10,
-            is_template=True,
-            is_active=True,
-        )
-
-
+    from .services import import_catalog_templates_from_file
+    import_catalog_templates_from_file(creator=creator)

@@ -62,6 +62,115 @@
   </div>
 </div>
 
+<!-- Weekly & Monthly Frequency Consistency Analysis (e.g. Gym 3 Days/Week Goal) -->
+{% if weekly_monthly_progress %}
+<div class="card" style="margin-bottom: 1.5rem; border: 1px solid rgba(99, 102, 241, 0.25); background: linear-gradient(180deg, rgba(99, 102, 241, 0.04) 0%, rgba(15, 23, 42, 0.6) 100%);">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.3rem;">🏋️</span>
+        <h3 class="card-title" style="margin: 0; font-size: 1.2rem; font-weight: 700; color: var(--text-main);">
+          Weekly &amp; Monthly Consistency Analysis — {{ weekly_monthly_progress.month_name }} {{ weekly_monthly_progress.year }}
+        </h3>
+      </div>
+      <p class="card-description" style="margin-top: 0.25rem;">
+        Target: <strong>{{ weekly_monthly_progress.weekly_target }} Days / Week</strong> &bull; Monthly Milestone Target: <strong>{{ weekly_monthly_progress.monthly_target }} Days</strong> ({{ weekly_monthly_progress.weekly_target }} days × 4 weeks baseline)
+      </p>
+    </div>
+    <div style="text-align: right;">
+      <span class="badge" style="font-size: 0.85rem; padding: 0.4rem 0.85rem; {% if weekly_monthly_progress.is_monthly_accomplished %}background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);{% else %}background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);{% endif %} font-weight: 700;">
+        Monthly Total: {{ weekly_monthly_progress.month_total_completions }} / {{ weekly_monthly_progress.monthly_target }} Days ({{ weekly_monthly_progress.monthly_progress_pct }}%)
+      </span>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 1.25rem;">
+    <div class="progress-bar-bg" style="height: 10px; border-radius: 6px;">
+      <div class="progress-bar-fill" style="width: {{ weekly_monthly_progress.monthly_progress_pct }}%; background: {% if weekly_monthly_progress.is_monthly_accomplished %}#10b981{% else %}#6366f1{% endif %};"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;">
+      <span>Accomplished Weeks: <strong>{{ weekly_monthly_progress.accomplished_weeks_count }} of {{ weekly_monthly_progress.total_evaluated_weeks }}</strong></span>
+      <span>
+        {% if weekly_monthly_progress.is_monthly_accomplished %}
+          🎉 Monthly Milestone Reached!
+        {% else %}
+          Consistency in progress
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  <!-- Week-by-Week Breakdown Table -->
+  <div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
+          <th style="padding: 0.6rem 0.75rem;">Week</th>
+          <th style="padding: 0.6rem 0.75rem;">Dates</th>
+          <th style="padding: 0.6rem 0.75rem;">Days Attended</th>
+          <th style="padding: 0.6rem 0.75rem;">Weekly Goal</th>
+          <th style="padding: 0.6rem 0.75rem;">Evaluation &amp; Consistency</th>
+          <th style="padding: 0.6rem 0.75rem; text-align: right;">Daily Check-ins</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in weekly_monthly_progress.weeks %}
+          <tr style="border-bottom: 1px solid var(--border-subtle); {% if w.is_current_week %}background: rgba(99, 102, 241, 0.06);{% endif %}">
+            <td style="padding: 0.75rem; font-weight: 700;">
+              Week {{ w.week_number }}
+              {% if w.is_current_week %}<span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; font-size: 0.7rem; margin-left: 0.3rem;">Current</span>{% endif %}
+            </td>
+            <td style="padding: 0.75rem; color: var(--text-muted);">{{ w.date_range_display }}</td>
+            <td style="padding: 0.75rem;">
+              <strong style="font-size: 1rem; {% if w.completed_count >= w.target %}color: #10b981;{% else %}color: var(--text-main);{% endif %}">
+                {{ w.completed_count }}
+              </strong> <span style="color: var(--text-muted); font-size: 0.8rem;">/ {{ w.target }} days</span>
+            </td>
+            <td style="padding: 0.75rem; color: var(--text-muted);">{{ w.target }} days</td>
+            <td style="padding: 0.75rem;">
+              <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+                {% if w.status_class == 'success' %}
+                  <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 600;">
+                    ✓ {{ w.status }}
+                  </span>
+                {% elif w.status_class == 'danger' %}
+                  <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 600;">
+                    ✗ {{ w.status }}
+                  </span>
+                {% elif w.status_class == 'warning' %}
+                  <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 600;">
+                    ⏳ {{ w.status }}
+                  </span>
+                {% else %}
+                  <span class="badge" style="background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.25);">
+                    {{ w.status }}
+                  </span>
+                {% endif %}
+
+                {% if w.comparison_note %}
+                  <span style="font-size: 0.75rem; {% if '+' in w.comparison_note %}color: #10b981; font-weight: 600;{% elif '-' in w.comparison_note %}color: #ef4444;{% else %}color: var(--text-muted);{% endif %}">
+                    ({{ w.comparison_note }})
+                  </span>
+                {% endif %}
+              </div>
+            </td>
+            <td style="padding: 0.75rem; text-align: right;">
+              <div style="display: inline-flex; gap: 0.25rem;">
+                {% for d in w.days %}
+                  <span title="{{ d.day_name }} {{ d.date }}: {% if d.is_completed %}Completed{% else %}Not logged{% endif %}" style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; font-size: 0.7rem; font-weight: 600; border-radius: 4px; {% if d.is_completed %}background: #10b981; color: white;{% elif d.is_today %}border: 1px dashed #6366f1; color: var(--text-main);{% elif d.is_future %}background: rgba(148, 163, 184, 0.1); color: #64748b;{% else %}background: rgba(239, 68, 68, 0.1); color: #94a3b8;{% endif %}">
+                    {{ d.day_name|slice:":1" }}
+                  </span>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- Completion Rates Breakdown with Visual Bars -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
   <!-- 7-Day Window -->

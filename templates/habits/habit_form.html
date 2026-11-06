@@ -12,6 +12,17 @@
     <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.25rem;">{{ action_title }}</h1>
     <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">Configure your habit goals, schedule, and verification rules</p>
 
+    {% if habit and habit.template_source %}
+      <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: #6366f1; font-weight: 700; font-size: 0.875rem;">
+          <span>🔗 Standardized Habit Template</span>
+        </div>
+        <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.45;">
+          Adopted from <strong>{{ habit.template_source.name }}</strong>. You can customize your personal schedule, operating time window, and target values below at any time while retaining standard guidelines and pixel rewards.
+        </div>
+      </div>
+    {% endif %}
+
     <form method="post" id="habit-form" class="js-idempotent-form" novalidate>
       {% csrf_token %}
       {{ form.idempotency_key }}
@@ -86,6 +97,27 @@
           <div class="form-error">{{ form.name.errors.0 }}</div>
         {% endif %}
         <div class="form-help">e.g., "Morning Jog 5km", "Daily Reading", "Drink 3L Water", "Solve 2 DSA problems"</div>
+
+        <!-- Intelligent Predefined Habit Restriction Banner -->
+        <div id="predefined-suggestion-box" style="display: none; background: rgba(244, 63, 94, 0.08); border: 1px solid rgba(244, 63, 94, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-top: 0.5rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px;">
+              <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: #e11d48; font-size: 0.82rem; margin-bottom: 0.2rem;">
+                <span>🚫 Predefined Standard Habit Exists — Custom Creation Restricted</span>
+              </div>
+              <div style="font-size: 0.82rem; color: var(--text-main); line-height: 1.4;">
+                A standardized habit for this purpose already exists: <strong id="suggestion-template-name" style="color: #e11d48;"></strong>.
+                <div id="suggestion-reason" style="font-size: 0.78rem; color: #be123c; margin-top: 0.2rem; font-style: italic;"></div>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
+                  Custom habits for this purpose are restricted to eliminate redundant database records and optimize performance. Please adopt and personalize the standardized habit instead.
+                </span>
+              </div>
+            </div>
+            <a id="suggestion-adopt-btn" href="#" class="btn btn-primary btn-sm" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; white-space: nowrap; background: #e11d48; border-color: #be123c;">
+              ⚙️ Personalize &amp; Adopt Instead
+            </a>
+          </div>
+        </div>
       </div>
 
       <div class="form-group">
@@ -149,6 +181,24 @@
         {% if form.weekdays.errors %}
           <div class="form-error" style="margin-top: 0.5rem;">{{ form.weekdays.errors.0 }}</div>
         {% endif %}
+      </div>
+
+      <!-- Weekly Target Container (shown if frequency == WEEKLY_TARGET) -->
+      <div id="weekly-target-container" class="form-group" style="display: none; background: rgba(16, 185, 129, 0.08); padding: 1.1rem; border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.3); margin-top: 1rem;">
+        <label class="form-label" for="{{ form.target_days_per_week.id_for_label }}" style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem; font-size: 0.95rem;">
+          <span>🎯 Target Days per Week</span>
+          <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 0.75rem; padding: 0.15rem 0.5rem;">Flexible Frequency</span>
+        </label>
+        {{ form.target_days_per_week }}
+        {% if form.target_days_per_week.errors %}
+          <div class="form-error" style="margin-top: 0.35rem;">{{ form.target_days_per_week.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
+          Select how many days in each calendar week (Monday to Sunday) you aim to complete this habit. You can log attendance on <strong>any day</strong> of the week.
+          <span style="display: block; margin-top: 0.25rem; color: #10b981; font-weight: 600;">
+            💡 Weekly Goal: Completing at least this target marks the week Accomplished; fewer is marked Incomplete/Failed. Monthly reports track your consistency against 4 weeks.
+          </span>
+        </div>
       </div>
 
       <!-- Completion Validation Rule Section -->
@@ -266,4 +316,105 @@
   {% endfor %}
 }
 </script>
+
+{% if catalog_templates_json %}
+<script id="catalog-templates-meta" type="application/json">
+{{ catalog_templates_json|safe }}
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const nameInput = document.getElementById('id_name');
+    const descInput = document.getElementById('id_description');
+    const suggestionBox = document.getElementById('predefined-suggestion-box');
+    const templateNameSpan = document.getElementById('suggestion-template-name');
+    const templateReasonDiv = document.getElementById('suggestion-reason');
+    const adoptBtn = document.getElementById('suggestion-adopt-btn');
+    const submitBtn = document.getElementById('btn-submit-habit');
+
+    if (!nameInput || !suggestionBox) return;
+
+    let debounceTimer = null;
+    let currentCheckController = null;
+
+    function applyMatchState(matched, templateName, templateId, reason) {
+      if (matched) {
+        templateNameSpan.textContent = templateName;
+        if (templateReasonDiv) {
+          templateReasonDiv.textContent = reason ? '💡 ' + reason : '';
+        }
+        adoptBtn.href = '/habits/' + templateId + '/adopt/';
+        suggestionBox.style.display = 'block';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.45';
+          submitBtn.style.cursor = 'not-allowed';
+          submitBtn.title = 'Custom habit restricted for this purpose. Please adopt ' + templateName + ' instead.';
+        }
+      } else {
+        suggestionBox.style.display = 'none';
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+          submitBtn.title = '';
+        }
+      }
+    }
+
+    function checkIntent() {
+      const nameVal = (nameInput.value || '').trim();
+      const descVal = descInput ? (descInput.value || '').trim() : '';
+
+      if (nameVal.length < 3) {
+        applyMatchState(false);
+        return;
+      }
+
+      if (currentCheckController) {
+        currentCheckController.abort();
+      }
+      currentCheckController = new AbortController();
+
+      const params = new URLSearchParams({
+        name: nameVal,
+        description: descVal
+      });
+
+      fetch('/habits/api/check-intent/?' + params.toString(), {
+        signal: currentCheckController.signal,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.matches) {
+          applyMatchState(true, data.matched_name, data.template_id, data.reason);
+        } else {
+          applyMatchState(false);
+        }
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') {
+          console.warn('Intent check error:', err);
+        }
+      });
+    }
+
+    function onInputChange() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(checkIntent, 350);
+    }
+
+    nameInput.addEventListener('input', onInputChange);
+    if (descInput) {
+      descInput.addEventListener('input', onInputChange);
+    }
+
+    if (nameInput.value && nameInput.value.trim().length >= 3) {
+      checkIntent();
+    }
+  });
+</script>
+{% endif %}
 {% endblock %}

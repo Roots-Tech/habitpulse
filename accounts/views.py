@@ -341,12 +341,16 @@ def general_settings_view(request):
     total_pixels = user_habits_qs.aggregate(total=Sum("pixel_score"))["total"] or 0
     wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant)
 
+    from habits.models import PixelRewardConfig
+    pixel_config = PixelRewardConfig.get_config(tenant=tenant)
+
     return render(request, "accounts/general_settings.html", {
         "tenant": tenant,
         "habits_count": habits_count,
         "total_pixels": total_pixels,
         "user_habits": list(user_habits_qs),
         "wallet_data": wallet_data,
+        "pixel_config": pixel_config,
     })
 
 
@@ -1024,3 +1028,60 @@ def toggle_view_mode_view(request):
             return redirect("dashboard")
         return redirect(next_url)
     return redirect("dashboard")
+
+
+@super_admin_required
+def admin_pixel_configuration_view(request):
+    """
+    Administrative configuration panel for defining how many pixels are allotted
+    to user-defined, predefined purposeful, and expert prescribed habits.
+    Admins can adjust reward amounts dynamically and optionally sync all active habits.
+    """
+    from habits.models import Habit, PixelRewardConfig
+    from habits.forms import PixelRewardConfigForm
+
+    tenant = getattr(request, "tenant", None)
+    config = PixelRewardConfig.get_config(tenant=tenant)
+
+    # Calculate active habit counts for this scope
+    habits_qs = Habit.objects.all()
+    if tenant:
+        habits_qs = habits_qs.filter(Q(tenant=tenant) | Q(is_template=True))
+
+    stats = {
+        "user_defined_count": habits_qs.filter(habit_type=Habit.HabitType.GENERAL, is_active=True).count(),
+        "predefined_count": habits_qs.filter(habit_type=Habit.HabitType.PREDEFINED_PURPOSE, is_active=True).count(),
+        "expert_count": habits_qs.filter(habit_type=Habit.HabitType.EXPERT_PRESCRIBED, is_active=True).count(),
+        "total_active": habits_qs.filter(is_active=True).count(),
+    }
+
+    if request.method == "POST":
+        form = PixelRewardConfigForm(request.POST, instance=config)
+        if form.is_valid():
+            saved_config = form.save(commit=False)
+            saved_config.tenant = tenant
+            saved_config.updated_by = request.user
+            saved_config.save()
+
+            sync_msg = ""
+            if form.cleaned_data.get("auto_sync_active_habits"):
+                counts = saved_config.sync_to_habits(tenant=tenant)
+                sync_msg = f" Synchronized {counts['total']} habits ({counts['user_defined']} User-Defined, {counts['predefined']} Predefined, {counts['expert']} Expert)."
+
+            messages.success(
+                request,
+                f"Pixel reward configuration successfully updated! "
+                f"User-Defined: {saved_config.user_defined_pixels} Px | "
+                f"Predefined: {saved_config.predefined_pixels} Px | "
+                f"Expert: {saved_config.expert_prescribed_pixels} Px."
+                f"{sync_msg}"
+            )
+            return redirect("admin_pixel_configuration")
+    else:
+        form = PixelRewardConfigForm(instance=config)
+
+    return render(request, "accounts/admin_pixel_configuration.html", {
+        "form": form,
+        "config": config,
+        "stats": stats,
+    })

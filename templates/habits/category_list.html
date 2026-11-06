@@ -12,10 +12,13 @@
         <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--primary); font-size: 0.75rem;">Master Data</span>
       </div>
       <p style="color: var(--text-muted); font-size: 0.925rem; margin: 0;">
-        Manage and configure categories used to group habits across your workspace.
+        System-wide categories shared across all users and workspaces. Inspect all associated habits and the users tracking them.
       </p>
     </div>
-    <div style="display: flex; gap: 0.75rem;">
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+      <button type="button" id="btn-toggle-all-habits" class="btn btn-outline btn-sm" onclick="toggleAllCategoryHabits()">
+        <span>↕️ Expand All Habits</span>
+      </button>
       <a href="{% url 'category_create' %}" class="btn btn-primary">+ New Category</a>
     </div>
   </div>
@@ -45,18 +48,23 @@
               <th style="padding: 1rem 1.25rem;">Color</th>
               <th style="padding: 1rem 1.25rem;">Description</th>
               <th style="padding: 1rem 1.25rem; text-align: center;">Linked Habits</th>
+              <th style="padding: 1rem 1.25rem; text-align: center;">Active Users</th>
               <th style="padding: 1rem 1.25rem; text-align: center;">Status</th>
               <th style="padding: 1rem 1.25rem; text-align: right;">Actions</th>
             </tr>
           </thead>
           <tbody>
             {% for cat in categories %}
-              <tr style="border-bottom: 1px solid var(--border); transition: background-color 0.15s ease;">
+              <tr id="cat-row-{{ cat.pk }}" style="border-bottom: 1px solid var(--border); transition: background-color 0.15s ease;">
                 <td style="padding: 1rem 1.25rem;">
                   <div style="display: flex; align-items: center; gap: 0.65rem;">
-                    <span style="font-size: 1.25rem; line-height: 1;">{{ cat.icon|default:"📁" }}</span>
+                    <span style="font-size: 1.35rem; line-height: 1;">{{ cat.icon|default:"📁" }}</span>
                     <div>
-                      <span style="font-weight: 700; color: var(--gray-900); font-size: 1rem;">{{ cat.name }}</span>
+                      <div style="font-weight: 700; color: var(--gray-900); font-size: 1rem;">{{ cat.name }}</div>
+                      <button type="button" class="btn-habits-toggle" onclick="toggleCategoryHabits('{{ cat.pk }}')" style="background: none; border: none; padding: 0; margin-top: 0.2rem; font-size: 0.8rem; color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; font-weight: 600;">
+                        <span id="chevron-{{ cat.pk }}">▶</span>
+                        <span id="label-{{ cat.pk }}">View Habits ({{ cat.total_habits }})</span>
+                      </button>
                     </div>
                   </div>
                 </td>
@@ -70,8 +78,13 @@
                   {{ cat.description|default:"—" }}
                 </td>
                 <td style="padding: 1rem 1.25rem; text-align: center;">
-                  <span class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--gray-900); font-weight: 600;">
+                  <button type="button" onclick="toggleCategoryHabits('{{ cat.pk }}')" class="badge" style="background-color: var(--surface-raised); border: 1px solid var(--border-strong); color: var(--gray-900); font-weight: 700; cursor: pointer; padding: 0.3rem 0.65rem; border-radius: 6px;" title="Click to view habits in this category">
                     {{ cat.total_habits }} habit{{ cat.total_habits|pluralize }}
+                  </button>
+                </td>
+                <td style="padding: 1rem 1.25rem; text-align: center;">
+                  <span class="badge" style="background-color: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); color: #0284c7; font-weight: 700; padding: 0.3rem 0.65rem; border-radius: 6px;">
+                    👥 {{ cat.distinct_users_count }} user{{ cat.distinct_users_count|pluralize }}
                   </span>
                 </td>
                 <td style="padding: 1rem 1.25rem; text-align: center;">
@@ -85,6 +98,124 @@
                   <div style="display: inline-flex; gap: 0.5rem;">
                     <a href="{% url 'category_edit' cat.pk %}" class="btn btn-outline btn-sm">Edit</a>
                     <a href="{% url 'category_delete' cat.pk %}" class="btn btn-outline btn-sm" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.4);">Delete</a>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Expandable Habits Sub-Table -->
+              <tr id="habits-drawer-{{ cat.pk }}" class="category-habits-drawer" style="display: none; background-color: var(--surface-raised); border-bottom: 2px solid var(--border-strong);">
+                <td colspan="7" style="padding: 1.25rem 1.5rem;">
+                  <div style="background-color: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--border);">
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.15rem;">{{ cat.icon|default:"📁" }}</span>
+                        <strong style="color: var(--gray-900); font-size: 0.95rem;">Habits tracked under {{ cat.name }}</strong>
+                        <span class="badge" style="background: var(--surface-raised); color: var(--text-muted); font-size: 0.75rem;">
+                          {{ cat.total_habits }} total • {{ cat.distinct_users_count }} user{{ cat.distinct_users_count|pluralize }}
+                        </span>
+                      </div>
+                      <button type="button" onclick="toggleCategoryHabits('{{ cat.pk }}')" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">
+                        ✕ Close
+                      </button>
+                    </div>
+
+                    {% if cat.prefetched_habits %}
+                      <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                          <thead>
+                            <tr style="color: var(--text-muted); text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; border-bottom: 1px solid var(--border);">
+                              <th style="padding: 0.5rem 0.75rem;">Habit</th>
+                              <th style="padding: 0.5rem 0.75rem;">User / Creator</th>
+                              <th style="padding: 0.5rem 0.75rem;">Workspace</th>
+                              <th style="padding: 0.5rem 0.75rem;">Frequency &amp; Rule</th>
+                              <th style="padding: 0.5rem 0.75rem; text-align: center;">Status</th>
+                              <th style="padding: 0.5rem 0.75rem; text-align: right;">View</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for habit in cat.prefetched_habits %}
+                              <tr style="border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.05));">
+                                <td style="padding: 0.65rem 0.75rem;">
+                                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <strong style="color: var(--text-main);">{{ habit.name }}</strong>
+                                    {% if habit.pixel_score %}
+                                      <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #059669; font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px;">
+                                        ⚡ {{ habit.pixel_score }} Px
+                                      </span>
+                                    {% endif %}
+                                    {% if habit.is_predefined_purpose %}
+                                      <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #0284c7; font-size: 0.68rem; padding: 0.15rem 0.4rem;">Predefined</span>
+                                    {% elif habit.is_expert_prescribed %}
+                                      <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #7c3aed; font-size: 0.68rem; padding: 0.15rem 0.4rem;">Expert</span>
+                                    {% endif %}
+                                  </div>
+                                  {% if habit.description %}
+                                    <div style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.15rem; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                      {{ habit.description }}
+                                    </div>
+                                  {% endif %}
+                                </td>
+                                <td style="padding: 0.65rem 0.75rem;">
+                                  <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <span style="font-size: 0.95rem;">👤</span>
+                                    <div>
+                                      <div style="font-weight: 600; color: var(--gray-900);">
+                                        {{ habit.created_by.get_full_name|default:habit.created_by.username }}
+                                      </div>
+                                      <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                        @{{ habit.created_by.username }}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style="padding: 0.65rem 0.75rem;">
+                                  <span class="badge" style="background: var(--surface-raised); border: 1px solid var(--border); color: var(--text-main); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                                    🏢 {{ habit.tenant.name|default:"Personal Workspace" }}
+                                  </span>
+                                </td>
+                                <td style="padding: 0.65rem 0.75rem;">
+                                  <div style="font-weight: 500; color: var(--text-main);">
+                                    {{ habit.get_frequency_display }}
+                                  </div>
+                                  <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                    {{ habit.rule_strategy_ref.name|default:habit.get_validation_rule_display }}
+                                    {% if habit.requires_numeric and habit.target_value %}
+                                      ({{ habit.target_value }} {{ habit.unit_label }})
+                                    {% elif habit.has_time_window and habit.window_start_time %}
+                                      ({{ habit.get_time_window_display }})
+                                    {% endif %}
+                                  </div>
+                                </td>
+                                <td style="padding: 0.65rem 0.75rem; text-align: center;">
+                                  {% if habit.is_active %}
+                                    <span class="badge badge-success" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">Active</span>
+                                  {% else %}
+                                    <span class="badge badge-danger" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">Paused</span>
+                                  {% endif %}
+                                </td>
+                                <td style="padding: 0.65rem 0.75rem; text-align: right;">
+                                  <div style="display: inline-flex; gap: 0.35rem;">
+                                    <a href="{% url 'habit_stats' habit.pk %}" class="btn btn-outline btn-sm" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" title="View Habit Statistics">
+                                      📊 Stats
+                                    </a>
+                                    <a href="{% url 'habit_calendar' habit.pk %}" class="btn btn-outline btn-sm" style="font-size: 0.72rem; padding: 0.2rem 0.45rem;" title="View Completion Calendar">
+                                      📅 Calendar
+                                    </a>
+                                  </div>
+                                </td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    {% else %}
+                      <div style="text-align: center; padding: 1.5rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+                        <span>📌 No user habits are currently tracking under this category.</span>
+                        <div style="font-size: 0.78rem; margin-top: 0.25rem;">
+                          Users can select "{{ cat.name }}" when creating habits.
+                        </div>
+                      </div>
+                    {% endif %}
                   </div>
                 </td>
               </tr>
@@ -112,4 +243,40 @@
     </div>
   {% endif %}
 </div>
+
+<script>
+  function toggleCategoryHabits(catId) {
+    const drawer = document.getElementById('habits-drawer-' + catId);
+    const chevron = document.getElementById('chevron-' + catId);
+    if (!drawer) return;
+
+    if (drawer.style.display === 'none' || drawer.style.display === '') {
+      drawer.style.display = 'table-row';
+      if (chevron) chevron.textContent = '▼';
+    } else {
+      drawer.style.display = 'none';
+      if (chevron) chevron.textContent = '▶';
+    }
+  }
+
+  let allExpanded = false;
+  function toggleAllCategoryHabits() {
+    const drawers = document.querySelectorAll('.category-habits-drawer');
+    const btn = document.getElementById('btn-toggle-all-habits');
+    allExpanded = !allExpanded;
+
+    drawers.forEach(drawer => {
+      drawer.style.display = allExpanded ? 'table-row' : 'none';
+    });
+
+    const chevrons = document.querySelectorAll('[id^="chevron-"]');
+    chevrons.forEach(chevron => {
+      chevron.textContent = allExpanded ? '▼' : '▶';
+    });
+
+    if (btn) {
+      btn.innerHTML = allExpanded ? '<span>⬆️ Collapse All Habits</span>' : '<span>↕️ Expand All Habits</span>';
+    }
+  }
+</script>
 {% endblock %}

@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Gym & Strength Training",
+    "category": "Fitness",
+    "habit_type": "PREDEFINED_PURPOSE",
+    "description": "Consistent gym, resistance training, and strength workouts. Personalize your weekly commitment (e.g. 3, 4, or 5 days per week). Monitored daily, evaluated weekly against your target, and analyzed monthly.",
+    "frequency": "WEEKLY_TARGET",
+    "target_days_per_week": 3,
+    "validation_rule": "STANDARD",
+    "pixel_score": 10,
+    "purpose_patterns": [
+      "\\bgym\\b",
+      "\\bworkout\\b",
+      "\\bweight(lifting|s)?\\b",
+      "\\bresistance\\s*training\\b",
+      "\\bhit\\s*the\\s*gym\\b",
+      "\\bstrength\\s*training\\b",
+      "\\bbodybuilding\\b",
+      "\\blift(ing)?\\s*weights?\\b",
+      "\\bfitness\\s*center\\b"
+    ]
+  }
+]

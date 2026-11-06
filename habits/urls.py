@@ -7,6 +7,7 @@ urlpatterns = [
     path("pixel-wallet/request/", views.pixel_request_create_view, name="pixel_request_create"),
     path("habits/", views.habit_list_view, name="habit_list"),
     path("habits/create/", views.habit_create_view, name="habit_create"),
+    path("habits/api/check-intent/", views.habit_check_intent_api, name="habit_check_intent_api"),
     path("habits/<int:pk>/edit/", views.habit_update_view, name="habit_edit"),
     path("habits/<int:pk>/adopt/", views.habit_adopt_view, name="habit_adopt"),
     path("habits/<int:pk>/delete/", views.habit_delete_view, name="habit_delete"),
@@ -15,6 +16,10 @@ urlpatterns = [
     path("habits/<int:pk>/undo/", views.habit_undo_complete_view, name="habit_undo_complete"),
     path("habits/<int:pk>/calendar/", views.habit_calendar_view, name="habit_calendar"),
     path("habits/<int:pk>/stats/", views.habit_stats_view, name="habit_stats"),
+
+    # Catalog Templates Import & Export (Download & Upload)
+    path("catalog/export/", views.catalog_export_view, name="catalog_export"),
+    path("catalog/import/", views.catalog_import_view, name="catalog_import"),
 
     # Master Data - Habit Categories (Full CRUD)
     path("categories/", views.category_list_view, name="category_list"),
@@ -27,4 +32,7 @@ urlpatterns = [
     path("rule-strategies/create/", views.rule_strategy_create_view, name="rule_strategy_create"),
     path("rule-strategies/<int:pk>/edit/", views.rule_strategy_update_view, name="rule_strategy_edit"),
     path("rule-strategies/<int:pk>/delete/", views.rule_strategy_delete_view, name="rule_strategy_delete"),
+
+    # Collaborators Hub: Curated Offers & Trending Life Suggestions
+    path("collaborators/", views.collaborators_view, name="collaborators"),
 ]
