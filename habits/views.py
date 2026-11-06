@@ -509,6 +509,9 @@ def habit_list_view(request):
     can_manage_templates = bool(
         request.user.is_authenticated and (request.user.is_super_admin or request.user.is_technical_user)
     )
+    is_admin = bool(
+        request.user.is_authenticated and (request.user.is_super_admin or request.user.is_superuser)
+    )
 
     active_tab = request.GET.get("tab", "user_created")
     if active_tab not in ["user_created", "predefined", "expert"]:
@@ -520,6 +523,7 @@ def habit_list_view(request):
         "expert_habits": expert_habits,
         "adopted_template_ids": adopted_template_ids,
         "can_manage_templates": can_manage_templates,
+        "is_admin": is_admin,
         "scope": scope,
         "all_habits_count": all_habits_count,
         "my_personal_habits_count": my_personal_habits_count,
@@ -1421,10 +1425,11 @@ def catalog_export_view(request):
     """
     Exports all standardized catalog templates (Predefined & Expert Prescribed)
     as a downloadable JSON file for easy instance migration and server updates.
+    Restricted strictly to Administrators.
     """
-    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
-    if not is_admin_or_tech:
-        raise PermissionDenied("Only Administrators and Technical Users can export catalog templates.")
+    is_admin = bool(request.user.is_authenticated and (request.user.is_super_admin or request.user.is_superuser))
+    if not is_admin:
+        raise PermissionDenied("Only Administrators can download catalog templates.")
 
     from .services import export_catalog_templates_to_dict
     import json
@@ -1447,10 +1452,11 @@ def catalog_import_view(request):
     Imports catalog templates from an uploaded JSON file.
     Idempotent: updates existing templates by name or creates new ones.
     Strictly preserves existing user habits and tracking history.
+    Restricted strictly to Administrators.
     """
-    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
-    if not is_admin_or_tech:
-        raise PermissionDenied("Only Administrators and Technical Users can import catalog templates.")
+    is_admin = bool(request.user.is_authenticated and (request.user.is_super_admin or request.user.is_superuser))
+    if not is_admin:
+        raise PermissionDenied("Only Administrators can upload catalog templates.")
 
     upload_file = request.FILES.get("catalog_file")
     if not upload_file:

@@ -23,6 +23,8 @@
         <a href="{% url 'habit_create' %}?type=EXPERT_PRESCRIBED&template=1" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
           <span>🩺</span> Publish Expert Habit
         </a>
+      {% endif %}
+      {% if is_admin %}
         <a href="{% url 'catalog_export' %}" class="btn btn-outline btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;" title="Download all catalog templates as JSON for backup or server migration">
           <span>📥</span> Download Catalog (JSON)
         </a>
@@ -560,7 +562,7 @@
   {% endif %}
 </section>
 
-{% if can_manage_templates %}
+{% if is_admin %}
 <!-- Dynamic Catalog Templates Upload & Import Modal -->
 <div id="catalog-import-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); z-index: 99999; align-items: center; justify-content: center; padding: 1rem;">
   <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); max-width: 520px; width: 100%; padding: 1.75rem; box-shadow: var(--shadow-xl); position: relative;">

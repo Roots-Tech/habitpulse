@@ -183,6 +183,24 @@
         {% endif %}
       </div>
 
+      <!-- Weekly Target Container (shown if frequency == WEEKLY_TARGET) -->
+      <div id="weekly-target-container" class="form-group" style="display: none; background: rgba(16, 185, 129, 0.08); padding: 1.1rem; border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.3); margin-top: 1rem;">
+        <label class="form-label" for="{{ form.target_days_per_week.id_for_label }}" style="font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem; font-size: 0.95rem;">
+          <span>🎯 Target Days per Week</span>
+          <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 0.75rem; padding: 0.15rem 0.5rem;">Flexible Frequency</span>
+        </label>
+        {{ form.target_days_per_week }}
+        {% if form.target_days_per_week.errors %}
+          <div class="form-error" style="margin-top: 0.35rem;">{{ form.target_days_per_week.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
+          Select how many days in each calendar week (Monday to Sunday) you aim to complete this habit. You can log attendance on <strong>any day</strong> of the week.
+          <span style="display: block; margin-top: 0.25rem; color: #10b981; font-weight: 600;">
+            💡 Weekly Goal: Completing at least this target marks the week Accomplished; fewer is marked Incomplete/Failed. Monthly reports track your consistency against 4 weeks.
+          </span>
+        </div>
+      </div>
+
       <!-- Completion Validation Rule Section -->
       <div style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
         <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.4rem;">

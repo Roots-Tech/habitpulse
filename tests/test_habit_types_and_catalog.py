@@ -527,6 +527,18 @@ class HabitTypesAndCatalogTestCase(TestCase):
         # Ensure predefined templates exist
         from habits.models import seed_default_catalog_habits
         seed_default_catalog_habits(creator=self.super_admin)
+        Habit.objects.get_or_create(
+            name="Consistent Morning Wake-Up",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
+        Habit.objects.get_or_create(
+            name="Daily Deep Hydration",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
+        Habit.objects.get_or_create(
+            name="Deep Work Sprint (45 Mins)",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
 
         # 1. Attempt to create "Wake up at 5:00 AM" -> Restricted by "Consistent Morning Wake-Up"
         resp_wake = self.client_regular.post(reverse("habit_create"), {
@@ -591,6 +603,10 @@ class HabitTypesAndCatalogTestCase(TestCase):
         from habits.models import seed_default_catalog_habits
         from django.core.exceptions import ValidationError
         seed_default_catalog_habits(creator=self.super_admin)
+        Habit.objects.get_or_create(
+            name="Consistent Morning Wake-Up",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
 
         habit = Habit(
             name="Waking up early",
@@ -614,6 +630,14 @@ class HabitTypesAndCatalogTestCase(TestCase):
         """
         from habits.models import seed_default_catalog_habits
         seed_default_catalog_habits(creator=self.super_admin)
+        Habit.objects.get_or_create(
+            name="Consistent Morning Wake-Up",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
+        Habit.objects.get_or_create(
+            name="Daily Deep Hydration",
+            defaults={"is_template": True, "habit_type": Habit.HabitType.PREDEFINED_PURPOSE, "created_by": self.super_admin}
+        )
 
         # 1. Short input (< 3 chars)
         res_short = self.client_regular.get(reverse("habit_check_intent_api"), {"name": "hi"})
@@ -787,4 +811,53 @@ class HabitTypesAndCatalogTestCase(TestCase):
             self.assertEqual(res.status_code, 200)
             self.assertTrue(res.json().get("matches"), f"Expected '{phrasing}' to match Gym template")
             self.assertEqual(res.json().get("matched_name"), "Gym & Strength Training")
+
+    def test_habit_form_weekly_target_days_customization_and_admin_only_catalog_buttons(self):
+        """
+        Verifies:
+        1. Users can customize target_days_per_week to any count (1-7 days) in HabitForm.
+        2. Catalog download/upload buttons are visible ONLY to Admins, hidden for regular & technical users.
+        3. Only Gym & Strength Training exists in the default catalog.
+        """
+        from habits.models import seed_default_catalog_habits
+        from habits.forms import HabitForm
+        seed_default_catalog_habits(creator=self.super_admin)
+
+        # 1. Verify default catalog has only Gym & Strength Training
+        templates = Habit.objects.filter(is_template=True)
+        self.assertEqual(templates.count(), 1)
+        self.assertEqual(templates.first().name, "Gym & Strength Training")
+
+        # 2. Form supports customizing target days per week (e.g. 4 days/week)
+        form = HabitForm(data={
+            "name": "Violin Practice Routine",
+            "category": "Fitness",
+            "frequency": Habit.Frequency.WEEKLY_TARGET,
+            "target_days_per_week": 4,
+            "start_date": self.today.isoformat(),
+            "is_active": "on",
+        }, tenant=self.reg_tenant, user=self.regular_user)
+        self.assertTrue(form.is_valid(), form.errors)
+        habit_saved = form.save(commit=False)
+        habit_saved.tenant = self.reg_tenant
+        habit_saved.created_by = self.regular_user
+        habit_saved.save()
+
+        self.assertEqual(habit_saved.target_days_per_week, 4)
+        self.assertEqual(habit_saved.effective_weekly_target, 4)
+        self.assertEqual(habit_saved.monthly_target_days, 16)
+        self.assertEqual(habit_saved.get_frequency_display_custom(), "4 Days / Week")
+
+        # 3. Verify habit_list HTML: Catalog download/upload visible to Admin, hidden for regular & tech user
+        res_admin = self.client_admin.get(reverse("habit_list"))
+        self.assertContains(res_admin, "Download Catalog (JSON)")
+        self.assertContains(res_admin, "Upload Catalog (JSON)")
+
+        res_regular = self.client_regular.get(reverse("habit_list"))
+        self.assertNotContains(res_regular, "Download Catalog (JSON)")
+        self.assertNotContains(res_regular, "Upload Catalog (JSON)")
+
+        res_tech = self.client_tech.get(reverse("habit_list"))
+        self.assertNotContains(res_tech, "Download Catalog (JSON)")
+        self.assertNotContains(res_tech, "Upload Catalog (JSON)")
 

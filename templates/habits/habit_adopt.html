@@ -163,7 +163,7 @@
       </div>
 
       <!-- Weekly Target Selection (Conditional for WEEKLY_TARGET e.g. Gym) -->
-      <div id="weekly-target-block" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem; display: none;">
+      <div id="weekly-target-block" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem; {% if template_habit.is_weekly_target or form.frequency.value == 'WEEKLY_TARGET' %}display: block;{% else %}display: none;{% endif %}">
         <label class="form-label" for="{{ form.target_days_per_week.id_for_label }}" style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;">
           <span>🎯 {{ form.target_days_per_week.label }}</span>
         </label>

@@ -128,7 +128,7 @@ class Habit(models.Model):
     class Frequency(models.TextChoices):
         DAILY = "DAILY", "Every Day"
         WEEKDAYS = "WEEKDAYS", "Selected Days of the Week"
-        WEEKLY_TARGET = "WEEKLY_TARGET", "Days per Week (e.g., 3-5 days/week)"
+        WEEKLY_TARGET = "WEEKLY_TARGET", "Days per Week (Flexible Weekly Target)"
 
     class ValidationRule(models.TextChoices):
         STANDARD = "STANDARD", "Honor System (One-Click)"
@@ -150,6 +150,16 @@ class Habit(models.Model):
         (4, "Friday"),
         (5, "Saturday"),
         (6, "Sunday"),
+    ]
+
+    WEEKLY_TARGET_CHOICES = [
+        (1, "1 Day / Week"),
+        (2, "2 Days / Week"),
+        (3, "3 Days / Week (Recommended for Gym Beginners / Full Body)"),
+        (4, "4 Days / Week (Upper / Lower Split)"),
+        (5, "5 Days / Week (Push / Pull / Legs Split)"),
+        (6, "6 Days / Week (High Frequency / Advanced)"),
+        (7, "7 Days / Week (Daily Target)"),
     ]
 
     tenant = models.ForeignKey(

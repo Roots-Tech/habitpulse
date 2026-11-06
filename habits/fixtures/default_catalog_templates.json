@@ -16,81 +16,8 @@
       "\\bhit\\s*the\\s*gym\\b",
       "\\bstrength\\s*training\\b",
       "\\bbodybuilding\\b",
-      "\\blift(ing)?\\s*weights?\\b"
-    ]
-  },
-  {
-    "name": "Daily Deep Hydration",
-    "category": "Health",
-    "habit_type": "PREDEFINED_PURPOSE",
-    "description": "Maintain optimal physical hydration and cognitive performance by consuming at least 2 liters of pure water daily.",
-    "frequency": "DAILY",
-    "validation_rule": "NUMERIC_TARGET",
-    "target_value": 2.0,
-    "unit_label": "Liters",
-    "pixel_score": 10,
-    "purpose_patterns": [
-      "\\b(drink(ing)?|have|having|sip(ping)?|chug(ging)?|consume|intake|gulp)\\s*(some\\s*|\\d+\\s*(l|liters?|ml|glasses?|bottles?|cups?)\\s*(of\\s*)?)?water\\b",
-      "\\b(water|hydration)\\s*(intake|consumption|target|goal|habit|reminder|tracker)\\b",
-      "\\b(daily|more|enough)\\s*water\\b",
-      "\\bhydrat(e|ion|ing)\\b",
-      "\\b\\d+\\s*l(iters?)?\\s*(of\\s*)?water\\b",
-      "\\b\\d+\\s*glasses\\s*(of\\s*)?water\\b",
-      "\\bhave\\s*water\\b",
-      "\\bdrink\\s*water\\b"
-    ]
-  },
-  {
-    "name": "Consistent Morning Wake-Up",
-    "category": "Health",
-    "habit_type": "PREDEFINED_PURPOSE",
-    "description": "Establish a consistent circadian wake-up routine. Personalize your target wake-up window each morning to optimize energy, focus, and sleep architecture.",
-    "frequency": "DAILY",
-    "validation_rule": "TIME_WINDOW",
-    "window_start_time": "05:00:00",
-    "window_end_time": "06:30:00",
-    "pixel_score": 10,
-    "purpose_patterns": [
-      "\\bwak(e|ing)\\s*(up)?\\b",
-      "\\bearly\\s*riser\\b",
-      "\\brise\\s*(and|&)\\s*shine\\b",
-      "\\bmorning\\s*alarm\\b",
-      "\\bget\\s*up\\s*(early|\\d+)\\b",
-      "\\bup\\s*(at|by)\\s*\\d+\\b",
-      "\\bwak(e|ing)\\s*(at|by)\\s*\\d+\\b"
-    ]
-  },
-  {
-    "name": "Deep Work Sprint (45 Mins)",
-    "category": "Productivity",
-    "habit_type": "PREDEFINED_PURPOSE",
-    "description": "Dedicated 45-minute distraction-free focus block on highest priority project or technical coding problem.",
-    "frequency": "DAILY",
-    "validation_rule": "NUMERIC_TARGET",
-    "target_value": 45.0,
-    "unit_label": "Mins",
-    "pixel_score": 10,
-    "purpose_patterns": [
-      "\\bdeep\\s*work\\b",
-      "\\bdeep\\s*focus\\b",
-      "\\bfocus\\s*(block|sprint|session|time)\\b",
-      "\\bdistraction\\s*free\\b",
-      "\\bpomodoro\\b"
-    ]
-  },
-  {
-    "name": "Circadian Early Riser Protocol",
-    "category": "Health",
-    "habit_type": "EXPERT_PRESCRIBED",
-    "description": "Circadian biology protocol: Awaken between 5:00 AM - 6:15 AM to anchor cortisol awakening response (CAR).",
-    "frequency": "DAILY",
-    "validation_rule": "TIME_WINDOW",
-    "window_start_time": "05:00:00",
-    "window_end_time": "06:15:00",
-    "pixel_score": 15,
-    "purpose_patterns": [
-      "\\bcircadian\\s*(wake|riser|rhythm)\\b",
-      "\\bearly\\s*riser\\s*protocol\\b"
+      "\\blift(ing)?\\s*weights?\\b",
+      "\\bfitness\\s*center\\b"
     ]
   }
 ]
