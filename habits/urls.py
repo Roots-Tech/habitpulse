@@ -17,6 +17,10 @@ urlpatterns = [
     path("habits/<int:pk>/calendar/", views.habit_calendar_view, name="habit_calendar"),
     path("habits/<int:pk>/stats/", views.habit_stats_view, name="habit_stats"),
 
+    # Catalog Templates Import & Export (Download & Upload)
+    path("catalog/export/", views.catalog_export_view, name="catalog_export"),
+    path("catalog/import/", views.catalog_import_view, name="catalog_import"),
+
     # Master Data - Habit Categories (Full CRUD)
     path("categories/", views.category_list_view, name="category_list"),
     path("categories/create/", views.category_create_view, name="category_create"),

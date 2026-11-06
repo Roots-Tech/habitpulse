@@ -10,6 +10,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from accounts.decorators import (
@@ -799,6 +800,7 @@ def habit_adopt_view(request, pk):
             unit_label = cleaned.get("unit_label") or template_habit.unit_label
             frequency = cleaned.get("frequency") or template_habit.frequency
             selected_weekdays = cleaned.get("selected_weekdays") or template_habit.selected_weekdays
+            target_days_per_week = cleaned.get("target_days_per_week") or template_habit.target_days_per_week
             start_date = cleaned.get("start_date") or timezone.localdate()
         else:
             # Fallback for quick one-click adoption using template defaults
@@ -808,6 +810,7 @@ def habit_adopt_view(request, pk):
             unit_label = template_habit.unit_label
             frequency = template_habit.frequency
             selected_weekdays = template_habit.selected_weekdays
+            target_days_per_week = template_habit.target_days_per_week
             start_date = timezone.localdate()
 
         try:
@@ -830,6 +833,7 @@ def habit_adopt_view(request, pk):
                     unit_label=unit_label,
                     pixel_score=template_habit.pixel_score,
                     frequency=frequency,
+                    target_days_per_week=target_days_per_week,
                     selected_weekdays=selected_weekdays,
                     start_date=start_date,
                     is_active=True,
@@ -1073,8 +1077,11 @@ def habit_calendar_view(request, pk):
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
+    from .services import calculate_weekly_and_monthly_habit_progress
+
     calendar_data = generate_monthly_calendar_data(habit, year, month, today)
     stats = get_habit_statistics(habit, today)
+    weekly_monthly_progress = calculate_weekly_and_monthly_habit_progress(habit, year, month, today)
     recent_completions = HabitCompletion.objects.filter(
         habit=habit,
     ).order_by("-completion_date")[:15]
@@ -1083,6 +1090,7 @@ def habit_calendar_view(request, pk):
         "habit": habit,
         "cal": calendar_data,
         "stats": stats,
+        "weekly_monthly_progress": weekly_monthly_progress,
         "today": today,
         "recent_completions": recent_completions,
     })
@@ -1102,12 +1110,16 @@ def habit_stats_view(request, pk):
         habit = get_object_or_404(Habit, pk=pk)
     else:
         habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    from .services import calculate_weekly_and_monthly_habit_progress
+
     today = timezone.localdate()
     stats = get_habit_statistics(habit, today)
+    weekly_monthly_progress = calculate_weekly_and_monthly_habit_progress(habit, today.year, today.month, today)
 
     return render(request, "habits/habit_stats.html", {
         "habit": habit,
         "stats": stats,
+        "weekly_monthly_progress": weekly_monthly_progress,
         "today": today,
     })
 
@@ -1401,3 +1413,70 @@ def habit_check_intent_api(request):
         })
 
     return JsonResponse({"matches": False})
+
+
+
+@login_required
+def catalog_export_view(request):
+    """
+    Exports all standardized catalog templates (Predefined & Expert Prescribed)
+    as a downloadable JSON file for easy instance migration and server updates.
+    """
+    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
+    if not is_admin_or_tech:
+        raise PermissionDenied("Only Administrators and Technical Users can export catalog templates.")
+
+    from .services import export_catalog_templates_to_dict
+    import json
+    from django.http import HttpResponse
+
+    export_data = export_catalog_templates_to_dict()
+    timestamp_str = timezone.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"habitpulse_catalog_templates_{timestamp_str}.json"
+
+    json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
+    response = HttpResponse(json_str, content_type="application/json")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@require_POST
+def catalog_import_view(request):
+    """
+    Imports catalog templates from an uploaded JSON file.
+    Idempotent: updates existing templates by name or creates new ones.
+    Strictly preserves existing user habits and tracking history.
+    """
+    is_admin_or_tech = bool(request.user.is_super_admin or request.user.is_technical_user)
+    if not is_admin_or_tech:
+        raise PermissionDenied("Only Administrators and Technical Users can import catalog templates.")
+
+    upload_file = request.FILES.get("catalog_file")
+    if not upload_file:
+        messages.error(request, "Please select a JSON template file to upload.")
+        return redirect("habit_list")
+
+    if not upload_file.name.endswith(".json"):
+        messages.error(request, "Invalid file format. Please upload a valid .json template file.")
+        return redirect("habit_list")
+
+    import json
+    from .services import import_catalog_templates_from_dict
+
+    try:
+        content = upload_file.read().decode("utf-8")
+        parsed_data = json.loads(content)
+        result = import_catalog_templates_from_dict(parsed_data, creator=request.user)
+
+        messages.success(
+            request,
+            f"Successfully processed catalog templates: {result['created']} created, {result['updated']} updated."
+        )
+    except json.JSONDecodeError as e:
+        messages.error(request, f"Failed to parse JSON file: {e}")
+    except Exception as e:
+        messages.error(request, f"Error importing catalog templates: {e}")
+
+    return redirect(f"{reverse('habit_list')}?tab=predefined")
+
