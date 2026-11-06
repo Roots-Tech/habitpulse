@@ -576,3 +576,117 @@ class PixelRewardConfigForm(forms.ModelForm):
         if val is None or val < 1:
             raise forms.ValidationError("Expert prescribed habit pixels must be at least 1 Px.")
         return val
+
+
+class AdoptHabitPersonalizationForm(forms.Form):
+    """
+    Form to allow individual users to customize operational parameters
+    (e.g., wake-up time window, numeric goal, frequency, weekdays)
+    when adopting a standardized predefined or expert-prescribed habit template.
+    """
+    window_start_time = forms.TimeField(
+        required=False,
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time", "id": "id_adopt_window_start_time"}),
+        label="Start Time",
+        help_text="Earliest time you complete this habit (e.g., wake-up window start).",
+    )
+    window_end_time = forms.TimeField(
+        required=False,
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time", "id": "id_adopt_window_end_time"}),
+        label="End Time",
+        help_text="Latest time you complete this habit (e.g., wake-up target deadline).",
+    )
+    target_value = forms.DecimalField(
+        required=False,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "id": "id_adopt_target_value"}),
+        label="Target Metric Goal",
+        help_text="Quantitative goal to achieve each day (e.g., 2.0 liters, 45 mins).",
+    )
+    unit_label = forms.CharField(
+        required=False,
+        max_length=30,
+        widget=forms.TextInput(attrs={"class": "form-control", "id": "id_adopt_unit_label"}),
+        label="Metric Unit",
+        help_text="Unit of measurement (e.g., Liters, Mins, Pages, Steps).",
+    )
+    frequency = forms.ChoiceField(
+        choices=Habit.Frequency.choices,
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_adopt_frequency"}),
+        label="Tracking Frequency",
+    )
+    selected_weekdays = forms.MultipleChoiceField(
+        choices=Habit.WEEKDAY_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        label="Active Days (if Weekdays)",
+    )
+    start_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date", "id": "id_adopt_start_date"}),
+        label="Start Date",
+    )
+
+    def __init__(self, *args, template_habit=None, **kwargs):
+        self.template_habit = template_habit
+        super().__init__(*args, **kwargs)
+
+        if template_habit:
+            if not self.is_bound:
+                self.fields["frequency"].initial = template_habit.frequency
+                self.fields["window_start_time"].initial = template_habit.window_start_time
+                self.fields["window_end_time"].initial = template_habit.window_end_time
+                self.fields["target_value"].initial = template_habit.target_value
+                self.fields["unit_label"].initial = template_habit.unit_label
+                self.fields["start_date"].initial = timezone.localdate()
+                if template_habit.selected_weekdays:
+                    self.fields["selected_weekdays"].initial = [str(d) for d in template_habit.selected_weekdays]
+
+            if template_habit.validation_rule in [Habit.ValidationRule.TIME_WINDOW, Habit.ValidationRule.TIME_AND_EVIDENCE]:
+                self.fields["window_start_time"].required = True
+                self.fields["window_end_time"].required = True
+
+            if template_habit.validation_rule == Habit.ValidationRule.NUMERIC_TARGET:
+                self.fields["target_value"].required = True
+                self.fields["unit_label"].required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        rule = getattr(self.template_habit, "validation_rule", None)
+
+        if rule in [Habit.ValidationRule.TIME_WINDOW, Habit.ValidationRule.TIME_AND_EVIDENCE]:
+            start = cleaned_data.get("window_start_time")
+            end = cleaned_data.get("window_end_time")
+            if not start:
+                self.add_error("window_start_time", "Window start time is required.")
+            if not end:
+                self.add_error("window_end_time", "Window end time is required.")
+            if start and end and start >= end:
+                self.add_error("window_end_time", "Window end time must be later than start time.")
+
+        if rule == Habit.ValidationRule.NUMERIC_TARGET:
+            target = cleaned_data.get("target_value")
+            unit = cleaned_data.get("unit_label")
+            if target is None or target <= 0:
+                self.add_error("target_value", "Target value must be greater than zero.")
+            if not unit or not unit.strip():
+                self.add_error("unit_label", "Unit label is required (e.g. liters, mins).")
+
+        freq = cleaned_data.get("frequency")
+        if freq == Habit.Frequency.WEEKDAYS:
+            days = cleaned_data.get("selected_weekdays")
+            if not days:
+                self.add_error("selected_weekdays", "Please select at least one day for weekly frequency.")
+            else:
+                try:
+                    cleaned_data["selected_weekdays"] = [int(d) for d in days]
+                except (ValueError, TypeError):
+                    self.add_error("selected_weekdays", "Invalid weekday selection.")
+        else:
+            cleaned_data["selected_weekdays"] = []
+
+        if not cleaned_data.get("start_date"):
+            cleaned_data["start_date"] = timezone.localdate()
+
+        return cleaned_data

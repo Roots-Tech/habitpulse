@@ -19,6 +19,7 @@ from accounts.decorators import (
 )
 
 from .forms import (
+    AdoptHabitPersonalizationForm,
     HabitCategoryForm,
     HabitCompletionSubmissionForm,
     HabitForm,
@@ -663,6 +664,12 @@ def habit_create_view(request):
 
     available_rule_strategies = RuleStrategy.objects.filter(is_active=True)
 
+    catalog_templates = list(
+        Habit.objects.filter(is_template=True, is_active=True).values(
+            "id", "name", "category", "habit_type", "validation_rule", "description"
+        )
+    )
+
     action_title = "Create a New Habit"
     submit_label = "Create Habit"
     if is_admin_or_tech and is_template_req:
@@ -679,6 +686,7 @@ def habit_create_view(request):
         "action_title": action_title,
         "submit_label": submit_label,
         "is_admin_or_tech": is_admin_or_tech,
+        "catalog_templates_json": json.dumps(catalog_templates),
     })
 
 
@@ -740,11 +748,12 @@ def habit_update_view(request, pk):
 
 
 @login_required
-@require_POST
 def habit_adopt_view(request, pk):
     """
     Adopts a Predefined Purposeful or Expert Prescribed habit template from the catalog
     and adds it to the user's active habit list within their workspace.
+    Supports GET (view/configure personalized schedule & parameters)
+    and POST (commit personalized parameters or one-click adoption).
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
@@ -763,37 +772,80 @@ def habit_adopt_view(request, pk):
         messages.info(request, f'You are already tracking "{existing.name}" in your habit list.')
         return redirect("habit_list")
 
-    # Clone template habit into user's workspace
-    try:
-        with transaction.atomic():
-            adopted_habit = Habit.objects.create(
-                tenant=tenant,
-                created_by=request.user,
-                name=template_habit.name,
-                description=template_habit.description,
-                habit_type=template_habit.habit_type,
-                is_template=False,
-                template_source=template_habit,
-                category=template_habit.category,
-                category_ref=template_habit.category_ref,
-                rule_strategy_ref=template_habit.rule_strategy_ref,
-                validation_rule=template_habit.validation_rule,
-                window_start_time=template_habit.window_start_time,
-                window_end_time=template_habit.window_end_time,
-                target_value=template_habit.target_value,
-                unit_label=template_habit.unit_label,
-                pixel_score=template_habit.pixel_score,
-                frequency=template_habit.frequency,
-                selected_weekdays=template_habit.selected_weekdays,
-                start_date=timezone.localdate(),
-                is_active=True,
-            )
-        messages.success(request, f'Habit "{adopted_habit.name}" has been added to your habit list!')
-    except IntegrityError:
-        # Concurrent adoption collision caught by unique constraint
-        messages.info(request, f'You are already tracking "{template_habit.name}" in your habit list.')
+    if request.method == "POST":
+        # Check if personalized parameters were submitted via form
+        has_custom_params = any(
+            k in request.POST
+            for k in [
+                "window_start_time",
+                "window_end_time",
+                "target_value",
+                "frequency",
+                "selected_weekdays",
+            ]
+        )
+        if has_custom_params:
+            form = AdoptHabitPersonalizationForm(request.POST, template_habit=template_habit)
+            if not form.is_valid():
+                messages.error(request, "Please correct the errors in the schedule configuration below.")
+                return render(request, "habits/habit_adopt.html", {
+                    "template_habit": template_habit,
+                    "form": form,
+                })
+            cleaned = form.cleaned_data
+            window_start_time = cleaned.get("window_start_time") or template_habit.window_start_time
+            window_end_time = cleaned.get("window_end_time") or template_habit.window_end_time
+            target_value = cleaned.get("target_value") if cleaned.get("target_value") is not None else template_habit.target_value
+            unit_label = cleaned.get("unit_label") or template_habit.unit_label
+            frequency = cleaned.get("frequency") or template_habit.frequency
+            selected_weekdays = cleaned.get("selected_weekdays") or template_habit.selected_weekdays
+            start_date = cleaned.get("start_date") or timezone.localdate()
+        else:
+            # Fallback for quick one-click adoption using template defaults
+            window_start_time = template_habit.window_start_time
+            window_end_time = template_habit.window_end_time
+            target_value = template_habit.target_value
+            unit_label = template_habit.unit_label
+            frequency = template_habit.frequency
+            selected_weekdays = template_habit.selected_weekdays
+            start_date = timezone.localdate()
 
-    return redirect("habit_list")
+        try:
+            with transaction.atomic():
+                adopted_habit = Habit.objects.create(
+                    tenant=tenant,
+                    created_by=request.user,
+                    name=template_habit.name,
+                    description=template_habit.description,
+                    habit_type=template_habit.habit_type,
+                    is_template=False,
+                    template_source=template_habit,
+                    category=template_habit.category,
+                    category_ref=template_habit.category_ref,
+                    rule_strategy_ref=template_habit.rule_strategy_ref,
+                    validation_rule=template_habit.validation_rule,
+                    window_start_time=window_start_time,
+                    window_end_time=window_end_time,
+                    target_value=target_value,
+                    unit_label=unit_label,
+                    pixel_score=template_habit.pixel_score,
+                    frequency=frequency,
+                    selected_weekdays=selected_weekdays,
+                    start_date=start_date,
+                    is_active=True,
+                )
+            messages.success(request, f'Habit "{adopted_habit.name}" has been personalized and added to your habit list!')
+        except IntegrityError:
+            messages.info(request, f'You are already tracking "{template_habit.name}" in your habit list.')
+
+        return redirect("habit_list")
+
+    # GET request: Render the personalized adoption form
+    form = AdoptHabitPersonalizationForm(template_habit=template_habit)
+    return render(request, "habits/habit_adopt.html", {
+        "template_habit": template_habit,
+        "form": form,
+    })
 
 
 @login_required

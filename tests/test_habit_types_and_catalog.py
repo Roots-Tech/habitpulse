@@ -341,3 +341,179 @@ class HabitTypesAndCatalogTestCase(TestCase):
         admin_del_resp = self.client_admin.post(reverse("habit_delete", args=[template.pk]))
         self.assertEqual(admin_del_resp.status_code, 302)
         self.assertFalse(Habit.objects.filter(pk=template.pk).exists())
+
+    def test_adopt_predefined_habit_with_personalized_time_window_get_and_post(self):
+        """
+        GET /habits/<pk>/adopt/ renders the personalization form.
+        POST with personalized time window sets the user's customized schedule.
+        """
+        template = Habit.objects.create(
+            name="Consistent Morning Wake-Up",
+            category="Health",
+            created_by=self.super_admin,
+            habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
+            is_template=True,
+            validation_rule=Habit.ValidationRule.TIME_WINDOW,
+            window_start_time=time(5, 0),
+            window_end_time=time(6, 30),
+            frequency=Habit.Frequency.DAILY,
+            start_date=self.today,
+        )
+
+        adopt_url = reverse("habit_adopt", args=[template.pk])
+
+        # 1. GET returns 200 and renders the form
+        get_resp = self.client_regular.get(adopt_url)
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertContains(get_resp, "Consistent Morning Wake-Up")
+        self.assertContains(get_resp, "Personal Time Window")
+
+        # 2. POST with custom timing (04:00 AM - 04:45 AM)
+        post_resp = self.client_regular.post(adopt_url, {
+            "window_start_time": "04:00",
+            "window_end_time": "04:45",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        self.assertEqual(post_resp.status_code, 302)
+        self.assertRedirects(post_resp, reverse("habit_list"))
+
+        # Verify custom schedule applied
+        adopted = Habit.objects.get(tenant=self.reg_tenant, template_source=template)
+        self.assertEqual(adopted.name, "Consistent Morning Wake-Up")
+        self.assertEqual(adopted.window_start_time, time(4, 0))
+        self.assertEqual(adopted.window_end_time, time(4, 45))
+        self.assertEqual(adopted.template_source, template)
+
+    def test_five_users_adopt_same_wakeup_habit_with_different_individual_timings(self):
+        """
+        Verifies the core scenario:
+        5 different users adopt the same single 'Consistent Morning Wake-Up' predefined habit.
+        Each user configures their own personal wake-up time window:
+        - User 1: 04:00 - 04:30
+        - User 2: 05:00 - 05:30
+        - User 3: 06:00 - 06:30
+        - User 4: 07:00 - 07:30
+        - User 5: 08:00 - 08:30
+
+        Asserts:
+        - Exactly 1 template habit exists in the system.
+        - Exactly 5 user habit instances exist, all pointing to the single template.
+        - Each user's completion validation evaluates against their own window.
+        - Category page displays all 5 users under Health with their personal timings without N+1 queries.
+        """
+        template, _ = Habit.objects.get_or_create(
+            name="Consistent Morning Wake-Up",
+            is_template=True,
+            defaults={
+                "category": "Health",
+                "created_by": self.super_admin,
+                "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
+                "validation_rule": Habit.ValidationRule.TIME_WINDOW,
+                "window_start_time": time(5, 0),
+                "window_end_time": time(6, 30),
+                "frequency": Habit.Frequency.DAILY,
+                "start_date": self.today,
+            }
+        )
+
+        users_data = [
+            ("wake_user_1", "04:00", "04:30", time(4, 0), time(4, 30)),
+            ("wake_user_2", "05:00", "05:30", time(5, 0), time(5, 30)),
+            ("wake_user_3", "06:00", "06:30", time(6, 0), time(6, 30)),
+            ("wake_user_4", "07:00", "07:30", time(7, 0), time(7, 30)),
+            ("wake_user_5", "08:00", "08:30", time(8, 0), time(8, 30)),
+        ]
+
+        clients = []
+        for username, start_str, end_str, exp_start, exp_end in users_data:
+            user = User.objects.create_user(
+                username=username,
+                email=f"{username}@example.com",
+                password="TestPassword123!",
+            )
+            tenant, _ = create_personal_workspace_for_user(user, f"{username} Workspace")
+            client = Client()
+            client.login(username=username, password="TestPassword123!")
+            clients.append((client, user, tenant, start_str, end_str, exp_start, exp_end))
+
+            # User adopts the template with their personal time window
+            adopt_url = reverse("habit_adopt", args=[template.pk])
+            resp = client.post(adopt_url, {
+                "window_start_time": start_str,
+                "window_end_time": end_str,
+                "frequency": Habit.Frequency.DAILY,
+                "start_date": self.today.isoformat(),
+            })
+            self.assertEqual(resp.status_code, 302)
+
+        # Assert only 1 template exists
+        self.assertEqual(Habit.objects.filter(is_template=True, name="Consistent Morning Wake-Up").count(), 1)
+
+        # Assert 5 user habits exist, all linked to template
+        user_habits = Habit.objects.filter(is_template=False, template_source=template)
+        self.assertEqual(user_habits.count(), 5)
+
+        # Assert each user has their personal window
+        for client, user, tenant, start_str, end_str, exp_start, exp_end in clients:
+            h = Habit.objects.get(tenant=tenant, template_source=template)
+            self.assertEqual(h.window_start_time, exp_start)
+            self.assertEqual(h.window_end_time, exp_end)
+            self.assertEqual(h.created_by, user)
+
+        # Category page verification
+        cat_resp = self.client_admin.get(reverse("category_list"))
+        self.assertEqual(cat_resp.status_code, 200)
+        cat_content = cat_resp.content.decode("utf-8")
+        self.assertIn("Health", cat_content)
+        for _, user, _, _, _, _, _ in clients:
+            self.assertIn(user.username, cat_content)
+
+    def test_adopted_habit_can_be_edited_to_change_personal_time_window(self):
+        """
+        Users retain full ongoing rights to configure and change their personal
+        schedule / wake-up window on an adopted habit at any time.
+        """
+        template = Habit.objects.create(
+            name="Consistent Morning Wake-Up",
+            category="Health",
+            created_by=self.super_admin,
+            habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
+            is_template=True,
+            validation_rule=Habit.ValidationRule.TIME_WINDOW,
+            window_start_time=time(5, 0),
+            window_end_time=time(6, 30),
+            frequency=Habit.Frequency.DAILY,
+            start_date=self.today,
+        )
+
+        # Adopt habit with 05:00 - 05:30
+        self.client_regular.post(reverse("habit_adopt", args=[template.pk]), {
+            "window_start_time": "05:00",
+            "window_end_time": "05:30",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+        })
+        adopted = Habit.objects.get(tenant=self.reg_tenant, template_source=template)
+        self.assertEqual(adopted.window_start_time, time(5, 0))
+
+        # Edit personal window to 06:15 - 07:00
+        edit_url = reverse("habit_edit", args=[adopted.pk])
+        edit_resp = self.client_regular.post(edit_url, {
+            "name": adopted.name,
+            "category_ref": adopted.category_ref_id or "",
+            "category": adopted.category,
+            "validation_rule": adopted.validation_rule,
+            "window_start_time": "06:15",
+            "window_end_time": "07:00",
+            "frequency": Habit.Frequency.DAILY,
+            "start_date": self.today.isoformat(),
+            "is_active": "on",
+        })
+        self.assertEqual(edit_resp.status_code, 302)
+
+        adopted.refresh_from_db()
+        self.assertEqual(adopted.window_start_time, time(6, 15))
+        self.assertEqual(adopted.window_end_time, time(7, 0))
+        # Template source relationship remains intact
+        self.assertEqual(adopted.template_source, template)

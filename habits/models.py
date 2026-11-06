@@ -984,11 +984,12 @@ def seed_default_categories():
 
 def seed_default_master_data_for_tenant(tenant=None):
     """
-    Seeds baseline master data (Categories and Rule Strategies) if not present.
+    Seeds baseline master data (Categories, Rule Strategies, and Catalog Templates) if not present.
     Maintains backward compatibility while ensuring master data is system-wide.
     """
     seed_default_categories()
     seed_default_rule_strategies()
+    seed_default_catalog_habits(tenant=tenant)
 
 
 def seed_default_rule_strategies():
@@ -1041,10 +1042,8 @@ def seed_default_catalog_habits(creator=None, tenant=None):
     1. Predefined Purposeful Habits
     2. Expert Prescribed Habits
     Available for all users to add to their personal habit tracking lists.
+    Idempotent: skips existing entries by name.
     """
-    if Habit.objects.filter(is_template=True).exists():
-        return
-
     from django.contrib.auth import get_user_model
     User = get_user_model()
     if creator is None:
@@ -1054,6 +1053,16 @@ def seed_default_catalog_habits(creator=None, tenant=None):
         return
 
     predefined_templates = [
+        {
+            "name": "Consistent Morning Wake-Up",
+            "category": "Health",
+            "habit_type": Habit.HabitType.PREDEFINED_PURPOSE,
+            "description": "Establish a consistent circadian wake-up routine. Wake up at your personal target time each morning to optimize energy, focus, and sleep architecture.",
+            "frequency": Habit.Frequency.DAILY,
+            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
+            "window_start_time": "05:00:00",
+            "window_end_time": "06:30:00",
+        },
         {
             "name": "Daily Deep Hydration",
             "category": "Health",
@@ -1088,6 +1097,16 @@ def seed_default_catalog_habits(creator=None, tenant=None):
 
     expert_templates = [
         {
+            "name": "Circadian Early Riser Protocol",
+            "category": "Health",
+            "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
+            "description": "Sleep specialist circadian alignment protocol: Wake up consistently at your personal morning goal and complete morning check-in to anchor hormonal rhythms.",
+            "frequency": Habit.Frequency.DAILY,
+            "validation_rule": Habit.ValidationRule.TIME_WINDOW,
+            "window_start_time": "05:00:00",
+            "window_end_time": "07:00:00",
+        },
+        {
             "name": "Cardiologist-Approved Zone 2 Cardio",
             "category": "Fitness",
             "habit_type": Habit.HabitType.EXPERT_PRESCRIBED,
@@ -1121,11 +1140,20 @@ def seed_default_catalog_habits(creator=None, tenant=None):
     ]
 
     for item in predefined_templates + expert_templates:
+        existing = Habit.objects.filter(name=item["name"], is_template=True).first()
+        if existing:
+            continue
+
+        cat_ref = HabitCategory.objects.filter(name__iexact=item["category"]).first()
+        rule_ref = RuleStrategy.objects.filter(engine_type=item["validation_rule"]).first()
+
         Habit.objects.create(
             tenant=tenant,
             created_by=creator,
             name=item["name"],
             category=item["category"],
+            category_ref=cat_ref,
+            rule_strategy_ref=rule_ref,
             habit_type=item["habit_type"],
             description=item["description"],
             frequency=item["frequency"],

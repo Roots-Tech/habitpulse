@@ -238,6 +238,13 @@
                 <span class="badge badge-{{ habit.category|lower|slugify }}">{{ habit.category }}</span>
               {% endif %}
 
+              <!-- Standardized Template Source Badge -->
+              {% if habit.template_source %}
+                <span class="badge" style="background-color: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.35); font-weight: 600; font-size: 0.72rem;" title="Standardized habit adopted from template '{{ habit.template_source.name }}'">
+                  🔗 {{ habit.template_source.name }}
+                </span>
+              {% endif %}
+
               <!-- Parameter Requirement Badges -->
               {% if habit.has_time_window %}
                 <span class="badge" style="background-color: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);">
@@ -394,12 +401,17 @@
                 ✓ Added to My Habits
               </span>
             {% else %}
-              <form method="post" action="{% url 'habit_adopt' habit.pk %}" style="margin: 0;" class="js-idempotent-form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem;">
-                  <span>+</span> Add to My Habits
-                </button>
-              </form>
+              <div style="display: inline-flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+                <a href="{% url 'habit_adopt' habit.pk %}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600;">
+                  <span>⚙️</span> Personalize &amp; Add
+                </a>
+                <form method="post" action="{% url 'habit_adopt' habit.pk %}" style="margin: 0;" class="js-idempotent-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Quick add with default parameters">
+                    1-Click Add
+                  </button>
+                </form>
+              </div>
             {% endif %}
 
             {% if can_manage_templates %}
@@ -507,12 +519,17 @@
                 ✓ Added to My Habits
               </span>
             {% else %}
-              <form method="post" action="{% url 'habit_adopt' habit.pk %}" style="margin: 0;" class="js-idempotent-form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.3rem; background: #8b5cf6; border-color: #7c3aed;">
-                  <span>+</span> Add to My Habits
-                </button>
-              </form>
+              <div style="display: inline-flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+                <a href="{% url 'habit_adopt' habit.pk %}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600; background: #8b5cf6; border-color: #7c3aed;">
+                  <span>⚙️</span> Personalize &amp; Add
+                </a>
+                <form method="post" action="{% url 'habit_adopt' habit.pk %}" style="margin: 0;" class="js-idempotent-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;" title="Quick add with default parameters">
+                    1-Click Add
+                  </button>
+                </form>
+              </div>
             {% endif %}
 
             {% if can_manage_templates %}
