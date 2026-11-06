@@ -7,9 +7,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from accounts.decorators import (
@@ -19,6 +20,7 @@ from accounts.decorators import (
 )
 
 from .forms import (
+    AdoptHabitPersonalizationForm,
     HabitCategoryForm,
     HabitCompletionSubmissionForm,
     HabitForm,
@@ -33,6 +35,7 @@ from .models import (
     PixelWallet,
     RuleStrategy,
     seed_default_catalog_habits,
+    seed_default_categories,
     seed_default_master_data_for_tenant,
     seed_default_rule_strategies,
 )
@@ -115,7 +118,7 @@ def pixel_wallet_view(request):
     for full_name, short_name, day_idx in weekday_labels:
         day_habits = [
             h for h in active_habits
-            if (h.frequency == Habit.Frequency.DAILY or 
+            if (h.frequency == Habit.Frequency.DAILY or
                 (h.frequency == Habit.Frequency.WEEKDAYS and day_idx in (h.selected_weekdays or [])))
         ]
         day_pixels = sum(h.pixel_score for h in day_habits)
@@ -506,6 +509,9 @@ def habit_list_view(request):
     can_manage_templates = bool(
         request.user.is_authenticated and (request.user.is_super_admin or request.user.is_technical_user)
     )
+    is_admin = bool(
+        request.user.is_authenticated and (request.user.is_super_admin or request.user.is_superuser)
+    )
 
     active_tab = request.GET.get("tab", "user_created")
     if active_tab not in ["user_created", "predefined", "expert"]:
@@ -517,6 +523,7 @@ def habit_list_view(request):
         "expert_habits": expert_habits,
         "adopted_template_ids": adopted_template_ids,
         "can_manage_templates": can_manage_templates,
+        "is_admin": is_admin,
         "scope": scope,
         "all_habits_count": all_habits_count,
         "my_personal_habits_count": my_personal_habits_count,
@@ -647,7 +654,13 @@ def habit_create_view(request):
             else:
                 messages.error(request, "Please fix the errors in the habit form.")
     else:
+        initial = {}
+        if request.GET.get('name'):
+            initial['name'] = request.GET.get('name')
+        if request.GET.get('description'):
+            initial['description'] = request.GET.get('description')
         form = HabitForm(
+            initial=initial,
             tenant=tenant,
             user=request.user,
             habit_type_initial=requested_type,
@@ -655,6 +668,12 @@ def habit_create_view(request):
         )
 
     available_rule_strategies = RuleStrategy.objects.filter(is_active=True)
+
+    catalog_templates = list(
+        Habit.objects.filter(is_template=True, is_active=True).values(
+            "id", "name", "category", "habit_type", "validation_rule", "description"
+        )
+    )
 
     action_title = "Create a New Habit"
     submit_label = "Create Habit"
@@ -672,6 +691,7 @@ def habit_create_view(request):
         "action_title": action_title,
         "submit_label": submit_label,
         "is_admin_or_tech": is_admin_or_tech,
+        "catalog_templates_json": json.dumps(catalog_templates),
     })
 
 
@@ -733,11 +753,12 @@ def habit_update_view(request, pk):
 
 
 @login_required
-@require_POST
 def habit_adopt_view(request, pk):
     """
     Adopts a Predefined Purposeful or Expert Prescribed habit template from the catalog
     and adds it to the user's active habit list within their workspace.
+    Supports GET (view/configure personalized schedule & parameters)
+    and POST (commit personalized parameters or one-click adoption).
     """
     tenant = getattr(request, "tenant", None)
     if not tenant:
@@ -756,37 +777,92 @@ def habit_adopt_view(request, pk):
         messages.info(request, f'You are already tracking "{existing.name}" in your habit list.')
         return redirect("habit_list")
 
-    # Clone template habit into user's workspace
-    try:
-        with transaction.atomic():
-            adopted_habit = Habit.objects.create(
-                tenant=tenant,
-                created_by=request.user,
-                name=template_habit.name,
-                description=template_habit.description,
-                habit_type=template_habit.habit_type,
-                is_template=False,
-                template_source=template_habit,
-                category=template_habit.category,
-                category_ref=template_habit.category_ref,
-                rule_strategy_ref=template_habit.rule_strategy_ref,
-                validation_rule=template_habit.validation_rule,
-                window_start_time=template_habit.window_start_time,
-                window_end_time=template_habit.window_end_time,
-                target_value=template_habit.target_value,
-                unit_label=template_habit.unit_label,
-                pixel_score=template_habit.pixel_score,
-                frequency=template_habit.frequency,
-                selected_weekdays=template_habit.selected_weekdays,
-                start_date=timezone.localdate(),
-                is_active=True,
-            )
-        messages.success(request, f'Habit "{adopted_habit.name}" has been added to your habit list!')
-    except IntegrityError:
-        # Concurrent adoption collision caught by unique constraint
-        messages.info(request, f'You are already tracking "{template_habit.name}" in your habit list.')
+    if request.method == "POST":
+        # Check if personalized parameters were submitted via form
+        has_custom_params = any(
+            k in request.POST
+            for k in [
+                "window_start_time",
+                "window_end_time",
+                "target_value",
+                "frequency",
+                "selected_weekdays",
+                "target_days_per_week",
+            ]
+        )
+        if has_custom_params:
+            form = AdoptHabitPersonalizationForm(request.POST, template_habit=template_habit)
+            if not form.is_valid():
+                messages.error(request, "Please correct the errors in the schedule configuration below.")
+                return render(request, "habits/habit_adopt.html", {
+                    "template_habit": template_habit,
+                    "form": form,
+                })
+            cleaned = form.cleaned_data
+            window_start_time = cleaned.get("window_start_time") or template_habit.window_start_time
+            window_end_time = cleaned.get("window_end_time") or template_habit.window_end_time
+            target_value = cleaned.get("target_value") if cleaned.get("target_value") is not None else template_habit.target_value
+            unit_label = cleaned.get("unit_label") or template_habit.unit_label
+            frequency = cleaned.get("frequency") or template_habit.frequency
+            start_date = cleaned.get("start_date") or timezone.localdate()
 
-    return redirect("habit_list")
+            if frequency == Habit.Frequency.WEEKLY_TARGET:
+                target_days_per_week = cleaned.get("target_days_per_week") or template_habit.target_days_per_week or 3
+                selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
+            elif frequency == Habit.Frequency.WEEKDAYS:
+                selected_weekdays = cleaned.get("selected_weekdays") or [0, 1, 2, 3, 4]
+                target_days_per_week = None
+            else:  # DAILY
+                selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
+                target_days_per_week = None
+        else:
+            # Fallback for quick one-click adoption using template defaults
+            window_start_time = template_habit.window_start_time
+            window_end_time = template_habit.window_end_time
+            target_value = template_habit.target_value
+            unit_label = template_habit.unit_label
+            frequency = template_habit.frequency
+            selected_weekdays = template_habit.selected_weekdays
+            target_days_per_week = template_habit.target_days_per_week
+            start_date = timezone.localdate()
+
+        try:
+            with transaction.atomic():
+                adopted_habit = Habit.objects.create(
+                    tenant=tenant,
+                    created_by=request.user,
+                    name=template_habit.name,
+                    description=template_habit.description,
+                    habit_type=template_habit.habit_type,
+                    is_template=False,
+                    template_source=template_habit,
+                    category=template_habit.category,
+                    category_ref=template_habit.category_ref,
+                    rule_strategy_ref=template_habit.rule_strategy_ref,
+                    validation_rule=template_habit.validation_rule,
+                    window_start_time=window_start_time,
+                    window_end_time=window_end_time,
+                    target_value=target_value,
+                    unit_label=unit_label,
+                    pixel_score=template_habit.pixel_score,
+                    frequency=frequency,
+                    target_days_per_week=target_days_per_week,
+                    selected_weekdays=selected_weekdays,
+                    start_date=start_date,
+                    is_active=True,
+                )
+            messages.success(request, f'Habit "{adopted_habit.name}" has been personalized and added to your habit list!')
+        except IntegrityError:
+            messages.info(request, f'You are already tracking "{template_habit.name}" in your habit list.')
+
+        return redirect("habit_list")
+
+    # GET request: Render the personalized adoption form
+    form = AdoptHabitPersonalizationForm(template_habit=template_habit)
+    return render(request, "habits/habit_adopt.html", {
+        "template_habit": template_habit,
+        "form": form,
+    })
 
 
 @login_required
@@ -1014,8 +1090,11 @@ def habit_calendar_view(request, pk):
     except (ValueError, TypeError):
         year, month = today.year, today.month
 
+    from .services import calculate_weekly_and_monthly_habit_progress
+
     calendar_data = generate_monthly_calendar_data(habit, year, month, today)
     stats = get_habit_statistics(habit, today)
+    weekly_monthly_progress = calculate_weekly_and_monthly_habit_progress(habit, year, month, today)
     recent_completions = HabitCompletion.objects.filter(
         habit=habit,
     ).order_by("-completion_date")[:15]
@@ -1024,6 +1103,7 @@ def habit_calendar_view(request, pk):
         "habit": habit,
         "cal": calendar_data,
         "stats": stats,
+        "weekly_monthly_progress": weekly_monthly_progress,
         "today": today,
         "recent_completions": recent_completions,
     })
@@ -1043,12 +1123,16 @@ def habit_stats_view(request, pk):
         habit = get_object_or_404(Habit, pk=pk)
     else:
         habit = get_object_or_404(Habit, pk=pk, tenant=tenant)
+    from .services import calculate_weekly_and_monthly_habit_progress
+
     today = timezone.localdate()
     stats = get_habit_statistics(habit, today)
+    weekly_monthly_progress = calculate_weekly_and_monthly_habit_progress(habit, today.year, today.month, today)
 
     return render(request, "habits/habit_stats.html", {
         "habit": habit,
         "stats": stats,
+        "weekly_monthly_progress": weekly_monthly_progress,
         "today": today,
     })
 
@@ -1060,31 +1144,40 @@ def habit_stats_view(request, pk):
 @category_permission_required
 def category_list_view(request):
     """
-    Master Data: Lists all Habit Categories in the user's active workspace (or all for Super Admin).
+    Master Data: Lists all Habit Categories with all their associated habits and the users tracking them.
+    Optimized with batch prefetch to prevent any N+1 query overhead.
     Supports search query (?q=).
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    if not HabitCategory.objects.filter(tenant=tenant).exists():
-        seed_default_master_data_for_tenant(tenant)
+    if not HabitCategory.objects.exists():
+        seed_default_categories()
 
     q = request.GET.get("q", "").strip()
-    if request.user.is_super_admin:
-        categories = HabitCategory.objects.all().annotate(
-            total_habits=Count("habits")
-        )
-    else:
-        categories = HabitCategory.objects.filter(tenant=tenant).annotate(
-            total_habits=Count("habits")
-        )
+
+    # Optimized prefetch of non-template habits with created_by, tenant, and rule_strategy_ref in a single query
+    habits_prefetch = Prefetch(
+        "habits",
+        queryset=Habit.objects.filter(is_template=False)
+            .select_related("created_by", "tenant", "rule_strategy_ref")
+            .order_by("-is_active", "name"),
+        to_attr="prefetched_habits"
+    )
+
+    categories_qs = HabitCategory.objects.prefetch_related(habits_prefetch).annotate(
+        total_habits=Count("habits", filter=Q(habits__is_template=False))
+    )
+
     if q:
-        categories = categories.filter(
+        categories_qs = categories_qs.filter(
             Q(name__icontains=q) | Q(description__icontains=q)
         )
 
-    categories = categories.order_by("name")
+    categories = list(categories_qs.order_by("name"))
+
+    # Compute distinct active users count and active habits count in Python with 0 extra DB queries
+    for cat in categories:
+        habits = getattr(cat, "prefetched_habits", [])
+        cat.distinct_users_count = len({h.created_by_id for h in habits if h.created_by_id})
+        cat.active_habits_count = sum(1 for h in habits if h.is_active)
 
     return render(request, "habits/category_list.html", {
         "categories": categories,
@@ -1095,24 +1188,18 @@ def category_list_view(request):
 @category_permission_required
 def category_create_view(request):
     """
-    Master Data: Create a new Habit Category for the active tenant.
+    Master Data: Create a new system-wide Habit Category.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
     if request.method == "POST":
-        form = HabitCategoryForm(request.POST, tenant=tenant)
+        form = HabitCategoryForm(request.POST)
         if form.is_valid():
-            category = form.save(commit=False)
-            category.tenant = tenant
-            category.save()
+            category = form.save()
             messages.success(request, f'Category "{category.name}" created successfully!')
             return redirect("category_list")
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitCategoryForm(tenant=tenant)
+        form = HabitCategoryForm()
 
     return render(request, "habits/category_form.html", {
         "form": form,
@@ -1124,18 +1211,12 @@ def category_create_view(request):
 @category_permission_required
 def category_update_view(request, pk):
     """
-    Master Data: Edit an existing Habit Category.
-    Super Admins can edit any category.
+    Master Data: Edit an existing system-wide Habit Category.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    category = get_object_or_404(HabitCategory, pk=pk) if request.user.is_super_admin else get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
-    target_tenant = category.tenant if category.tenant else tenant
+    category = get_object_or_404(HabitCategory, pk=pk)
 
     if request.method == "POST":
-        form = HabitCategoryForm(request.POST, instance=category, tenant=target_tenant)
+        form = HabitCategoryForm(request.POST, instance=category)
         if form.is_valid():
             form.save()
             messages.success(request, f'Category "{category.name}" updated successfully!')
@@ -1143,7 +1224,7 @@ def category_update_view(request, pk):
         else:
             messages.error(request, "Please fix the errors below.")
     else:
-        form = HabitCategoryForm(instance=category, tenant=target_tenant)
+        form = HabitCategoryForm(instance=category)
 
     return render(request, "habits/category_form.html", {
         "form": form,
@@ -1156,14 +1237,10 @@ def category_update_view(request, pk):
 @category_permission_required
 def category_delete_view(request, pk):
     """
-    Master Data: Delete a Habit Category.
-    Super Admins can delete any category.
+    Master Data: Delete a Habit Category with safeguards.
+    Habits referencing this category will have category_ref set to null.
     """
-    tenant = getattr(request, "tenant", None)
-    if not tenant:
-        raise Http404("Workspace not found.")
-
-    category = get_object_or_404(HabitCategory, pk=pk) if request.user.is_super_admin else get_object_or_404(HabitCategory, pk=pk, tenant=tenant)
+    category = get_object_or_404(HabitCategory, pk=pk)
     habits_count = category.habits.count()
 
     if request.method == "POST":
@@ -1275,4 +1352,146 @@ def rule_strategy_delete_view(request, pk):
         "strategy": strategy,
         "habits_count": habits_count,
     })
+
+
+@login_required
+def collaborators_view(request):
+    """
+    Collaborators & Ecosystem Hub:
+    Two core sections navigated via the segmented chevron pipeline ribbon:
+    1. Curated Offers: Partner perks, biometric device discounts, wellness vouchers, and pixel redemptions.
+    2. Trending Life Suggestions: Science-backed lifestyle protocols, habit templates, and biohacking routines.
+    """
+    tenant = getattr(request, "tenant", None)
+    if not tenant:
+        membership = request.user.memberships.select_related("tenant").filter(status="ACTIVE").first()
+        tenant = membership.tenant if membership else None
+
+    today = timezone.localdate()
+    wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant, today=today)
+
+    active_tab = request.GET.get("tab", "offers").lower()
+    if active_tab not in ["offers", "suggestions"]:
+        active_tab = "offers"
+
+    return render(request, "collaborators/collaborators.html", {
+        "wallet_data": wallet_data,
+        "active_tab": active_tab,
+        "current_balance": wallet_data.get("current_balance", 0),
+    })
+
+
+
+
+@login_required
+def habit_check_intent_api(request):
+    """
+    Real-time AJAX endpoint for checking if a habit name/description
+    matches an existing predefined purpose via our AI semantic classifier.
+    """
+    name = request.GET.get("name", "").strip()
+    description = request.GET.get("description", "").strip()
+
+    if not name or len(name) < 3:
+        return JsonResponse({"matches": False})
+
+    from .services import find_matching_predefined_template, query_ollama_intent_classifier
+    from .models import Habit
+
+    active_templates = list(Habit.objects.filter(is_template=True, is_active=True))
+
+    # 1. Fast heuristic check (<1ms)
+    matched_template = find_matching_predefined_template(name, description, use_ai=False)
+    reason = "Predefined standard habit matches this intention."
+    confidence = 0.95
+
+    # 2. Local Ollama AI semantic understanding for creative phrasing/slang
+    if not matched_template:
+        ai_t, conf, ai_reason = query_ollama_intent_classifier(
+            name, description, active_templates=active_templates, timeout=6.0
+        )
+        if ai_t and conf >= 0.80:
+            matched_template = ai_t
+            confidence = conf
+            reason = ai_reason or "AI recognized this as the same core objective as a standardized habit."
+
+    if matched_template:
+        return JsonResponse({
+            "matches": True,
+            "matched_name": matched_template.name,
+            "template_id": matched_template.pk,
+            "category": str(matched_template.category) if matched_template.category else "General",
+            "reason": reason,
+            "confidence": confidence,
+        })
+
+    return JsonResponse({"matches": False})
+
+
+
+@login_required
+def catalog_export_view(request):
+    """
+    Exports all standardized catalog templates (Predefined & Expert Prescribed)
+    as a downloadable JSON file for easy instance migration and server updates.
+    Restricted strictly to Administrators.
+    """
+    is_admin = bool(request.user.is_authenticated and (request.user.is_super_admin or request.user.is_superuser))
+    if not is_admin:
+        raise PermissionDenied("Only Administrators can download catalog templates.")
+
+    from .services import export_catalog_templates_to_dict
+    import json
+    from django.http import HttpResponse
+
+    export_data = export_catalog_templates_to_dict()
+    timestamp_str = timezone.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"habitpulse_catalog_templates_{timestamp_str}.json"
+
+    json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
+    response = HttpResponse(json_str, content_type="application/json")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@require_POST
+def catalog_import_view(request):
+    """
+    Imports catalog templates from an uploaded JSON file.
+    Idempotent: updates existing templates by name or creates new ones.
+    Strictly preserves existing user habits and tracking history.
+    Restricted strictly to Administrators.
+    """
+    is_admin = bool(request.user.is_authenticated and (request.user.is_super_admin or request.user.is_superuser))
+    if not is_admin:
+        raise PermissionDenied("Only Administrators can upload catalog templates.")
+
+    upload_file = request.FILES.get("catalog_file")
+    if not upload_file:
+        messages.error(request, "Please select a JSON template file to upload.")
+        return redirect("habit_list")
+
+    if not upload_file.name.endswith(".json"):
+        messages.error(request, "Invalid file format. Please upload a valid .json template file.")
+        return redirect("habit_list")
+
+    import json
+    from .services import import_catalog_templates_from_dict
+
+    try:
+        content = upload_file.read().decode("utf-8")
+        parsed_data = json.loads(content)
+        result = import_catalog_templates_from_dict(parsed_data, creator=request.user)
+
+        messages.success(
+            request,
+            f"Successfully processed catalog templates: {result['created']} created, {result['updated']} updated."
+        )
+    except json.JSONDecodeError as e:
+        messages.error(request, f"Failed to parse JSON file: {e}")
+    except Exception as e:
+        messages.error(request, f"Error importing catalog templates: {e}")
+
+    return redirect(f"{reverse('habit_list')}?tab=predefined")
 

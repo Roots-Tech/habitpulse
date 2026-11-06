@@ -31,9 +31,9 @@ class HabitManagementTestCase(TestCase):
         Verify successful creation of a daily habit.
         """
         response = self.client.post(reverse("habit_create"), {
-            "name": "Drink 2L Water",
-            "description": "Stay hydrated throughout the day",
-            "category": Habit.Category.HEALTH,
+            "name": "Morning Journaling",
+            "description": "Reflect on daily priorities",
+            "category": Habit.Category.PERSONAL_DEV,
             "frequency": Habit.Frequency.DAILY,
             "start_date": self.today.isoformat(),
             "is_active": "on",
@@ -42,10 +42,10 @@ class HabitManagementTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse("dashboard"))
 
-        habit = Habit.objects.filter(tenant=self.tenant, name="Drink 2L Water").first()
+        habit = Habit.objects.filter(tenant=self.tenant, name="Morning Journaling").first()
         self.assertIsNotNone(habit)
         self.assertEqual(habit.created_by, self.user)
-        self.assertEqual(habit.category, Habit.Category.HEALTH)
+        self.assertEqual(habit.category, Habit.Category.PERSONAL_DEV)
         self.assertEqual(habit.frequency, Habit.Frequency.DAILY)
         self.assertTrue(habit.is_active)
         # Daily habit scheduled for every day

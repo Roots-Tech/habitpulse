@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Personalize Habit: {{ template_habit.name }} - HabitPulse{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 1.5rem auto;">
+  <div style="margin-bottom: 1.25rem;">
+    <a href="{% url 'habit_list' %}?tab={% if template_habit.is_expert_prescribed %}expert{% else %}predefined{% endif %}" class="btn btn-outline btn-sm">
+      &larr; Back to Catalog
+    </a>
+  </div>
+
+  <div class="card" style="box-shadow: var(--shadow); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.75rem;">
+    <!-- Template Header Banner -->
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle);">
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.4rem;">
+          {% with t_badge=template_habit.get_habit_type_badge %}
+            <span class="badge {{ t_badge.class }}" style="background-color: {{ t_badge.bg }}; color: {{ t_badge.color }}; border: 1px solid {{ t_badge.border }}; font-weight: 700; font-size: 0.75rem;">
+              {{ t_badge.icon }} {{ t_badge.label }}
+            </span>
+          {% endwith %}
+          {% if template_habit.category %}
+            <span class="badge" style="background: rgba(56, 189, 248, 0.12); color: #0284c7; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700; font-size: 0.75rem;">
+              📁 {{ template_habit.category }}
+            </span>
+          {% endif %}
+          <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; font-size: 0.75rem;">
+            ⚡ {{ template_habit.pixel_score }} Pixels
+          </span>
+        </div>
+        <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--gray-900); margin: 0 0 0.4rem 0;">
+          {{ template_habit.name }}
+        </h1>
+        <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0; line-height: 1.45;">
+          {{ template_habit.description }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Rule Strategy & Personalization Guidance Alert -->
+    <div style="background: rgba(56, 189, 248, 0.07); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.5rem; font-size: 0.82rem; color: var(--text-main); line-height: 1.45;">
+      <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: #0284c7; margin-bottom: 0.25rem;">
+        <span>🎯 Verification Rule: {{ template_habit.get_validation_rule_display }}</span>
+      </div>
+      <div>
+        This is a standardized catalog habit. The core purpose, category, and verification strategy are centrally managed, while <strong>you have full freedom to personalize your own target schedule and operating window</strong>.
+      </div>
+    </div>
+
+    <!-- Personalization Form -->
+    <form method="post" action="{% url 'habit_adopt' template_habit.pk %}" class="js-idempotent-form" novalidate>
+      {% csrf_token %}
+
+      {% if form.errors %}
+        <div class="alert alert-error" style="margin-bottom: 1.25rem; background-color: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.4); border-radius: var(--radius-sm); padding: 1rem;">
+          <div style="font-weight: 700; color: #f43f5e; margin-bottom: 0.4rem;">
+            ⚠️ Please review the errors below:
+          </div>
+          <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.85rem; color: var(--text-main); line-height: 1.45;">
+            {% for field in form %}
+              {% for error in field.errors %}
+                <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <!-- Time Window Configuration (e.g. Wake-Up Schedule) -->
+      {% if template_habit.has_time_window %}
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
+          <div style="font-weight: 700; color: var(--gray-900); font-size: 0.95rem; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>⏰ Personal Time Window (Wake-Up Target)</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.4;">
+            Set your target completion window (e.g., if you plan to wake up at 4:00 AM, set a window such as 03:45 AM – 04:30 AM). Daily check-in will be verified against this personal window.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="{{ form.window_start_time.id_for_label }}" style="font-weight: 600;">
+                Window Opens (Earliest Time) <span style="color: var(--danger);">*</span>
+              </label>
+              {{ form.window_start_time }}
+              {% if form.window_start_time.errors %}
+                <div class="form-error">{{ form.window_start_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="{{ form.window_end_time.id_for_label }}" style="font-weight: 600;">
+                Window Closes (Latest Time) <span style="color: var(--danger);">*</span>
+              </label>
+              {{ form.window_end_time }}
+              {% if form.window_end_time.errors %}
+                <div class="form-error">{{ form.window_end_time.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Numeric Target Configuration -->
+      {% if template_habit.requires_numeric %}
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
+          <div style="font-weight: 700; color: var(--gray-900); font-size: 0.95rem; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🎯 Personal Daily Goal</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+            Customize the daily numeric target you wish to achieve.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="{{ form.target_value.id_for_label }}" style="font-weight: 600;">
+                Daily Target Value <span style="color: var(--danger);">*</span>
+              </label>
+              {{ form.target_value }}
+              {% if form.target_value.errors %}
+                <div class="form-error">{{ form.target_value.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="{{ form.unit_label.id_for_label }}" style="font-weight: 600;">
+                Unit Label <span style="color: var(--danger);">*</span>
+              </label>
+              {{ form.unit_label }}
+              {% if form.unit_label.errors %}
+                <div class="form-error">{{ form.unit_label.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Frequency & Days Selection -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+        <div class="form-group" style="margin: 0;">
+          <label class="form-label" for="{{ form.frequency.id_for_label }}" style="font-weight: 600;">
+            Tracking Frequency
+          </label>
+          {{ form.frequency }}
+          {% if form.frequency.errors %}
+            <div class="form-error">{{ form.frequency.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group" style="margin: 0;">
+          <label class="form-label" for="{{ form.start_date.id_for_label }}" style="font-weight: 600;">
+            Start Date
+          </label>
+          {{ form.start_date }}
+          {% if form.start_date.errors %}
+            <div class="form-error">{{ form.start_date.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Weekly Target Selection (Conditional for WEEKLY_TARGET e.g. Gym) -->
+      <div id="weekly-target-block" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem; {% if template_habit.is_weekly_target or form.frequency.value == 'WEEKLY_TARGET' %}display: block;{% else %}display: none;{% endif %}">
+        <label class="form-label" for="{{ form.target_days_per_week.id_for_label }}" style="font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.4rem;">
+          <span>🎯 {{ form.target_days_per_week.label }}</span>
+        </label>
+        {{ form.target_days_per_week }}
+        {% if form.target_days_per_week.errors %}
+          <div class="form-error">{{ form.target_days_per_week.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help" style="margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-muted);">
+          {{ form.target_days_per_week.help_text }}
+          <span style="display: block; margin-top: 0.2rem; color: #10b981; font-weight: 500;">
+            💡 Monitored daily: accomplish your target days each week to maintain your consistency streak, with monthly breakdown reports.
+          </span>
+        </div>
+      </div>
+
+      <!-- Weekday Checkboxes (Conditional) -->
+      <div id="weekday-selection-block" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.5rem; display: none;">
+        <label class="form-label" style="font-weight: 600; margin-bottom: 0.5rem; display: block;">
+          Select Active Days of the Week:
+        </label>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+          {% for choice in form.selected_weekdays %}
+            <label style="display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.85rem; background: var(--surface); padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 4px;">
+              {{ choice.tag }} {{ choice.choice_label }}
+            </label>
+          {% endfor %}
+        </div>
+        {% if form.selected_weekdays.errors %}
+          <div class="form-error" style="margin-top: 0.5rem;">{{ form.selected_weekdays.errors.0 }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 600;">
+          + Add to My Habits
+        </button>
+        <a href="{% url 'habit_list' %}?tab={% if template_habit.is_expert_prescribed %}expert{% else %}predefined{% endif %}" class="btn btn-outline" style="padding: 0.65rem 1.25rem;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const freqSelect = document.getElementById('id_adopt_frequency');
+    const weekdayBlock = document.getElementById('weekday-selection-block');
+
+    const weeklyTargetBlock = document.getElementById('weekly-target-block');
+
+    function updateVisibility() {
+      if (!freqSelect) return;
+      if (weekdayBlock) {
+        weekdayBlock.style.display = (freqSelect.value === 'WEEKDAYS') ? 'block' : 'none';
+      }
+      if (weeklyTargetBlock) {
+        weeklyTargetBlock.style.display = (freqSelect.value === 'WEEKLY_TARGET') ? 'block' : 'none';
+      }
+    }
+
+    if (freqSelect) {
+      freqSelect.addEventListener('change', updateVisibility);
+      updateVisibility();
+    }
+  });
+</script>
+{% endblock %}

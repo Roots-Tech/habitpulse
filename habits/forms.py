@@ -1,7 +1,7 @@
 import uuid
 from django import forms
 from django.utils import timezone
-from .models import Habit, HabitCategory, HabitCompletion, RuleStrategy
+from .models import Habit, HabitCategory, HabitCompletion, PixelRewardConfig, RuleStrategy
 from .validators import HabitCompletionValidationEngine
 
 
@@ -36,22 +36,19 @@ class HabitCategoryForm(forms.ModelForm):
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def __init__(self, *args, tenant=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("tenant", None)
         super().__init__(*args, **kwargs)
-        self.tenant = tenant
-        if not self.tenant and self.instance and self.instance.pk and hasattr(self.instance, "tenant"):
-            self.tenant = self.instance.tenant
 
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
         if not name:
             raise forms.ValidationError("Category name cannot be empty.")
-        if self.tenant:
-            qs = HabitCategory.objects.filter(tenant=self.tenant, name__iexact=name)
-            if self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise forms.ValidationError(f"A habit category named '{name}' already exists in your workspace.")
+        qs = HabitCategory.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(f"A habit category named '{name}' already exists.")
         return name
 
 
@@ -124,6 +121,19 @@ class HabitForm(forms.ModelForm):
         label="Select Scheduled Days",
         help_text="Required when frequency is set to 'Selected Days of the Week'.",
     )
+    target_days_per_week = forms.TypedChoiceField(
+        choices=Habit.WEEKLY_TARGET_CHOICES,
+        coerce=int,
+        empty_value=None,
+        required=False,
+        widget=forms.Select(attrs={
+            "class": "form-control",
+            "id": "id_target_days_per_week",
+            "style": "font-weight: 600;",
+        }),
+        label="Target Days per Week",
+        help_text="Choose how many days per week you commit to achieving this habit (1-7 days).",
+    )
     idempotency_key = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -142,6 +152,7 @@ class HabitForm(forms.ModelForm):
             "category",
             "rule_strategy_ref",
             "frequency",
+            "target_days_per_week",
             "selected_weekdays",
             "start_date",
             "is_active",
@@ -256,6 +267,12 @@ class HabitForm(forms.ModelForm):
         self.fields["frequency"].label = "Frequency"
         self.fields["start_date"].label = "Start Date"
         self.fields["is_active"].label = "Active Habit"
+        self.fields["target_days_per_week"].label = "Target Days per Week"
+        self.fields["target_days_per_week"].required = False
+        if self.instance and self.instance.pk and self.instance.target_days_per_week:
+            self.initial["target_days_per_week"] = self.instance.target_days_per_week
+        elif "target_days_per_week" not in self.initial:
+            self.initial["target_days_per_week"] = 3
 
         is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
 
@@ -267,26 +284,23 @@ class HabitForm(forms.ModelForm):
             or Habit.HabitType.GENERAL
         )
 
+        reward_config = PixelRewardConfig.get_config(self.tenant)
+
         # Set initial pixel_score
         if self.instance and self.instance.pk and self.instance.pixel_score:
             self.initial["pixel_score"] = self.instance.pixel_score
         elif "pixel_score" not in self.initial:
-            if current_type == Habit.HabitType.EXPERT_PRESCRIBED:
-                self.initial["pixel_score"] = 10
-            elif current_type == Habit.HabitType.PREDEFINED_PURPOSE:
-                self.initial["pixel_score"] = 5
-            else:
-                self.initial["pixel_score"] = 2
+            self.initial["pixel_score"] = reward_config.get_pixel_for_type(current_type)
 
         if not is_admin_or_tech:
-            # Standard users can only create General habits with fixed 2 pixels
+            # Standard users can only create General habits with configured user-defined pixels
             self.fields["habit_type"].choices = [
                 (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
             ]
             self.fields["habit_type"].initial = Habit.HabitType.GENERAL
             self.fields["is_template"].initial = False
             self.fields["is_template"].widget = forms.HiddenInput()
-            self.fields["pixel_score"].initial = 2
+            self.fields["pixel_score"].initial = reward_config.user_defined_pixels
             self.fields["pixel_score"].widget = forms.HiddenInput()
         else:
             if habit_type_initial:
@@ -296,12 +310,7 @@ class HabitForm(forms.ModelForm):
             elif habit_type_initial in [Habit.HabitType.PREDEFINED_PURPOSE, Habit.HabitType.EXPERT_PRESCRIBED]:
                 self.initial["is_template"] = True
 
-        if self.tenant:
-            self.fields["category_ref"].queryset = HabitCategory.objects.filter(
-                tenant=self.tenant, is_active=True
-            )
-        else:
-            self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True)
+        self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True)
         self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True)
 
         if not self.instance.pk:
@@ -324,6 +333,14 @@ class HabitForm(forms.ModelForm):
         name = self.cleaned_data.get("name", "").strip()
         if not name:
             raise forms.ValidationError("Habit name cannot be empty.")
+
+        is_template = bool(
+            (hasattr(self, "data") and self.data.get("is_template") in ["on", "true", "True", "1", True])
+            or self.cleaned_data.get("is_template")
+            or self.initial.get("is_template")
+            or getattr(self.instance, "is_template", False)
+        )
+
         if self.tenant:
             qs = Habit.objects.filter(
                 tenant=self.tenant,
@@ -342,7 +359,6 @@ class HabitForm(forms.ModelForm):
             if qs.filter(created_at__gte=timezone.now() - timezone.timedelta(seconds=15)).exists():
                 return name
 
-            is_template = bool(self.cleaned_data.get("is_template") or self.initial.get("is_template"))
             qs = qs.filter(is_template=is_template)
             if qs.exists():
                 entity_label = "catalog template" if is_template else "active habit"
@@ -358,16 +374,15 @@ class HabitForm(forms.ModelForm):
         category_ref = cleaned_data.get("category_ref")
         if category_ref:
             cleaned_data["category"] = category_ref.name
-        elif cleaned_data.get("category") and self.tenant:
+        elif cleaned_data.get("category"):
             cat, _ = HabitCategory.objects.get_or_create(
-                tenant=self.tenant,
                 name=cleaned_data.get("category"),
                 defaults={"is_active": True},
             )
             cleaned_data["category_ref"] = cat
             cleaned_data["category"] = cat.name
 
-        # 2. Resolve Rule Strategy
+        # 2. Resolve Rule Strategy & Template Designation
         rule_strategy_ref = cleaned_data.get("rule_strategy_ref")
         habit_type = cleaned_data.get("habit_type") or Habit.HabitType.GENERAL
         is_admin_or_tech = bool(self.user and (self.user.is_super_admin or self.user.is_technical_user))
@@ -377,6 +392,25 @@ class HabitForm(forms.ModelForm):
         else:
             cleaned_data["habit_type"] = habit_type
             cleaned_data["is_template"] = bool(cleaned_data.get("is_template", False))
+
+        is_template = cleaned_data.get("is_template", False)
+
+        # 3. Purpose-oriented duplicate restriction for user-defined habits:
+        if not is_template and getattr(self.instance, "template_source_id", None) is None:
+            name = cleaned_data.get("name", "").strip()
+            is_new = (self.instance.pk is None)
+            name_changed = bool(self.instance.pk and self.instance.name.strip().lower() != name.lower())
+            if (is_new or name_changed) and name:
+                from .services import find_matching_predefined_template
+                desc = cleaned_data.get("description", "")
+                matched_template = find_matching_predefined_template(name, desc)
+                if matched_template and matched_template.pk != getattr(self.instance, "pk", None):
+                    self.add_error(
+                        "name",
+                        f"A standardized predefined habit for this purpose already exists in the library: '{matched_template.name}'. "
+                        f"Creating duplicate custom habits for existing predefined purposes is restricted to optimize database space and performance. "
+                        f"Please adopt and personalize '{matched_template.name}' from the Catalog instead, where you can customize your personal schedule and timing."
+                    )
 
         if rule_strategy_ref:
             rule = rule_strategy_ref.engine_type
@@ -405,6 +439,22 @@ class HabitForm(forms.ModelForm):
                     self.instance.selected_weekdays = chosen
                 except ValueError:
                     self.add_error("weekdays", "Invalid weekday selection.")
+        elif frequency == Habit.Frequency.WEEKLY_TARGET:
+            target_days = cleaned_data.get("target_days_per_week")
+            if not target_days:
+                target_days = 3
+                cleaned_data["target_days_per_week"] = 3
+            try:
+                target_days_int = int(target_days)
+                if not (1 <= target_days_int <= 7):
+                    self.add_error("target_days_per_week", "Please select a target between 1 and 7 days per week.")
+                else:
+                    cleaned_data["target_days_per_week"] = target_days_int
+                    self.instance.target_days_per_week = target_days_int
+            except (ValueError, TypeError):
+                self.add_error("target_days_per_week", "Invalid weekly target selection.")
+            cleaned_data["selected_weekdays"] = [0, 1, 2, 3, 4, 5, 6]
+            self.instance.selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
         else:
             cleaned_data["selected_weekdays"] = [0, 1, 2, 3, 4, 5, 6]
             self.instance.selected_weekdays = [0, 1, 2, 3, 4, 5, 6]
@@ -424,14 +474,15 @@ class HabitForm(forms.ModelForm):
             if not unit_label or not unit_label.strip():
                 self.add_error("unit_label", "Please specify a unit label (e.g. mins, km, pages).")
 
-        # 3. Pixel Score Validation & Enforcement
+        # 3. Pixel Score Validation & Enforcement via dynamic Admin Configuration
+        reward_config = PixelRewardConfig.get_config(self.tenant)
         if habit_type == Habit.HabitType.GENERAL or not is_admin_or_tech:
-            cleaned_data["pixel_score"] = 2
-            self.instance.pixel_score = 2
+            cleaned_data["pixel_score"] = reward_config.user_defined_pixels
+            self.instance.pixel_score = reward_config.user_defined_pixels
         else:
             score = cleaned_data.get("pixel_score")
             if score is None or score == "":
-                default_score = 10 if habit_type == Habit.HabitType.EXPERT_PRESCRIBED else 5
+                default_score = reward_config.get_pixel_for_type(habit_type)
                 cleaned_data["pixel_score"] = default_score
                 self.instance.pixel_score = default_score
             else:
@@ -451,7 +502,7 @@ class HabitForm(forms.ModelForm):
         habit = super().save(commit=False)
         habit.habit_type = self.cleaned_data.get("habit_type") or habit.habit_type or Habit.HabitType.GENERAL
         habit.is_template = bool(self.cleaned_data.get("is_template", False))
-        habit.pixel_score = self.cleaned_data.get("pixel_score", 2)
+        habit.pixel_score = self.cleaned_data.get("pixel_score") or PixelRewardConfig.get_config(self.tenant).user_defined_pixels
         habit.selected_weekdays = self.cleaned_data.get("selected_weekdays", [])
         if self.cleaned_data.get("category_ref"):
             habit.category_ref = self.cleaned_data["category_ref"]
@@ -513,5 +564,207 @@ class HabitCompletionSubmissionForm(forms.ModelForm):
         if errors:
             for err in errors:
                 self.add_error(None, err)
+
+        return cleaned_data
+
+
+class PixelRewardConfigForm(forms.ModelForm):
+    """
+    Administrative form for configuring dynamic pixel allocations per habit classification:
+    - User-Defined (General)
+    - Predefined Purposeful
+    - Expert Prescribed
+    """
+    class Meta:
+        model = PixelRewardConfig
+        fields = [
+            "user_defined_pixels",
+            "predefined_pixels",
+            "expert_prescribed_pixels",
+            "auto_sync_active_habits",
+            "notes",
+        ]
+        widgets = {
+            "user_defined_pixels": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "1",
+                "id": "id_user_defined_pixels",
+                "style": "font-size: 1.25rem; font-weight: 800; text-align: center; max-width: 140px;",
+            }),
+            "predefined_pixels": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "1",
+                "id": "id_predefined_pixels",
+                "style": "font-size: 1.25rem; font-weight: 800; text-align: center; max-width: 140px;",
+            }),
+            "expert_prescribed_pixels": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "1",
+                "id": "id_expert_prescribed_pixels",
+                "style": "font-size: 1.25rem; font-weight: 800; text-align: center; max-width: 140px;",
+            }),
+            "auto_sync_active_habits": forms.CheckboxInput(attrs={
+                "class": "form-check-input",
+                "id": "id_auto_sync_active_habits",
+            }),
+            "notes": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 2,
+                "placeholder": "Optional administrative note or policy reason for this reward rate change...",
+            }),
+        }
+        labels = {
+            "user_defined_pixels": "User Defined Habits (General)",
+            "predefined_pixels": "Predefined Purposeful Habits",
+            "expert_prescribed_pixels": "Expert Prescribed Habits",
+            "auto_sync_active_habits": "Sync to existing active habits across workspace",
+            "notes": "Policy Notes / Reason for Adjustment",
+        }
+
+    def clean_user_defined_pixels(self):
+        val = self.cleaned_data.get("user_defined_pixels")
+        if val is None or val < 1:
+            raise forms.ValidationError("User-defined habit pixels must be at least 1 Px.")
+        return val
+
+    def clean_predefined_pixels(self):
+        val = self.cleaned_data.get("predefined_pixels")
+        if val is None or val < 1:
+            raise forms.ValidationError("Predefined purposeful habit pixels must be at least 1 Px.")
+        return val
+
+    def clean_expert_prescribed_pixels(self):
+        val = self.cleaned_data.get("expert_prescribed_pixels")
+        if val is None or val < 1:
+            raise forms.ValidationError("Expert prescribed habit pixels must be at least 1 Px.")
+        return val
+
+
+class AdoptHabitPersonalizationForm(forms.Form):
+    """
+    Form to allow individual users to customize operational parameters
+    (e.g., wake-up time window, numeric goal, frequency, weekdays)
+    when adopting a standardized predefined or expert-prescribed habit template.
+    """
+    window_start_time = forms.TimeField(
+        required=False,
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time", "id": "id_adopt_window_start_time"}),
+        label="Start Time",
+        help_text="Earliest time you complete this habit (e.g., wake-up window start).",
+    )
+    window_end_time = forms.TimeField(
+        required=False,
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time", "id": "id_adopt_window_end_time"}),
+        label="End Time",
+        help_text="Latest time you complete this habit (e.g., wake-up target deadline).",
+    )
+    target_value = forms.DecimalField(
+        required=False,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any", "id": "id_adopt_target_value"}),
+        label="Target Metric Goal",
+        help_text="Quantitative goal to achieve each day (e.g., 2.0 liters, 45 mins).",
+    )
+    unit_label = forms.CharField(
+        required=False,
+        max_length=30,
+        widget=forms.TextInput(attrs={"class": "form-control", "id": "id_adopt_unit_label"}),
+        label="Metric Unit",
+        help_text="Unit of measurement (e.g., Liters, Mins, Pages, Steps).",
+    )
+    target_days_per_week = forms.TypedChoiceField(
+        choices=Habit.WEEKLY_TARGET_CHOICES,
+        coerce=int,
+        empty_value=None,
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_adopt_target_days_per_week", "style": "font-weight: 600;"}),
+        label="Weekly Commitment (Days per Week)",
+        help_text="Choose how many days per week you plan to achieve this habit (e.g. 3, 4, or 5 days/week for gym).",
+    )
+    frequency = forms.ChoiceField(
+        choices=Habit.Frequency.choices,
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_adopt_frequency"}),
+        label="Tracking Frequency",
+    )
+    selected_weekdays = forms.MultipleChoiceField(
+        choices=Habit.WEEKDAY_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        label="Active Days (if Weekdays)",
+    )
+    start_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"class": "form-control", "type": "date", "id": "id_adopt_start_date"}),
+        label="Start Date",
+    )
+
+    def __init__(self, *args, template_habit=None, **kwargs):
+        self.template_habit = template_habit
+        super().__init__(*args, **kwargs)
+
+        if template_habit:
+            if not self.is_bound:
+                self.fields["frequency"].initial = template_habit.frequency
+                self.fields["window_start_time"].initial = template_habit.window_start_time
+                self.fields["window_end_time"].initial = template_habit.window_end_time
+                self.fields["target_value"].initial = template_habit.target_value
+                self.fields["unit_label"].initial = template_habit.unit_label
+                self.fields["start_date"].initial = timezone.localdate()
+                if template_habit.target_days_per_week:
+                    self.fields["target_days_per_week"].initial = template_habit.target_days_per_week
+                elif template_habit.frequency == Habit.Frequency.WEEKLY_TARGET:
+                    self.fields["target_days_per_week"].initial = 3
+                if template_habit.selected_weekdays:
+                    self.fields["selected_weekdays"].initial = [str(d) for d in template_habit.selected_weekdays]
+
+            if template_habit.validation_rule in [Habit.ValidationRule.TIME_WINDOW, Habit.ValidationRule.TIME_AND_EVIDENCE]:
+                self.fields["window_start_time"].required = True
+                self.fields["window_end_time"].required = True
+
+            if template_habit.validation_rule == Habit.ValidationRule.NUMERIC_TARGET:
+                self.fields["target_value"].required = True
+                self.fields["unit_label"].required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        rule = getattr(self.template_habit, "validation_rule", None)
+
+        if rule in [Habit.ValidationRule.TIME_WINDOW, Habit.ValidationRule.TIME_AND_EVIDENCE]:
+            start = cleaned_data.get("window_start_time")
+            end = cleaned_data.get("window_end_time")
+            if not start:
+                self.add_error("window_start_time", "Window start time is required.")
+            if not end:
+                self.add_error("window_end_time", "Window end time is required.")
+            if start and end and start >= end:
+                self.add_error("window_end_time", "Window end time must be later than start time.")
+
+        if rule == Habit.ValidationRule.NUMERIC_TARGET:
+            target = cleaned_data.get("target_value")
+            unit = cleaned_data.get("unit_label")
+            if target is None or target <= 0:
+                self.add_error("target_value", "Target value must be greater than zero.")
+            if not unit or not unit.strip():
+                self.add_error("unit_label", "Unit label is required (e.g. liters, mins).")
+
+        freq = cleaned_data.get("frequency")
+        if freq == Habit.Frequency.WEEKLY_TARGET:
+            if not cleaned_data.get("target_days_per_week"):
+                cleaned_data["target_days_per_week"] = 3
+        if freq == Habit.Frequency.WEEKDAYS:
+            days = cleaned_data.get("selected_weekdays")
+            if not days:
+                self.add_error("selected_weekdays", "Please select at least one day for weekly frequency.")
+            else:
+                try:
+                    cleaned_data["selected_weekdays"] = [int(d) for d in days]
+                except (ValueError, TypeError):
+                    self.add_error("selected_weekdays", "Invalid weekday selection.")
+        else:
+            cleaned_data["selected_weekdays"] = []
+
+        if not cleaned_data.get("start_date"):
+            cleaned_data["start_date"] = timezone.localdate()
 
         return cleaned_data
