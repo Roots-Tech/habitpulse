@@ -1207,15 +1207,21 @@ class PixelRewardConfig(models.Model):
         if tenant:
             filter_kwargs["tenant"] = tenant
 
-        u_count = Habit.objects.filter(habit_type=Habit.HabitType.GENERAL, **filter_kwargs).update(
-            pixel_score=self.user_defined_pixels
-        )
-        p_count = Habit.objects.filter(habit_type=Habit.HabitType.PREDEFINED_PURPOSE, **filter_kwargs).update(
-            pixel_score=self.predefined_pixels
-        )
-        e_count = Habit.objects.filter(habit_type=Habit.HabitType.EXPERT_PRESCRIBED, **filter_kwargs).update(
-            pixel_score=self.expert_prescribed_pixels
-        )
+        habits = Habit.objects.filter(**filter_kwargs)
+        u_count = 0
+        p_count = 0
+        e_count = 0
+        for h in habits:
+            base = self.get_pixel_for_type(h.habit_type)
+            bonuses = self.calculate_bonuses(h)
+            h.pixel_score = base + bonuses
+            super(Habit, h).save(update_fields=["pixel_score"])
+            if h.habit_type == Habit.HabitType.GENERAL:
+                u_count += 1
+            elif h.habit_type == Habit.HabitType.PREDEFINED_PURPOSE:
+                p_count += 1
+            elif h.habit_type == Habit.HabitType.EXPERT_PRESCRIBED:
+                e_count += 1
         return {
             "user_defined": u_count,
             "predefined": p_count,
