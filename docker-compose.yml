@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: habitpulse_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-habit_tracker}
+      POSTGRES_USER: ${DB_USER:-habit_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-habit_secure_password_123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init_db.sql:/docker-entrypoint-initdb.d/01-init_db.sql:ro
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-habit_user} -d ${DB_NAME:-habit_tracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - habit_network
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: habitpulse_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-habit_user}:${DB_PASSWORD:-habit_secure_password_123}@db:5432/${DB_NAME:-habit_tracker}
+      - DB_USER=${DB_USER:-habit_user}
+      - DB_PASSWORD=${DB_PASSWORD:-habit_secure_password_123}
+      - DB_NAME=${DB_NAME:-habit_tracker}
+      - DB_HOST=db
+      - DB_PORT=5432
+    volumes:
+      - ./media:/app/media
+      - static_data:/app/staticfiles
+      - ./backups:/app/backups
+    ports:
+      - "${PORT:-8000}:8000"
+    networks:
+      - habit_network
+
+volumes:
+  postgres_data:
+    name: habitpulse_postgres_data
+  static_data:
+    name: habitpulse_static_data
+
+networks:
+  habit_network:
+    name: habitpulse_network
+    driver: bridge
