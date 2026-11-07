@@ -255,6 +255,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalForm = document.getElementById("verification-form");
     const modalTitle = document.getElementById("modal-habit-title");
     const modalSubtitle = document.getElementById("modal-habit-subtitle");
+    const modalDurationGroup = document.getElementById("modal-duration-group");
+    const modalLoggedDuration = document.getElementById("modal-logged-duration");
+    const modalDurationHelp = document.getElementById("modal-duration-help");
     const modalNumericGroup = document.getElementById("modal-numeric-group");
     const modalLoggedValue = document.getElementById("modal-logged-value");
     const modalUnitBadge = document.getElementById("modal-unit-badge");
@@ -282,6 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (modalLatitude) modalLatitude.value = "";
       if (modalLongitude) modalLongitude.value = "";
+      if (modalLoggedDuration) modalLoggedDuration.value = "";
       if (modalForm) modalForm.reset();
     };
 
@@ -290,6 +294,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const actionUrl = btn.getAttribute("data-action-url") || "";
       const requiresEvidence = btn.getAttribute("data-requires-evidence") === "true";
       const requiresNumeric = btn.getAttribute("data-requires-numeric") === "true";
+      const requiresDuration = btn.getAttribute("data-requires-duration") === "true";
+      const minDuration = btn.getAttribute("data-min-duration") || "";
       const isLocationRestricted = btn.getAttribute("data-is-location-restricted") === "true";
       const locationName = btn.getAttribute("data-location-name") || "the designated venue";
       const allowedRadius = btn.getAttribute("data-allowed-radius") || "150";
@@ -300,6 +306,23 @@ document.addEventListener("DOMContentLoaded", () => {
       if (modalTitle) modalTitle.textContent = `Complete: ${habitName}`;
       if (modalSubtitle) modalSubtitle.textContent = ruleDesc;
       if (modalForm) modalForm.action = actionUrl;
+
+      // Handle duration fields
+      if (modalDurationGroup) {
+        if (requiresDuration) {
+          modalDurationGroup.style.display = "block";
+          if (modalLoggedDuration) {
+            modalLoggedDuration.required = true;
+            modalLoggedDuration.placeholder = `Min: ${minDuration} minutes`;
+          }
+          if (modalDurationHelp) {
+            modalDurationHelp.textContent = `Session requirement: at least ${minDuration} minutes logged.`;
+          }
+        } else {
+          modalDurationGroup.style.display = "none";
+          if (modalLoggedDuration) modalLoggedDuration.required = false;
+        }
+      }
 
       // Handle numeric fields
       if (modalNumericGroup) {

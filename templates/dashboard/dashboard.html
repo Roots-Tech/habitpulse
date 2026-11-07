@@ -194,15 +194,9 @@
                 {% if item.habit.has_time_window %}
                   <span>&bull; <span title="Allowed window">⏰ {{ item.habit.get_time_window_display }}</span></span>
                 {% endif %}
-                {% if item.habit.requires_numeric %}
-                  <span>&bull; <span title="Target threshold">🎯 {{ item.habit.target_value }} {{ item.habit.unit_label }}</span></span>
-                {% endif %}
-                {% if item.habit.requires_evidence and not item.habit.has_time_window %}
-                  <span>&bull; <span title="Proof of work required">📎 Proof Required</span></span>
-                {% endif %}
-                {% if item.habit.is_location_restricted %}
-                  <span>&bull; <span title="Geofenced location: {{ item.habit.location_name|default:'Venue' }} (within {{ item.habit.allowed_radius_meters }}m)" style="color: #0284c7; font-weight: 600;">📍 {{ item.habit.location_name|default:"Location Check-in"|truncatechars:18 }}</span></span>
-                {% endif %}
+                {% for vbadge in item.habit.get_active_verifications_list %}
+                  <span>&bull; <span title="{{ vbadge.label }}" style="{% if vbadge.key == 'location' %}color: #0284c7; font-weight: 600;{% elif vbadge.key == 'duration' %}color: #10b981; font-weight: 600;{% elif vbadge.key == 'evidence' %}color: #ec4899; font-weight: 600;{% elif vbadge.key == 'numeric' %}color: #f59e0b; font-weight: 600;{% elif vbadge.key == 'time' %}color: #c084fc; font-weight: 600;{% endif %}">{{ vbadge.icon }} {{ vbadge.label|truncatechars:22 }}</span></span>
+                {% endfor %}
               </div>
             </div>
 
@@ -288,12 +282,14 @@
                               data-action-url="{% url 'habit_complete' item.habit.pk %}"
                               data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
                               data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
+                              data-requires-duration="{% if item.habit.requires_duration %}true{% else %}false{% endif %}"
+                              data-min-duration="{{ item.habit.min_duration_minutes|default:'' }}"
                               data-is-location-restricted="{% if item.habit.is_location_restricted %}true{% else %}false{% endif %}"
                               data-location-name="{{ item.habit.location_name|default:'' }}"
                               data-allowed-radius="{{ item.habit.allowed_radius_meters|default:150 }}"
                               data-target-value="{{ item.habit.target_value|default:'' }}"
                               data-unit-label="{{ item.habit.unit_label|default:'' }}"
-                              data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% elif item.habit.is_location_restricted %}Verify physical venue presence{% else %}Verify completion{% endif %}">
+                              data-rule-desc="{% if item.habit.requires_modal %}Complete required verifications: {% for b in item.habit.get_active_verifications_list %}{{ b.icon }} {{ b.label }} {% endfor %}{% else %}Verify completion{% endif %}">
                         ✓ Verify &amp; Complete
                       </button>
                     {% else %}
@@ -318,12 +314,14 @@
                           data-action-url="{% url 'habit_complete' item.habit.pk %}"
                           data-requires-evidence="{% if item.habit.requires_evidence %}true{% else %}false{% endif %}"
                           data-requires-numeric="{% if item.habit.requires_numeric %}true{% else %}false{% endif %}"
+                          data-requires-duration="{% if item.habit.requires_duration %}true{% else %}false{% endif %}"
+                          data-min-duration="{{ item.habit.min_duration_minutes|default:'' }}"
                           data-is-location-restricted="{% if item.habit.is_location_restricted %}true{% else %}false{% endif %}"
                           data-location-name="{{ item.habit.location_name|default:'' }}"
                           data-allowed-radius="{{ item.habit.allowed_radius_meters|default:150 }}"
                           data-target-value="{{ item.habit.target_value|default:'' }}"
                           data-unit-label="{{ item.habit.unit_label|default:'' }}"
-                          data-rule-desc="{% if item.habit.requires_evidence and item.habit.requires_numeric %}Upload proof and log progress threshold{% elif item.habit.requires_evidence %}Upload photo or document proof{% elif item.habit.requires_numeric %}Log metric to meet target{% elif item.habit.is_location_restricted %}Verify physical venue presence{% else %}Verify completion{% endif %}">
+                          data-rule-desc="{% if item.habit.requires_modal %}Complete required verifications: {% for b in item.habit.get_active_verifications_list %}{{ b.icon }} {{ b.label }} {% endfor %}{% else %}Verify completion{% endif %}">
                     ✓ Verify &amp; Complete
                   </button>
                 {% else %}
@@ -382,6 +380,18 @@
           <div id="modal-location-help" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.4;">
             Acquiring your GPS coordinates to verify you are at <strong id="modal-location-target-name">the venue</strong>...
           </div>
+        </div>
+
+        <!-- Duration Field -->
+        <div id="modal-duration-group" class="form-group" style="display: none; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+          <label class="form-label" for="modal-logged-duration" style="font-weight: 700; color: #10b981; margin-bottom: 0.35rem;">
+            <span id="modal-duration-label">⏱️ Session Duration (Minutes)</span> <span style="color: var(--danger);">*</span>
+          </label>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="number" min="1" step="1" id="modal-logged-duration" name="duration_minutes" class="form-control" placeholder="e.g. 45" style="flex: 1;">
+            <span class="badge" style="background-color: var(--surface-raised); font-size: 0.875rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border-strong);">minutes</span>
+          </div>
+          <div class="form-help" id="modal-duration-help" style="margin-top: 0.35rem; font-size: 0.8rem; color: var(--text-muted);">Minimum required duration</div>
         </div>
 
         <!-- Numeric Field -->

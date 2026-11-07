@@ -174,7 +174,7 @@
         <div class="form-help" style="margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-muted);">
           {{ form.target_days_per_week.help_text }}
           <span style="display: block; margin-top: 0.2rem; color: #10b981; font-weight: 500;">
-            💡 Monitored daily: accomplish your target days each week to maintain your consistency streak, with monthly breakdown reports.
+            💡 Flexible goal: meet your target days every week to maintain your streak, with weekly/monthly breakdown analytics.
           </span>
         </div>
       </div>
@@ -196,91 +196,207 @@
         {% endif %}
       </div>
 
-      <!-- Location Geofencing Customization -->
-      <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
-          <div style="font-weight: 700; color: var(--gray-900); font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
-            <span>📍 Physical Location Verification (Geofenced Check-in)</span>
+      <!-- Modular Accountability & Verification Requirements Section -->
+      <div style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
+          <span>🛡️ Personal Accountability &amp; Verification Requirements</span>
+        </h3>
+        <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 1rem;">
+          Customize how strictly you want to verify this habit. Stacking verifications increases consistency and multiplies your Pixel earnings.
+        </p>
+
+        <!-- Dynamic Stackable Pixel Calculator Banner -->
+        <div class="pixel-calculation-banner" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(56, 189, 248, 0.12)); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1.1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: #c084fc; display: flex; align-items: center; gap: 0.4rem;">
+              <span>💎 Allotted Accomplishment Reward:</span>
+              <span id="adopt-display-total-pixels" style="font-size: 1.3rem; font-weight: 800; color: #38bdf8;">{{ template_habit.pixel_score|default:5 }}</span>
+              <span>Pixels / Day</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Template Base: <span id="adopt-display-base-pixels">{% if template_habit.habit_type == 'EXPERT_PRESCRIBED' %}10{% else %}5{% endif %}</span> Px &bull; Active Verification Bonuses: +<span id="adopt-display-bonus-pixels">0</span> Px
+            </div>
           </div>
-          <button type="button" id="btn-adopt-detect-location" class="btn btn-outline btn-sm" style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border-color: var(--primary); color: var(--primary);">
-            <span>📍 Auto-Detect My Current GPS</span>
-          </button>
-        </div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.4;">
-          Optional: Restrict check-in only when physically present at your gym, fitness center, or specific venue.
+          <div style="font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); padding: 0.35rem 0.65rem; border-radius: 4px; color: var(--text-dim);">
+            ⚡ Personal verification choices multiply your rewards
+          </div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 0.85rem;">
-          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-main);">
-            {{ form.is_location_restricted }}
-            <span>Require location verification when marking complete</span>
+        <!-- 1. Time Window Card -->
+        <div class="form-group" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
+          <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              {{ form.enable_time_window }}
+              <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">⏰ Time Window Restriction</span>
+            </div>
+            <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; font-weight: 600; font-size: 0.72rem;">+2 Pixels</span>
           </label>
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 1.6rem;">
+            Must be completed strictly within allowed hours (e.g. morning routine).
+          </div>
+          <div id="adopt-time-window-fields" style="{% if not form.enable_time_window.value and not form.window_start_time.value and not form.window_start_time.errors %}display: none;{% endif %} margin-top: 0.75rem; padding-left: 1.6rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.window_start_time.id_for_label }}">Window Opens <span style="color: var(--danger);">*</span></label>
+                {{ form.window_start_time }}
+                {% if form.window_start_time.errors %}
+                  <div class="form-error">{{ form.window_start_time.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.window_end_time.id_for_label }}">Window Closes <span style="color: var(--danger);">*</span></label>
+                {{ form.window_end_time }}
+                {% if form.window_end_time.errors %}
+                  <div class="form-error">{{ form.window_end_time.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div id="adopt-location-detection-status" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem;"></div>
-
-        <div id="adopt-location-fields" style="{% if not form.is_location_restricted.value and not form.target_latitude.errors and not form.target_longitude.errors %}display: none;{% endif %}">
-          <!-- Google Maps Link Auto-Fill Input -->
-          <div class="form-group" style="background: rgba(99, 102, 241, 0.06); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
-            <label class="form-label" for="id_adopt_map_url_input" style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-              <span style="display: flex; align-items: center; gap: 0.35rem;">
-                <span>🗺️ Paste Google Maps Link or Coordinates</span>
-              </span>
-              <span style="font-size: 0.72rem; color: #818cf8; font-weight: 600;">Auto-fills Lat &amp; Long</span>
-            </label>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <input type="text" id="id_adopt_map_url_input" class="form-control" placeholder="Paste Google Maps URL (e.g. https://maps.app.goo.gl/... or https://google.com/maps/place/...) or raw coordinates" style="font-size: 0.82rem; flex: 1;">
-              <button type="button" id="btn-adopt-parse-map-url" class="btn btn-primary btn-sm" style="font-size: 0.78rem; white-space: nowrap; padding: 0.45rem 0.85rem; font-weight: 600;">
-                Extract &amp; Fill
+        <!-- 2. Physical Location Geofencing Card -->
+        <div class="form-group" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
+          <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              {{ form.is_location_restricted }}
+              <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">📍 Physical Location Geofence</span>
+            </div>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-weight: 600; font-size: 0.72rem;">+3 Pixels</span>
+          </label>
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 1.6rem;">
+            Must be physically present at your gym or venue to check in.
+          </div>
+          <div id="adopt-location-fields" style="{% if not form.is_location_restricted.value and not form.target_latitude.errors and not form.target_longitude.errors %}display: none;{% endif %} margin-top: 0.75rem; padding-left: 1.6rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: gap: 0.5rem;">
+              <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-main);">Venue GPS Coordinates</span>
+              <button type="button" id="btn-adopt-detect-location" class="btn btn-outline btn-sm" style="font-size: 0.76rem; display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border-color: var(--primary); color: var(--primary);">
+                <span>📍 Auto-Detect Current GPS</span>
               </button>
             </div>
-            <div id="adopt-map-url-status" style="display: none; font-size: 0.78rem; margin-top: 0.45rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm);"></div>
-            <div class="form-help" style="font-size: 0.75rem; margin-top: 0.35rem; color: var(--text-muted);">
-              Paste any Google Maps link or coordinates. The system automatically extracts the gym name, latitude, and longitude.
-            </div>
-          </div>
+            <div id="adopt-location-detection-status" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem;"></div>
 
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label class="form-label" for="{{ form.location_name.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-              Venue / Gym Name
-            </label>
-            {{ form.location_name }}
-            {% if form.location_name.errors %}
-              <div class="form-error">{{ form.location_name.errors.0 }}</div>
-            {% endif %}
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
-            <div class="form-group" style="margin: 0;">
-              <label class="form-label" for="{{ form.target_latitude.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-                Target Latitude <span style="color: var(--danger);">*</span>
+            <!-- Google Maps Auto-Fill Input -->
+            <div class="form-group" style="background: rgba(99, 102, 241, 0.06); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
+              <label class="form-label" for="id_adopt_map_url_input" style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                <span>🗺️ Paste Google Maps Link or Coordinates</span>
+                <span style="font-size: 0.72rem; color: #818cf8; font-weight: 600;">Auto-fills Lat &amp; Long</span>
               </label>
-              {{ form.target_latitude }}
-              {% if form.target_latitude.errors %}
-                <div class="form-error">{{ form.target_latitude.errors.0 }}</div>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="text" id="id_adopt_map_url_input" class="form-control" placeholder="Paste Google Maps URL (e.g. https://maps.app.goo.gl/... or https://google.com/maps/place/...) or raw coordinates" style="font-size: 0.82rem; flex: 1;">
+                <button type="button" id="btn-adopt-parse-map-url" class="btn btn-primary btn-sm" style="font-size: 0.78rem; white-space: nowrap; padding: 0.45rem 0.85rem; font-weight: 600;">
+                  Extract &amp; Fill
+                </button>
+              </div>
+              <div id="adopt-map-url-status" style="display: none; font-size: 0.78rem; margin-top: 0.45rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm);"></div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label class="form-label" for="{{ form.location_name.id_for_label }}" style="font-size: 0.8rem;">Venue / Gym Name</label>
+              {{ form.location_name }}
+              {% if form.location_name.errors %}
+                <div class="form-error">{{ form.location_name.errors.0 }}</div>
               {% endif %}
             </div>
 
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="{{ form.target_latitude.id_for_label }}" style="font-size: 0.8rem;">Target Latitude <span style="color: var(--danger);">*</span></label>
+                {{ form.target_latitude }}
+                {% if form.target_latitude.errors %}
+                  <div class="form-error">{{ form.target_latitude.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="{{ form.target_longitude.id_for_label }}" style="font-size: 0.8rem;">Target Longitude <span style="color: var(--danger);">*</span></label>
+                {{ form.target_longitude }}
+                {% if form.target_longitude.errors %}
+                  <div class="form-error">{{ form.target_longitude.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+
             <div class="form-group" style="margin: 0;">
-              <label class="form-label" for="{{ form.target_longitude.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-                Target Longitude <span style="color: var(--danger);">*</span>
-              </label>
-              {{ form.target_longitude }}
-              {% if form.target_longitude.errors %}
-                <div class="form-error">{{ form.target_longitude.errors.0 }}</div>
+              <label class="form-label" for="{{ form.allowed_radius_meters.id_for_label }}" style="font-size: 0.8rem;">Allowed Radius (Meters) <span style="color: var(--danger);">*</span></label>
+              {{ form.allowed_radius_meters }}
+              {% if form.allowed_radius_meters.errors %}
+                <div class="form-error">{{ form.allowed_radius_meters.errors.0 }}</div>
               {% endif %}
             </div>
           </div>
+        </div>
 
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" for="{{ form.allowed_radius_meters.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-              Allowed Radius (Meters)
+        <!-- 3. Session Duration Card -->
+        <div class="form-group" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
+          <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              {{ form.enable_duration_requirement }}
+              <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">⏱️ Workout / Session Duration Tracking</span>
+            </div>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 600; font-size: 0.72rem;">+2 Pixels</span>
+          </label>
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 1.6rem;">
+            Must spend and log at least this minimum time per session.
+          </div>
+          <div id="adopt-duration-fields" style="{% if not form.enable_duration_requirement.value and not form.min_duration_minutes.value %}display: none;{% endif %} margin-top: 0.75rem; padding-left: 1.6rem;">
+            <div style="max-width: 260px;">
+              <label class="form-label" style="font-size: 0.8rem;" for="{{ form.min_duration_minutes.id_for_label }}">Minimum Duration (Minutes) <span style="color: var(--danger);">*</span></label>
+              {{ form.min_duration_minutes }}
+              {% if form.min_duration_minutes.errors %}
+                <div class="form-error">{{ form.min_duration_minutes.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Quantitative Target Metric Card -->
+        <div class="form-group" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
+          <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              {{ form.enable_numeric_target }}
+              <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">🎯 Quantitative Target Metric</span>
+            </div>
+            <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-weight: 600; font-size: 0.72rem;">+2 Pixels</span>
+          </label>
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 1.6rem;">
+            Commit to a specific numerical goal per completion.
+          </div>
+          <div id="adopt-numeric-fields" style="{% if not form.enable_numeric_target.value and not form.target_value.value and not form.target_value.errors %}display: none;{% endif %} margin-top: 0.75rem; padding-left: 1.6rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.target_value.id_for_label }}">Daily Target Value <span style="color: var(--danger);">*</span></label>
+                {{ form.target_value }}
+                {% if form.target_value.errors %}
+                  <div class="form-error">{{ form.target_value.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.unit_label.id_for_label }}">Unit Label <span style="color: var(--danger);">*</span></label>
+                {{ form.unit_label }}
+                {% if form.unit_label.errors %}
+                  <div class="form-error">{{ form.unit_label.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Proof of Work & AI Verification Card -->
+        <div class="form-group" style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
+          <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              {{ form.enable_evidence_upload }}
+              <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">📎 Proof of Work Upload &amp; AI Relevance Analysis</span>
+            </div>
+            <span class="badge" style="background: rgba(236, 72, 153, 0.15); color: #ec4899; font-weight: 600; font-size: 0.72rem;">+3 Pixels</span>
+          </label>
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 1.6rem;">
+            Upload photo proof upon completion. Automatically analyzed by AI vision to ensure proof authenticity.
+          </div>
+          <div id="adopt-evidence-fields" style="{% if not form.enable_evidence_upload.value %}display: none;{% endif %} margin-top: 0.75rem; padding-left: 1.6rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.82rem; color: var(--text-main);">
+              {{ form.enable_ai_proof_verification }}
+              <span>Enable AI Vision Multimodal verification to audit image relevance</span>
             </label>
-            {{ form.allowed_radius_meters }}
-            {% if form.allowed_radius_meters.errors %}
-              <div class="form-error">{{ form.allowed_radius_meters.errors.0 }}</div>
-            {% endif %}
-            <div class="form-help" style="font-size: 0.75rem; margin-top: 0.25rem;">Default: 150m. User must be within this proximity to verify completion.</div>
           </div>
         </div>
       </div>
@@ -319,6 +435,77 @@
       freqSelect.addEventListener('change', updateVisibility);
       updateVisibility();
     }
+
+    // Modular Verification Toggles & Dynamic Pixel Calculator for Adoption
+    const adoptTimeCb = document.getElementById('id_adopt_enable_time_window');
+    const adoptTimeFields = document.getElementById('adopt-time-window-fields');
+    const adoptDurCb = document.getElementById('id_adopt_enable_duration_requirement');
+    const adoptDurFields = document.getElementById('adopt-duration-fields');
+    const adoptNumCb = document.getElementById('id_adopt_enable_numeric_target');
+    const adoptNumFields = document.getElementById('adopt-numeric-fields');
+    const adoptEviCb = document.getElementById('id_adopt_enable_evidence_upload');
+    const adoptEviFields = document.getElementById('adopt-evidence-fields');
+    const adoptLocCb = document.getElementById('id_adopt_is_location_restricted');
+    const adoptLocFields = document.getElementById('adopt-location-fields');
+
+    const adoptBaseEl = document.getElementById('adopt-display-base-pixels');
+    const adoptBonusEl = document.getElementById('adopt-display-bonus-pixels');
+    const adoptTotalEl = document.getElementById('adopt-display-total-pixels');
+
+    function updateAdoptDynamicPixels() {
+      const base = parseInt(adoptBaseEl ? adoptBaseEl.textContent : '5', 10) || 5;
+      let bonuses = 0;
+      if (adoptTimeCb && adoptTimeCb.checked) bonuses += 2;
+      if (adoptLocCb && adoptLocCb.checked) bonuses += 3;
+      if (adoptDurCb && adoptDurCb.checked) bonuses += 2;
+      if (adoptNumCb && adoptNumCb.checked) bonuses += 2;
+      if (adoptEviCb && adoptEviCb.checked) bonuses += 3;
+
+      if (adoptBonusEl) adoptBonusEl.textContent = bonuses;
+      if (adoptTotalEl) {
+        adoptTotalEl.textContent = base + bonuses;
+        adoptTotalEl.style.transition = 'transform 0.2s';
+        adoptTotalEl.style.transform = 'scale(1.25)';
+        setTimeout(() => { adoptTotalEl.style.transform = 'scale(1)'; }, 200);
+      }
+    }
+
+    if (adoptTimeCb && adoptTimeFields) {
+      adoptTimeCb.addEventListener('change', () => {
+        adoptTimeFields.style.display = adoptTimeCb.checked ? 'block' : 'none';
+        updateAdoptDynamicPixels();
+      });
+    }
+
+    if (adoptDurCb && adoptDurFields) {
+      adoptDurCb.addEventListener('change', () => {
+        adoptDurFields.style.display = adoptDurCb.checked ? 'block' : 'none';
+        updateAdoptDynamicPixels();
+      });
+    }
+
+    if (adoptNumCb && adoptNumFields) {
+      adoptNumCb.addEventListener('change', () => {
+        adoptNumFields.style.display = adoptNumCb.checked ? 'block' : 'none';
+        updateAdoptDynamicPixels();
+      });
+    }
+
+    if (adoptEviCb && adoptEviFields) {
+      adoptEviCb.addEventListener('change', () => {
+        adoptEviFields.style.display = adoptEviCb.checked ? 'block' : 'none';
+        updateAdoptDynamicPixels();
+      });
+    }
+
+    if (adoptLocCb && adoptLocFields) {
+      adoptLocCb.addEventListener('change', () => {
+        adoptLocFields.style.display = adoptLocCb.checked ? 'block' : 'none';
+        updateAdoptDynamicPixels();
+      });
+    }
+
+    updateAdoptDynamicPixels();
 
     // Adopt Template Location Geofence & Google Maps Extractor
     const isRestrictedCheckbox = document.getElementById('id_adopt_is_location_restricted');

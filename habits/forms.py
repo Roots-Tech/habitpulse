@@ -166,6 +166,12 @@ class HabitForm(forms.ModelForm):
             "target_latitude",
             "target_longitude",
             "allowed_radius_meters",
+            "enable_time_window",
+            "enable_numeric_target",
+            "enable_evidence_upload",
+            "enable_duration_requirement",
+            "min_duration_minutes",
+            "enable_ai_proof_verification",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -240,6 +246,12 @@ class HabitForm(forms.ModelForm):
             "target_latitude": forms.NumberInput(attrs={"class": "form-control", "id": "id_target_latitude", "step": "any", "placeholder": "e.g. 12.971598"}),
             "target_longitude": forms.NumberInput(attrs={"class": "form-control", "id": "id_target_longitude", "step": "any", "placeholder": "e.g. 77.594566"}),
             "allowed_radius_meters": forms.NumberInput(attrs={"class": "form-control", "id": "id_allowed_radius_meters", "min": "10", "placeholder": "150"}),
+            "enable_time_window": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_time_window"}),
+            "enable_numeric_target": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_numeric_target"}),
+            "enable_evidence_upload": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_evidence_upload"}),
+            "enable_duration_requirement": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_duration_requirement"}),
+            "min_duration_minutes": forms.NumberInput(attrs={"class": "form-control", "id": "id_min_duration_minutes", "placeholder": "e.g. 45", "min": 1}),
+            "enable_ai_proof_verification": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_ai_proof_verification"}),
         }
 
     def __init__(self, *args, tenant=None, user=None, habit_type_initial=None, is_template_initial=None, **kwargs):
@@ -774,6 +786,39 @@ class AdoptHabitPersonalizationForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_allowed_radius_meters", "placeholder": "150"}),
         label="Allowed Radius (Meters)",
     )
+    enable_time_window = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_time_window"}),
+        label="Time Window Restriction",
+    )
+    enable_duration_requirement = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_duration_requirement"}),
+        label="Workout / Session Duration",
+    )
+    min_duration_minutes = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=1440,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_min_duration_minutes", "placeholder": "e.g. 45"}),
+        label="Minimum Duration (Minutes)",
+    )
+    enable_numeric_target = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_numeric_target"}),
+        label="Quantitative Target Metric",
+    )
+    enable_evidence_upload = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_evidence_upload"}),
+        label="Proof of Work Upload",
+    )
+    enable_ai_proof_verification = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_ai_proof_verification"}),
+        label="AI Proof Relevance Verification",
+    )
 
     def __init__(self, *args, template_habit=None, **kwargs):
         self.template_habit = template_habit
@@ -798,6 +843,12 @@ class AdoptHabitPersonalizationForm(forms.Form):
                 self.fields["target_latitude"].initial = template_habit.target_latitude
                 self.fields["target_longitude"].initial = template_habit.target_longitude
                 self.fields["allowed_radius_meters"].initial = template_habit.allowed_radius_meters or 150
+                self.fields["enable_time_window"].initial = template_habit.has_time_window
+                self.fields["enable_duration_requirement"].initial = template_habit.enable_duration_requirement
+                self.fields["min_duration_minutes"].initial = template_habit.min_duration_minutes
+                self.fields["enable_numeric_target"].initial = template_habit.requires_numeric
+                self.fields["enable_evidence_upload"].initial = template_habit.requires_evidence
+                self.fields["enable_ai_proof_verification"].initial = template_habit.enable_ai_proof_verification
 
             if template_habit.validation_rule in [Habit.ValidationRule.TIME_WINDOW, Habit.ValidationRule.TIME_AND_EVIDENCE]:
                 self.fields["window_start_time"].required = True
