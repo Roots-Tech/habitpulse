@@ -240,6 +240,127 @@
         </div>
       </div>
 
+      <!-- Modular Verification Layer Bonus Adders Section -->
+      <div style="margin-top: 2rem; margin-bottom: 2rem; border-top: 1.5px solid var(--border); padding-top: 1.5rem;">
+        <div style="margin-bottom: 1.25rem;">
+          <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+            <span>🛡️ Modular Verification &amp; Accountability Reward Adders</span>
+          </h3>
+          <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0.25rem 0 0 0;">
+            Define the exact bonus pixels awarded when users or templates configure specific accountability rules. These values dynamically power habit builders, template adoption cards, and completion reward tickers across the platform.
+          </p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+          
+          <!-- 1. Time Window Bonus -->
+          <div style="background: var(--surface-raised); border: 1.5px solid rgba(168, 85, 247, 0.35); border-radius: var(--radius-md); padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #c084fc; letter-spacing: 0.05em; margin-bottom: 0.35rem;">⏰ Time Window</div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">Strict Operating Hours</div>
+              <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.35; margin-bottom: 0.85rem;">
+                Bonus pixels when habit completion is locked to a specific daily time window.
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed var(--border); padding-top: 0.75rem;">
+              <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Bonus Add:</span>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                {{ form.bonus_time_window }}
+                <span style="font-size: 0.85rem; font-weight: 700; color: #c084fc;">Px</span>
+              </div>
+            </div>
+            {% if form.bonus_time_window.errors %}
+              <div class="form-error" style="font-size: 0.75rem; margin-top: 0.35rem;">{{ form.bonus_time_window.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- 2. Location Geofence Bonus -->
+          <div style="background: var(--surface-raised); border: 1.5px solid rgba(56, 189, 248, 0.35); border-radius: var(--radius-md); padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #38bdf8; letter-spacing: 0.05em; margin-bottom: 0.35rem;">📍 Location Geofence</div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">Physical Venue Presence</div>
+              <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.35; margin-bottom: 0.85rem;">
+                Bonus pixels when completion requires verified GPS presence within venue radius.
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed var(--border); padding-top: 0.75rem;">
+              <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Bonus Add:</span>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                {{ form.bonus_location }}
+                <span style="font-size: 0.85rem; font-weight: 700; color: #38bdf8;">Px</span>
+              </div>
+            </div>
+            {% if form.bonus_location.errors %}
+              <div class="form-error" style="font-size: 0.75rem; margin-top: 0.35rem;">{{ form.bonus_location.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- 3. Duration Tracking Bonus -->
+          <div style="background: var(--surface-raised); border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: var(--radius-md); padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #10b981; letter-spacing: 0.05em; margin-bottom: 0.35rem;">⏱️ Duration Tracking</div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">Minimum Time Spent</div>
+              <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.35; margin-bottom: 0.85rem;">
+                Bonus pixels when user must spend and log at least minimum session minutes.
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed var(--border); padding-top: 0.75rem;">
+              <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Bonus Add:</span>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                {{ form.bonus_duration }}
+                <span style="font-size: 0.85rem; font-weight: 700; color: #10b981;">Px</span>
+              </div>
+            </div>
+            {% if form.bonus_duration.errors %}
+              <div class="form-error" style="font-size: 0.75rem; margin-top: 0.35rem;">{{ form.bonus_duration.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- 4. Quantitative Target Metric Bonus -->
+          <div style="background: var(--surface-raised); border: 1.5px solid rgba(245, 158, 11, 0.35); border-radius: var(--radius-md); padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #f59e0b; letter-spacing: 0.05em; margin-bottom: 0.35rem;">🎯 Quantitative Metric</div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">Target Numerical Goal</div>
+              <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.35; margin-bottom: 0.85rem;">
+                Bonus pixels when habit commits to achieving a numeric threshold.
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed var(--border); padding-top: 0.75rem;">
+              <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Bonus Add:</span>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                {{ form.bonus_numeric_target }}
+                <span style="font-size: 0.85rem; font-weight: 700; color: #f59e0b;">Px</span>
+              </div>
+            </div>
+            {% if form.bonus_numeric_target.errors %}
+              <div class="form-error" style="font-size: 0.75rem; margin-top: 0.35rem;">{{ form.bonus_numeric_target.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- 5. Proof of Work & AI Bonus -->
+          <div style="background: var(--surface-raised); border: 1.5px solid rgba(236, 72, 153, 0.35); border-radius: var(--radius-md); padding: 1.15rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #ec4899; letter-spacing: 0.05em; margin-bottom: 0.35rem;">📎 Proof &amp; AI Analysis</div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.35rem;">Photo Proof with AI Audit</div>
+              <div style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.35; margin-bottom: 0.85rem;">
+                Bonus pixels when photo proof is uploaded and audited by AI Vision.
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed var(--border); padding-top: 0.75rem;">
+              <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Bonus Add:</span>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                {{ form.bonus_evidence_proof }}
+                <span style="font-size: 0.85rem; font-weight: 700; color: #ec4899;">Px</span>
+              </div>
+            </div>
+            {% if form.bonus_evidence_proof.errors %}
+              <div class="form-error" style="font-size: 0.75rem; margin-top: 0.35rem;">{{ form.bonus_evidence_proof.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+
       <!-- Sync to active habits option -->
       <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem; margin-bottom: 1.25rem;">
         <label style="display: flex; align-items: flex-start; gap: 0.75rem; margin: 0; cursor: pointer;">

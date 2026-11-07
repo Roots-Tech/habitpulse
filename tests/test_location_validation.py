@@ -345,3 +345,56 @@ def test_resolve_map_url_api_endpoint(test_setup):
     assert data["latitude"] == 12.978369
     assert data["longitude"] == 77.640835
     assert "Power Fitness" in data["location_name"]
+
+def test_habit_form_auto_resolves_google_maps_url(test_setup):
+    from habits.forms import HabitForm
+    from django.utils import timezone
+    tenant = test_setup["tenant"]
+    user = test_setup["user"]
+
+    form_data = {
+        "name": "Evening Neighborhood Stroll",
+        "habit_type": "GENERAL",
+        "frequency": "DAILY",
+        "start_date": timezone.localdate().isoformat(),
+        "is_active": True,
+        "is_location_restricted": True,
+        "map_url": "https://www.google.com/maps/place/Power+Fitness/@12.978369,77.640835,17z",
+        "allowed_radius_meters": 150,
+        "target_days_per_week": 3,
+        "pixel_score": 2,
+    }
+    form = HabitForm(data=form_data, tenant=tenant, user=user)
+    assert form.is_valid(), form.errors
+    assert float(form.cleaned_data["target_latitude"]) == 12.978369
+    assert float(form.cleaned_data["target_longitude"]) == 77.640835
+    assert form.cleaned_data["location_name"] == "Power Fitness"
+
+
+def test_adopt_form_auto_resolves_google_maps_url(test_setup):
+    from habits.forms import AdoptHabitPersonalizationForm
+    from habits.models import Habit
+    tenant = test_setup["tenant"]
+    user = test_setup["user"]
+    template = Habit.objects.create(
+        tenant=tenant,
+        created_by=user,
+        name="Standardized Track Stroll",
+        habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
+        is_template=True,
+        frequency=Habit.Frequency.DAILY,
+        is_location_restricted=True,
+    )
+    adopt_data = {
+        "frequency": "DAILY",
+        "is_location_restricted": True,
+        "map_url": "https://www.google.com/maps/place/Cult+Fit/@12.971598,77.594566,17z",
+        "allowed_radius_meters": 150,
+        "target_days_per_week": 3,
+    }
+    form = AdoptHabitPersonalizationForm(data=adopt_data, template_habit=template)
+    assert form.is_valid(), form.errors
+    assert float(form.cleaned_data["target_latitude"]) == 12.971598
+    assert float(form.cleaned_data["target_longitude"]) == 77.594566
+    assert form.cleaned_data["location_name"] == "Cult Fit"
+

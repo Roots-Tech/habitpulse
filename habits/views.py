@@ -793,6 +793,12 @@ def habit_adopt_view(request, pk):
                 "target_latitude",
                 "target_longitude",
                 "allowed_radius_meters",
+                "enable_time_window",
+                "enable_duration_requirement",
+                "min_duration_minutes",
+                "enable_numeric_target",
+                "enable_evidence_upload",
+                "enable_ai_proof_verification",
             ]
         )
         if has_custom_params:
@@ -869,6 +875,12 @@ def habit_adopt_view(request, pk):
                     target_latitude=target_latitude,
                     target_longitude=target_longitude,
                     allowed_radius_meters=allowed_radius_meters,
+                    enable_time_window=cleaned.get("enable_time_window", template_habit.has_time_window) if has_custom_params else template_habit.has_time_window,
+                    enable_duration_requirement=cleaned.get("enable_duration_requirement", template_habit.enable_duration_requirement) if has_custom_params else template_habit.enable_duration_requirement,
+                    min_duration_minutes=cleaned.get("min_duration_minutes", template_habit.min_duration_minutes) if has_custom_params else template_habit.min_duration_minutes,
+                    enable_numeric_target=cleaned.get("enable_numeric_target", template_habit.requires_numeric) if has_custom_params else template_habit.requires_numeric,
+                    enable_evidence_upload=cleaned.get("enable_evidence_upload", template_habit.requires_evidence) if has_custom_params else template_habit.requires_evidence,
+                    enable_ai_proof_verification=cleaned.get("enable_ai_proof_verification", template_habit.enable_ai_proof_verification) if has_custom_params else template_habit.enable_ai_proof_verification,
                     is_active=True,
                 )
             messages.success(request, f'Habit "{adopted_habit.name}" has been personalized and added to your habit list!')
@@ -1029,6 +1041,26 @@ def habit_complete_view(request, pk):
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
 
+    # Duration parsing
+    raw_dur = request.POST.get("duration_minutes") or request.POST.get("logged_duration_minutes") or request.POST.get("logged_duration")
+    logged_dur = None
+    if raw_dur:
+        try:
+            logged_dur = int(float(str(raw_dur).strip()))
+        except (ValueError, TypeError):
+            logged_dur = None
+
+    # AI Verification results
+    ai_status = "SKIPPED"
+    ai_reason = ""
+    ai_confidence = None
+    if evidence_file and getattr(habit, "enable_ai_proof_verification", True):
+        from .services import verify_proof_relevance
+        ai_res = verify_proof_relevance(habit, evidence_file)
+        ai_status = ai_res.get("status", "APPROVED")
+        ai_reason = ai_res.get("reason", "")
+        ai_confidence = ai_res.get("confidence")
+
     try:
         with transaction.atomic():
             HabitCompletion.objects.create(
@@ -1037,6 +1069,10 @@ def habit_complete_view(request, pk):
                 completion_date=target_date,
                 evidence_file=evidence_file,
                 logged_value=logged_val,
+                logged_duration_minutes=logged_dur,
+                ai_verification_status=ai_status,
+                ai_verification_reason=ai_reason,
+                ai_confidence_score=ai_confidence,
                 notes=notes,
                 completion_latitude=comp_lat,
                 completion_longitude=comp_lng,

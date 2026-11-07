@@ -112,6 +112,17 @@ class EvidenceFileValidator(BaseCompletionValidator):
                 details={"field": "evidence_file", "reason": "file_too_large", "size": uploaded_file.size},
             )
 
+        # AI Proof Relevance Verification
+        if getattr(habit, "enable_ai_proof_verification", True):
+            from .services import verify_proof_relevance
+            ai_res = verify_proof_relevance(habit, uploaded_file)
+            if not ai_res.get("is_valid", True):
+                return ValidationResult(
+                    is_valid=False,
+                    error_message=f"AI Proof Verification Rejected: {ai_res.get('reason', 'Uploaded image does not appear relevant to this habit.')}",
+                    details={"field": "evidence_file", "reason": "ai_rejected", "ai_details": ai_res},
+                )
+
         return ValidationResult(is_valid=True)
 
 
@@ -265,6 +276,47 @@ class LocationValidator(BaseCompletionValidator):
         )
 
 
+class DurationValidator(BaseCompletionValidator):
+    """
+    Validates that the user has spent at least the minimum required duration
+    on the habit session (in minutes).
+    """
+    def validate(self, habit, data: dict, files: dict, current_dt=None) -> ValidationResult:
+        if not getattr(habit, "requires_duration", False):
+            return ValidationResult(is_valid=True)
+
+        min_required = habit.min_duration_minutes or 0
+        raw_dur = data.get("duration_minutes") or data.get("logged_duration_minutes") or data.get("logged_duration")
+
+        if raw_dur is None or str(raw_dur).strip() == "":
+            return ValidationResult(
+                is_valid=False,
+                error_message=f"Session duration required: You must spend and log at least {min_required} minutes on this activity.",
+                details={"field": "duration_minutes", "reason": "missing_duration", "required": min_required},
+            )
+
+        try:
+            val = int(float(str(raw_dur).strip()))
+        except (ValueError, TypeError):
+            return ValidationResult(
+                is_valid=False,
+                error_message="Please enter a valid number of minutes for workout duration.",
+                details={"field": "duration_minutes", "reason": "invalid_duration"},
+            )
+
+        if val < min_required:
+            return ValidationResult(
+                is_valid=False,
+                error_message=f"Duration goal not met: You logged {val} minutes, but the requirement is at least {min_required} minutes.",
+                details={"field": "duration_minutes", "reason": "duration_unmet", "logged": val, "required": min_required},
+            )
+
+        return ValidationResult(
+            is_valid=True,
+            details={"duration_minutes": val, "required_minutes": min_required},
+        )
+
+
 class HabitCompletionValidationEngine:
     """
     Validation engine orchestrating all completion checks for a habit.
@@ -274,18 +326,20 @@ class HabitCompletionValidationEngine:
         self.evidence_validator = EvidenceFileValidator()
         self.numeric_validator = NumericTargetValidator()
         self.location_validator = LocationValidator()
+        self.duration_validator = DurationValidator()
 
     def get_validators_for_habit(self, habit) -> List[BaseCompletionValidator]:
-        rule = habit.validation_rule
         validators = []
-        if rule in [habit.ValidationRule.TIME_WINDOW, habit.ValidationRule.TIME_AND_EVIDENCE]:
+        if getattr(habit, "has_time_window", False):
             validators.append(self.time_validator)
-        if rule in [habit.ValidationRule.EVIDENCE_FILE, habit.ValidationRule.TIME_AND_EVIDENCE]:
-            validators.append(self.evidence_validator)
-        if rule == habit.ValidationRule.NUMERIC_TARGET:
-            validators.append(self.numeric_validator)
         if getattr(habit, "is_location_restricted", False):
             validators.append(self.location_validator)
+        if getattr(habit, "requires_duration", False):
+            validators.append(self.duration_validator)
+        if getattr(habit, "requires_numeric", False):
+            validators.append(self.numeric_validator)
+        if getattr(habit, "requires_evidence", False):
+            validators.append(self.evidence_validator)
         return validators
 
     @profile_function("habits.validators.HabitCompletionValidationEngine.validate")

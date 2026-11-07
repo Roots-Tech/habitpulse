@@ -174,7 +174,7 @@
         <div class="form-help" style="margin-top: 0.4rem; font-size: 0.8rem; color: var(--text-muted);">
           {{ form.target_days_per_week.help_text }}
           <span style="display: block; margin-top: 0.2rem; color: #10b981; font-weight: 500;">
-            💡 Monitored daily: accomplish your target days each week to maintain your consistency streak, with monthly breakdown reports.
+            💡 Flexible goal: meet your target days every week to maintain your streak, with weekly/monthly breakdown analytics.
           </span>
         </div>
       </div>
@@ -196,95 +196,288 @@
         {% endif %}
       </div>
 
-      <!-- Location Geofencing Customization -->
-      <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1.25rem;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
-          <div style="font-weight: 700; color: var(--gray-900); font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
-            <span>📍 Physical Location Verification (Geofenced Check-in)</span>
+      <!-- Modular Accountability & Verification Requirements Section (Odoo-Style Many-to-Many Menu) -->
+      <div style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
+              <span>🛡️ Personal Accountability &amp; Verification Requirements</span>
+            </h3>
+            <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0;">
+              Customize how strictly you want to verify this habit. Stacking verifications increases consistency and multiplies your Pixel earnings.
+            </p>
           </div>
-          <button type="button" id="btn-adopt-detect-location" class="btn btn-outline btn-sm" style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border-color: var(--primary); color: var(--primary);">
-            <span>📍 Auto-Detect My Current GPS</span>
-          </button>
-        </div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.4;">
-          Optional: Restrict check-in only when physically present at your gym, fitness center, or specific venue.
         </div>
 
-        <div class="form-group" style="margin-bottom: 0.85rem;">
-          <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-main);">
-            {{ form.is_location_restricted }}
-            <span>Require location verification when marking complete</span>
+        <!-- Dynamic Stackable Pixel Calculator Banner -->
+        <div class="pixel-calculation-banner"
+             data-bonus-time="{{ pixel_config.bonus_time_window|default:2 }}"
+             data-bonus-location="{{ pixel_config.bonus_location|default:3 }}"
+             data-bonus-duration="{{ pixel_config.bonus_duration|default:2 }}"
+             data-bonus-numeric="{{ pixel_config.bonus_numeric_target|default:2 }}"
+             data-bonus-evidence="{{ pixel_config.bonus_evidence_proof|default:3 }}"
+             style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(56, 189, 248, 0.12)); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1.1rem; margin-top: 0.75rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: #c084fc; display: flex; align-items: center; gap: 0.4rem;">
+              <span>💎 Allotted Accomplishment Reward:</span>
+              <span id="adopt-display-total-pixels" style="font-size: 1.3rem; font-weight: 800; color: #38bdf8;">{{ template_habit.pixel_score|default:5 }}</span>
+              <span>Pixels / Day</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Template Base: <span id="adopt-display-base-pixels">{% if template_habit.habit_type == 'EXPERT_PRESCRIBED' %}10{% else %}5{% endif %}</span> Px &bull; Active Verification Bonuses: +<span id="adopt-display-bonus-pixels">0</span> Px
+            </div>
+          </div>
+          <div style="font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); padding: 0.35rem 0.65rem; border-radius: 4px; color: var(--text-dim);">
+            ⚡ Personal verification choices multiply your rewards
+          </div>
+        </div>
+
+        <!-- Odoo-Style Many-to-Many Tag Selector Bar -->
+        <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.45rem;">
+            Verification Routes &amp; Rulesets (Select multiple to stack)
           </label>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+            <div id="adopt-verification-tags-container" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+              <span id="adopt-honor-system-tag" class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px dashed rgba(148, 163, 184, 0.4); font-size: 0.82rem; padding: 0.35rem 0.65rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.3rem;">
+                🤝 Honor System (No Additional Constraints)
+              </span>
+            </div>
+
+            <!-- Dropdown Menu to add verification layers -->
+            <div style="position: relative; display: inline-block;">
+              <select id="adopt-verification-menu-selector" class="form-control form-control-sm" style="font-size: 0.82rem; padding: 0.35rem 0.75rem; border-color: var(--primary); color: var(--primary); font-weight: 600; cursor: pointer; background: rgba(99, 102, 241, 0.06);">
+                <option value="">+ Add Verification Layer from Menu...</option>
+                <option id="opt-adopt-layer-time" value="time">⏰ Time Window Restriction (+{{ pixel_config.bonus_time_window|default:2 }} Px)</option>
+                <option id="opt-adopt-layer-location" value="location">📍 Physical Location Geofence (+{{ pixel_config.bonus_location|default:3 }} Px)</option>
+                <option id="opt-adopt-layer-duration" value="duration">⏱️ Workout / Session Duration (+{{ pixel_config.bonus_duration|default:2 }} Px)</option>
+                <option id="opt-adopt-layer-numeric" value="numeric">🎯 Quantitative Target Metric (+{{ pixel_config.bonus_numeric_target|default:2 }} Px)</option>
+                <option id="opt-adopt-layer-evidence" value="evidence">📎 Proof of Work &amp; AI Audit (+{{ pixel_config.bonus_evidence_proof|default:3 }} Px)</option>
+              </select>
+            </div>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">
+            Tip: Pick a verification route from the menu to plot its configuration below. Click <strong>&times;</strong> on any tag to remove it.
+          </div>
         </div>
 
-        <div id="adopt-location-detection-status" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem;"></div>
-
-        <div id="adopt-location-fields" style="{% if not form.is_location_restricted.value and not form.target_latitude.errors and not form.target_longitude.errors %}display: none;{% endif %}">
-          <!-- Google Maps Link Auto-Fill Input -->
-          <div class="form-group" style="background: rgba(99, 102, 241, 0.06); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
-            <label class="form-label" for="id_adopt_map_url_input" style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-              <span style="display: flex; align-items: center; gap: 0.35rem;">
-                <span>🗺️ Paste Google Maps Link or Coordinates</span>
-              </span>
-              <span style="font-size: 0.72rem; color: #818cf8; font-weight: 600;">Auto-fills Lat &amp; Long</span>
-            </label>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <input type="text" id="id_adopt_map_url_input" class="form-control" placeholder="Paste Google Maps URL (e.g. https://maps.app.goo.gl/... or https://google.com/maps/place/...) or raw coordinates" style="font-size: 0.82rem; flex: 1;">
-              <button type="button" id="btn-adopt-parse-map-url" class="btn btn-primary btn-sm" style="font-size: 0.78rem; white-space: nowrap; padding: 0.45rem 0.85rem; font-weight: 600;">
-                Extract &amp; Fill
+        <!-- M2M Plotted Cards Container (Hidden by default, plotted when active) -->
+        <div id="adopt-m2m-plotted-cards-container">
+          <!-- 1. Plotted Card: Time Window -->
+          <div id="plotted-adopt-time" class="m2m-plotted-card" style="display: none; background: var(--surface-raised); border: 1.5px solid rgba(168, 85, 247, 0.4); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.1rem;">⏰</span>
+                <div>
+                  <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Time Window Restriction</span>
+                  <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; font-weight: 600; font-size: 0.72rem; margin-left: 0.35rem;">+{{ pixel_config.bonus_time_window|default:2 }} Pixels</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm btn-adopt-remove-layer" data-layer="time" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+                Remove &times;
               </button>
             </div>
-            <div id="adopt-map-url-status" style="display: none; font-size: 0.78rem; margin-top: 0.45rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm);"></div>
-            <div class="form-help" style="font-size: 0.75rem; margin-top: 0.35rem; color: var(--text-muted);">
-              Paste any Google Maps link or coordinates. The system automatically extracts the gym name, latitude, and longitude.
+            <div style="display: none;">
+              {{ form.enable_time_window }}
+            </div>
+            <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Users must mark this habit complete strictly within allowed hours (e.g. morning routine).
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.window_start_time.id_for_label }}">Window Opens <span style="color: var(--danger);">*</span></label>
+                {{ form.window_start_time }}
+                {% if form.window_start_time.errors %}
+                  <div class="form-error">{{ form.window_start_time.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.window_end_time.id_for_label }}">Window Closes <span style="color: var(--danger);">*</span></label>
+                {{ form.window_end_time }}
+                {% if form.window_end_time.errors %}
+                  <div class="form-error">{{ form.window_end_time.errors.0 }}</div>
+                {% endif %}
+              </div>
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label class="form-label" for="{{ form.location_name.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-              Venue / Gym Name
-            </label>
-            {{ form.location_name }}
-            {% if form.location_name.errors %}
-              <div class="form-error">{{ form.location_name.errors.0 }}</div>
-            {% endif %}
-          </div>
+          <!-- 2. Plotted Card: Physical Location Geofence -->
+          <div id="plotted-adopt-location" class="m2m-plotted-card" style="display: none; background: var(--surface-raised); border: 1.5px solid rgba(56, 189, 248, 0.4); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.1rem;">📍</span>
+                <div>
+                  <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Physical Location Geofencing</span>
+                  <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-weight: 600; font-size: 0.72rem; margin-left: 0.35rem;">+{{ pixel_config.bonus_location|default:3 }} Pixels</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm btn-adopt-remove-layer" data-layer="location" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+                Remove &times;
+              </button>
+            </div>
+            <div style="display: none;">
+              {{ form.is_location_restricted }}
+            </div>
+            <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Must be physically present within radius of this venue to check in and mark complete.
+            </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
-            <div class="form-group" style="margin: 0;">
-              <label class="form-label" for="{{ form.target_latitude.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-                Target Latitude <span style="color: var(--danger);">*</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+              <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-main);">Venue GPS Coordinates</span>
+              <button type="button" id="btn-adopt-detect-location" class="btn btn-outline btn-sm" style="font-size: 0.76rem; display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border-color: var(--primary); color: var(--primary);">
+                <span>📍 Auto-Detect Current GPS</span>
+              </button>
+            </div>
+            <div id="adopt-location-detection-status" style="display: none; font-size: 0.8rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem;"></div>
+
+            <!-- Google Maps Auto-Fill Input -->
+            <div class="form-group" style="background: rgba(99, 102, 241, 0.06); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
+              <label class="form-label" for="id_adopt_map_url_input" style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+                <span>🗺️ Paste Google Maps Link or Coordinates</span>
+                <span style="font-size: 0.72rem; color: #818cf8; font-weight: 600;">Auto-fills Lat &amp; Long</span>
               </label>
-              {{ form.target_latitude }}
-              {% if form.target_latitude.errors %}
-                <div class="form-error">{{ form.target_latitude.errors.0 }}</div>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="text" name="map_url" id="id_adopt_map_url_input" class="form-control" placeholder="Paste Google Maps URL (e.g. https://maps.app.goo.gl/... or https://google.com/maps/place/...) or raw coordinates" style="font-size: 0.82rem; flex: 1;">
+                <button type="button" id="btn-adopt-parse-map-url" class="btn btn-primary btn-sm" style="font-size: 0.78rem; white-space: nowrap; padding: 0.45rem 0.85rem; font-weight: 600;">
+                  Extract &amp; Fill
+                </button>
+              </div>
+              <div id="adopt-map-url-status" style="display: none; font-size: 0.78rem; margin-top: 0.45rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm);"></div>
+              {% if form.map_url.errors %}
+                <div class="form-error">{{ form.map_url.errors.0 }}</div>
               {% endif %}
             </div>
 
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+              <label class="form-label" for="{{ form.location_name.id_for_label }}" style="font-size: 0.8rem;">Venue / Gym Name</label>
+              {{ form.location_name }}
+              {% if form.location_name.errors %}
+                <div class="form-error">{{ form.location_name.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="{{ form.target_latitude.id_for_label }}" style="font-size: 0.8rem;">Target Latitude <span style="color: var(--danger);">*</span></label>
+                {{ form.target_latitude }}
+                {% if form.target_latitude.errors %}
+                  <div class="form-error">{{ form.target_latitude.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="{{ form.target_longitude.id_for_label }}" style="font-size: 0.8rem;">Target Longitude <span style="color: var(--danger);">*</span></label>
+                {{ form.target_longitude }}
+                {% if form.target_longitude.errors %}
+                  <div class="form-error">{{ form.target_longitude.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+
             <div class="form-group" style="margin: 0;">
-              <label class="form-label" for="{{ form.target_longitude.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-                Target Longitude <span style="color: var(--danger);">*</span>
-              </label>
-              {{ form.target_longitude }}
-              {% if form.target_longitude.errors %}
-                <div class="form-error">{{ form.target_longitude.errors.0 }}</div>
+              <label class="form-label" for="{{ form.allowed_radius_meters.id_for_label }}" style="font-size: 0.8rem;">Allowed Radius (Meters) <span style="color: var(--danger);">*</span></label>
+              {{ form.allowed_radius_meters }}
+              {% if form.allowed_radius_meters.errors %}
+                <div class="form-error">{{ form.allowed_radius_meters.errors.0 }}</div>
               {% endif %}
             </div>
           </div>
 
-          <div class="form-group" style="margin: 0;">
-            <label class="form-label" for="{{ form.allowed_radius_meters.id_for_label }}" style="font-weight: 600; font-size: 0.85rem;">
-              Allowed Radius (Meters)
-            </label>
-            {{ form.allowed_radius_meters }}
-            {% if form.allowed_radius_meters.errors %}
-              <div class="form-error">{{ form.allowed_radius_meters.errors.0 }}</div>
-            {% endif %}
-            <div class="form-help" style="font-size: 0.75rem; margin-top: 0.25rem;">Default: 150m. User must be within this proximity to verify completion.</div>
+          <!-- 3. Plotted Card: Duration Tracking -->
+          <div id="plotted-adopt-duration" class="m2m-plotted-card" style="display: none; background: var(--surface-raised); border: 1.5px solid rgba(16, 185, 129, 0.4); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.1rem;">⏱️</span>
+                <div>
+                  <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Workout / Session Duration Tracking</span>
+                  <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 600; font-size: 0.72rem; margin-left: 0.35rem;">+{{ pixel_config.bonus_duration|default:2 }} Pixels</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm btn-adopt-remove-layer" data-layer="duration" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+                Remove &times;
+              </button>
+            </div>
+            <div style="display: none;">
+              {{ form.enable_duration_requirement }}
+            </div>
+            <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Users must spend and log at least this minimum time per session.
+            </div>
+            <div style="max-width: 260px;">
+              <label class="form-label" style="font-size: 0.8rem;" for="{{ form.min_duration_minutes.id_for_label }}">Minimum Duration (Minutes) <span style="color: var(--danger);">*</span></label>
+              {{ form.min_duration_minutes }}
+              {% if form.min_duration_minutes.errors %}
+                <div class="form-error">{{ form.min_duration_minutes.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- 4. Plotted Card: Target Metric -->
+          <div id="plotted-adopt-numeric" class="m2m-plotted-card" style="display: none; background: var(--surface-raised); border: 1.5px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.1rem;">🎯</span>
+                <div>
+                  <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Quantitative Target Metric</span>
+                  <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-weight: 600; font-size: 0.72rem; margin-left: 0.35rem;">+{{ pixel_config.bonus_numeric_target|default:2 }} Pixels</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm btn-adopt-remove-layer" data-layer="numeric" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+                Remove &times;
+              </button>
+            </div>
+            <div style="display: none;">
+              {{ form.enable_numeric_target }}
+            </div>
+            <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Commit to a specific numerical goal per completion (e.g. 2.0 liters, 10 km).
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.target_value.id_for_label }}">Daily Target Value <span style="color: var(--danger);">*</span></label>
+                {{ form.target_value }}
+                {% if form.target_value.errors %}
+                  <div class="form-error">{{ form.target_value.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.8rem;" for="{{ form.unit_label.id_for_label }}">Unit Label <span style="color: var(--danger);">*</span></label>
+                {{ form.unit_label }}
+                {% if form.unit_label.errors %}
+                  <div class="form-error">{{ form.unit_label.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Plotted Card: Proof of Work & AI Audit -->
+          <div id="plotted-adopt-evidence" class="m2m-plotted-card" style="display: none; background: var(--surface-raised); border: 1.5px solid rgba(236, 72, 153, 0.4); border-radius: var(--radius-sm); padding: 1.15rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.1rem;">📎</span>
+                <div>
+                  <span style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Proof of Work &amp; AI Relevance Analysis</span>
+                  <span class="badge" style="background: rgba(236, 72, 153, 0.15); color: #ec4899; font-weight: 600; font-size: 0.72rem; margin-left: 0.35rem;">+{{ pixel_config.bonus_evidence_proof|default:3 }} Pixels</span>
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm btn-adopt-remove-layer" data-layer="evidence" style="color: var(--danger); border-color: rgba(239, 68, 68, 0.3); font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+                Remove &times;
+              </button>
+            </div>
+            <div style="display: none;">
+              {{ form.enable_evidence_upload }}
+            </div>
+            <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Upload photo proof upon completion. Automatically analyzed by AI vision to ensure proof authenticity.
+            </div>
+            <div>
+              <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.82rem; color: var(--text-main);">
+                {{ form.enable_ai_proof_verification }}
+                <span>Enable AI Vision Multimodal verification to audit image relevance</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
-
       <!-- Action Buttons -->
       <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem;">
         <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 600;">
@@ -302,7 +495,6 @@
   document.addEventListener('DOMContentLoaded', function() {
     const freqSelect = document.getElementById('id_adopt_frequency');
     const weekdayBlock = document.getElementById('weekday-selection-block');
-
     const weeklyTargetBlock = document.getElementById('weekly-target-block');
 
     function updateVisibility() {
@@ -320,103 +512,206 @@
       updateVisibility();
     }
 
-    // Adopt Template Location Geofence & Google Maps Extractor
-    const isRestrictedCheckbox = document.getElementById('id_adopt_is_location_restricted');
-    const geofenceFields = document.getElementById('adopt-location-fields');
-    const mapInput = document.getElementById('id_adopt_map_url_input');
-    const parseBtn = document.getElementById('btn-adopt-parse-map-url');
-    const statusBox = document.getElementById('adopt-map-url-status');
-    const latInput = document.getElementById('id_adopt_target_latitude');
-    const lngInput = document.getElementById('id_adopt_target_longitude');
-    const nameInput = document.getElementById('id_adopt_location_name');
-    const detectBtn = document.getElementById('btn-adopt-detect-location');
-    const detectStatus = document.getElementById('adopt-location-detection-status');
+    // Odoo-Style Many-to-Many Verification Selector & Dynamic Pixel Engine for Adoption
+    const bannerEl = document.querySelector('.pixel-calculation-banner');
+    const baseEl = document.getElementById('adopt-display-base-pixels');
+    const bonusEl = document.getElementById('adopt-display-bonus-pixels');
+    const totalEl = document.getElementById('adopt-display-total-pixels');
 
-    if (isRestrictedCheckbox && geofenceFields) {
-      isRestrictedCheckbox.addEventListener('change', function() {
-        geofenceFields.style.display = this.checked ? 'block' : 'none';
-      });
-    }
+    const menuSelector = document.getElementById('adopt-verification-menu-selector');
+    const tagsContainer = document.getElementById('adopt-verification-tags-container');
+    const honorTag = document.getElementById('adopt-honor-system-tag');
 
-    if (mapInput && parseBtn && latInput && lngInput) {
-      async function triggerAdoptExtraction() {
-        const val = (mapInput.value || '').trim();
-        if (!val) {
-          if (statusBox) {
-            statusBox.style.display = 'block';
-            statusBox.style.background = 'rgba(239, 68, 68, 0.12)';
-            statusBox.style.color = '#ef4444';
-            statusBox.textContent = 'Please paste a Google Maps link or coordinates first.';
-          }
-          return;
-        }
+    const M2M_CONFIG = {
+      time: {
+        name: 'Time Window',
+        icon: '⏰',
+        bonus: parseInt(bannerEl ? bannerEl.dataset.bonusTime : '2', 10) || 2,
+        color: '#c084fc',
+        bg: 'rgba(168, 85, 247, 0.15)',
+        border: 'rgba(168, 85, 247, 0.4)',
+        cbId: 'id_adopt_enable_time_window',
+        cardId: 'plotted-adopt-time',
+        optId: 'opt-adopt-layer-time'
+      },
+      location: {
+        name: 'Location Geofence',
+        icon: '📍',
+        bonus: parseInt(bannerEl ? bannerEl.dataset.bonusLocation : '3', 10) || 3,
+        color: '#38bdf8',
+        bg: 'rgba(56, 189, 248, 0.15)',
+        border: 'rgba(56, 189, 248, 0.4)',
+        cbId: 'id_adopt_is_location_restricted',
+        cardId: 'plotted-adopt-location',
+        optId: 'opt-adopt-layer-location'
+      },
+      duration: {
+        name: 'Duration Tracking',
+        icon: '⏱️',
+        bonus: parseInt(bannerEl ? bannerEl.dataset.bonusDuration : '2', 10) || 2,
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.15)',
+        border: 'rgba(16, 185, 129, 0.4)',
+        cbId: 'id_adopt_enable_duration_requirement',
+        cardId: 'plotted-adopt-duration',
+        optId: 'opt-adopt-layer-duration'
+      },
+      numeric: {
+        name: 'Target Metric',
+        icon: '🎯',
+        bonus: parseInt(bannerEl ? bannerEl.dataset.bonusNumeric : '2', 10) || 2,
+        color: '#f59e0b',
+        bg: 'rgba(245, 158, 11, 0.15)',
+        border: 'rgba(245, 158, 11, 0.4)',
+        cbId: 'id_adopt_enable_numeric_target',
+        cardId: 'plotted-adopt-numeric',
+        optId: 'opt-adopt-layer-numeric'
+      },
+      evidence: {
+        name: 'Proof & AI Audit',
+        icon: '📎',
+        bonus: parseInt(bannerEl ? bannerEl.dataset.bonusEvidence : '3', 10) || 3,
+        color: '#ec4899',
+        bg: 'rgba(236, 72, 153, 0.15)',
+        border: 'rgba(236, 72, 153, 0.4)',
+        cbId: 'id_adopt_enable_evidence_upload',
+        cardId: 'plotted-adopt-evidence',
+        optId: 'opt-adopt-layer-evidence'
+      }
+    };
 
-        parseBtn.disabled = true;
-        const origBtnText = parseBtn.innerHTML;
-        parseBtn.innerHTML = '⏳ Extracting...';
-        if (statusBox) {
-          statusBox.style.display = 'block';
-          statusBox.style.background = 'rgba(56, 189, 248, 0.12)';
-          statusBox.style.color = '#0284c7';
-          statusBox.textContent = 'Resolving location and GPS coordinates...';
-        }
+    function updateDynamicPixels() {
+      const base = parseInt(baseEl ? baseEl.textContent : '5', 10) || 5;
+      let bonuses = 0;
 
-        try {
-          const resp = await fetch('/api/v1/resolve-map-url/?url=' + encodeURIComponent(val));
-          const data = await resp.json();
-
-          if (resp.ok && data.success) {
-            latInput.value = Number(data.latitude).toFixed(6);
-            lngInput.value = Number(data.longitude).toFixed(6);
-
-            if (nameInput && data.location_name && (!nameInput.value.trim() || nameInput.value.trim().length <= 3)) {
-              nameInput.value = data.location_name;
-            }
-
-            document.querySelectorAll('#adopt-location-fields .form-error').forEach(el => el.remove());
-
-            [latInput, lngInput, nameInput].forEach(inp => {
-              if (inp) {
-                inp.style.transition = 'box-shadow 0.3s, border-color 0.3s';
-                inp.style.borderColor = '#10b981';
-                inp.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.25)';
-                setTimeout(() => {
-                  inp.style.boxShadow = '';
-                }, 2500);
-              }
-            });
-
-            if (statusBox) {
-              statusBox.style.background = 'rgba(16, 185, 129, 0.15)';
-              statusBox.style.color = '#10b981';
-              statusBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-              const venueText = data.location_name ? ` (${data.location_name})` : '';
-              statusBox.innerHTML = `✅ <strong>Coordinates Auto-Filled:</strong> ${data.latitude}, ${data.longitude}${venueText}`;
-            }
-          } else {
-            if (statusBox) {
-              statusBox.style.background = 'rgba(239, 68, 68, 0.12)';
-              statusBox.style.color = '#ef4444';
-              statusBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-              statusBox.textContent = '⚠️ ' + (data.error || 'Could not extract coordinates from this link.');
-            }
-          }
-        } catch (err) {
-          if (statusBox) {
-            statusBox.style.background = 'rgba(239, 68, 68, 0.12)';
-            statusBox.style.color = '#ef4444';
-            statusBox.textContent = '⚠️ Failed to connect to resolver service. Check network or enter coordinates directly.';
-          }
-        } finally {
-          parseBtn.disabled = false;
-          parseBtn.innerHTML = origBtnText;
+      for (const key in M2M_CONFIG) {
+        const cfg = M2M_CONFIG[key];
+        const cb = document.getElementById(cfg.cbId);
+        if (cb && cb.checked) {
+          bonuses += cfg.bonus;
         }
       }
 
-      parseBtn.addEventListener('click', triggerAdoptExtraction);
-      mapInput.addEventListener('paste', () => setTimeout(triggerAdoptExtraction, 80));
-      mapInput.addEventListener('change', triggerAdoptExtraction);
+      if (bonusEl) bonusEl.textContent = bonuses;
+      if (totalEl) {
+        totalEl.textContent = base + bonuses;
+        totalEl.style.transition = 'transform 0.2s';
+        totalEl.style.transform = 'scale(1.25)';
+        setTimeout(() => { totalEl.style.transform = 'scale(1)'; }, 200);
+      }
     }
+
+    function plotLayer(key) {
+      const cfg = M2M_CONFIG[key];
+      if (!cfg) return;
+
+      const cb = document.getElementById(cfg.cbId);
+      if (cb) cb.checked = true;
+
+      const card = document.getElementById(cfg.cardId);
+      if (card) {
+        card.style.display = 'block';
+      }
+
+      const opt = document.getElementById(cfg.optId);
+      if (opt) opt.disabled = true;
+
+      if (tagsContainer && !tagsContainer.querySelector(`[data-tag-layer="${key}"]`)) {
+        const tag = document.createElement('span');
+        tag.className = 'm2m-tag-pill';
+        tag.setAttribute('data-tag-layer', key);
+        tag.style.cssText = `display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.65rem; background: ${cfg.bg}; color: ${cfg.color}; border: 1px solid ${cfg.border}; border-radius: 4px; font-size: 0.82rem; font-weight: 600;`;
+        tag.innerHTML = `<span>${cfg.icon} ${cfg.name} (+${cfg.bonus} Px)</span> <button type="button" class="btn-tag-close" style="background: none; border: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; margin-left: 0.2rem;" aria-label="Remove">&times;</button>`;
+        
+        tag.querySelector('.btn-tag-close').addEventListener('click', (e) => {
+          e.preventDefault();
+          unplotLayer(key);
+        });
+
+        tagsContainer.appendChild(tag);
+      }
+
+      if (honorTag) honorTag.style.display = 'none';
+      updateDynamicPixels();
+    }
+
+    function unplotLayer(key) {
+      const cfg = M2M_CONFIG[key];
+      if (!cfg) return;
+
+      const cb = document.getElementById(cfg.cbId);
+      if (cb) cb.checked = false;
+
+      const card = document.getElementById(cfg.cardId);
+      if (card) card.style.display = 'none';
+
+      const opt = document.getElementById(cfg.optId);
+      if (opt) opt.disabled = false;
+
+      if (tagsContainer) {
+        const tag = tagsContainer.querySelector(`[data-tag-layer="${key}"]`);
+        if (tag) tag.remove();
+
+        const remaining = tagsContainer.querySelectorAll('.m2m-tag-pill');
+        if (remaining.length === 0 && honorTag) {
+          honorTag.style.display = 'inline-flex';
+        }
+      }
+
+      if (menuSelector) menuSelector.value = '';
+      updateDynamicPixels();
+    }
+
+    if (menuSelector) {
+      menuSelector.addEventListener('change', function() {
+        const val = this.value;
+        if (val) {
+          plotLayer(val);
+          this.value = '';
+        }
+      });
+    }
+
+    document.querySelectorAll('.btn-adopt-remove-layer').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const layer = this.getAttribute('data-layer');
+        if (layer) unplotLayer(layer);
+      });
+    });
+
+    // Initial check for layers on page load
+    for (const key in M2M_CONFIG) {
+      const cfg = M2M_CONFIG[key];
+      const cb = document.getElementById(cfg.cbId);
+      const card = document.getElementById(cfg.cardId);
+      const hasErrors = card && card.querySelector('.form-error');
+
+      if ((cb && cb.checked) || hasErrors) {
+        plotLayer(key);
+      }
+    }
+
+    // Auto-plot template pre-configured requirements if checkboxes were not checked yet
+    const templateHasTime = {% if template_habit.enable_time_window or template_habit.window_start_time %}true{% else %}false{% endif %};
+    const templateHasLoc = {% if template_habit.is_location_restricted %}true{% else %}false{% endif %};
+    const templateHasDur = {% if template_habit.enable_duration_requirement or template_habit.min_duration_minutes %}true{% else %}false{% endif %};
+    const templateHasNum = {% if template_habit.enable_numeric_target or template_habit.target_value %}true{% else %}false{% endif %};
+    const templateHasEvi = {% if template_habit.enable_evidence_upload %}true{% else %}false{% endif %};
+
+    if (templateHasTime) plotLayer('time');
+    if (templateHasLoc) plotLayer('location');
+    if (templateHasDur) plotLayer('duration');
+    if (templateHasNum) plotLayer('numeric');
+    if (templateHasEvi) plotLayer('evidence');
+
+    updateDynamicPixels();
+
+    // GPS Detect Button for Adopt
+    const detectBtn = document.getElementById('btn-adopt-detect-location');
+    const detectStatus = document.getElementById('adopt-location-detection-status');
+    const latInput = document.getElementById('id_adopt_target_latitude');
+    const lngInput = document.getElementById('id_adopt_target_longitude');
 
     if (detectBtn && latInput && lngInput) {
       detectBtn.addEventListener('click', function() {
@@ -438,7 +733,7 @@
             latInput.value = pos.coords.latitude.toFixed(6);
             lngInput.value = pos.coords.longitude.toFixed(6);
             detectBtn.disabled = false;
-            detectBtn.innerHTML = '📍 Detect Current Location';
+            detectBtn.innerHTML = '📍 Auto-Detect Current GPS';
             if (detectStatus) {
               detectStatus.style.background = 'rgba(16, 185, 129, 0.15)';
               detectStatus.style.color = '#10b981';
@@ -447,7 +742,7 @@
           },
           function(err) {
             detectBtn.disabled = false;
-            detectBtn.innerHTML = '📍 Detect Current Location';
+            detectBtn.innerHTML = '📍 Auto-Detect Current GPS';
             if (detectStatus) {
               detectStatus.style.background = 'rgba(239, 68, 68, 0.12)';
               detectStatus.style.color = '#ef4444';

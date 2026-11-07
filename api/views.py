@@ -222,12 +222,34 @@ def habit_complete_api(request, pk):
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
 
+    raw_dur = request.POST.get("duration_minutes") or request.POST.get("logged_duration_minutes") or request.POST.get("logged_duration")
+    logged_dur = None
+    if raw_dur:
+        try:
+            logged_dur = int(float(str(raw_dur).strip()))
+        except (ValueError, TypeError):
+            logged_dur = None
+
+    ai_status = "SKIPPED"
+    ai_reason = ""
+    ai_confidence = None
+    if evidence_file and getattr(habit, "enable_ai_proof_verification", True):
+        from habits.services import verify_proof_relevance
+        ai_res = verify_proof_relevance(habit, evidence_file)
+        ai_status = ai_res.get("status", "APPROVED")
+        ai_reason = ai_res.get("reason", "")
+        ai_confidence = ai_res.get("confidence")
+
     with transaction.atomic():
         HabitCompletion.objects.create(
             tenant=habit.tenant,
             habit=habit,
             completion_date=target_date,
             logged_value=logged_val,
+            logged_duration_minutes=logged_dur,
+            ai_verification_status=ai_status,
+            ai_verification_reason=ai_reason,
+            ai_confidence_score=ai_confidence,
             evidence_file=evidence_file,
             notes=notes,
             completion_latitude=comp_lat,
