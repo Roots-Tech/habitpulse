@@ -681,9 +681,14 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
     if not name or not name.strip():
         return None, 0.0, None
 
+    import os
     import json
     import urllib.request
+    from django.conf import settings
     from .models import Habit
+
+    ollama_base = getattr(settings, 'OLLAMA_BASE_URL', os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')).rstrip('/')
+    ollama_model = getattr(settings, 'OLLAMA_MODEL', os.getenv('OLLAMA_MODEL', 'llama3.2:1b'))
 
     if active_templates is None:
         active_templates = list(Habit.objects.filter(is_template=True, is_active=True))
@@ -721,7 +726,7 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
     )
 
     payload = json.dumps({
-        "model": "llama3.2:1b",
+        "model": ollama_model,
         "prompt": prompt,
         "stream": False,
         "format": "json",
@@ -732,7 +737,7 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
     }).encode("utf-8")
 
     req = urllib.request.Request(
-        "http://localhost:11434/api/generate",
+        f"{ollama_base}/api/generate",
         data=payload,
         headers={"Content-Type": "application/json"},
     )

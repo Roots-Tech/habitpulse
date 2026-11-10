@@ -12,9 +12,12 @@ ENV/
 
 # Environment variables
 .env
+.env.docker
 
-# Database
+# Database & Backups
 *.sqlite3
+backups/*
+!backups/.gitkeep
 
 # Static / Media
 static_root/
