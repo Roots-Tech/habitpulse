@@ -471,6 +471,210 @@
     margin: 0;
     line-height: 1.5;
   }
+
+  /* ========================================================================== */
+  /* MOBILE RESPONSIVE OPTIMIZATIONS (<= 768px)                                 */
+  /* ========================================================================== */
+  @media (max-width: 768px) {
+    .collaborators-page-container {
+      margin: 0.75rem auto 2.5rem auto !important;
+      padding: 0 !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+      box-sizing: border-box !important;
+    }
+
+    .collab-header {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 1rem !important;
+      margin-bottom: 1.25rem !important;
+    }
+
+    .collab-title-area h1 {
+      font-size: 1.35rem !important;
+      letter-spacing: -0.01em !important;
+    }
+
+    .collab-title-area p {
+      font-size: 0.85rem !important;
+      line-height: 1.4 !important;
+    }
+
+    .collab-wallet-badge {
+      width: 100% !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      box-sizing: border-box !important;
+      padding: 0.65rem 1rem !important;
+    }
+
+    .collaborator-pipeline-wrap {
+      margin-bottom: 1.25rem !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Transform Chevron Ribbon into Responsive 2-Card Tab Switcher on Mobile */
+    .chevron-pipeline {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 0.65rem !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow: visible !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .chevron-item {
+      position: relative !important;
+      flex: none !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      min-height: 115px !important;
+      padding: 0.85rem 0.6rem 0.75rem 0.6rem !important;
+      margin: 0 !important;
+      border-radius: var(--radius-md) !important;
+      border: 1.5px solid var(--border-strong) !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      background: var(--surface) !important;
+      -webkit-tap-highlight-color: transparent !important;
+    }
+
+    .chevron-item:first-child,
+    .chevron-item:last-child,
+    .chevron-item:not(:first-child) {
+      padding: 0.85rem 0.6rem 0.75rem 0.6rem !important;
+      margin-left: 0 !important;
+    }
+
+    /* Strip desktop chevron arrow clip-path and shadows on mobile */
+    .chevron-bg {
+      clip-path: none !important;
+      border-radius: var(--radius-md) !important;
+      filter: none !important;
+    }
+    .chevron-item[data-step="1"] .chevron-bg,
+    .chevron-item[data-step="2"] .chevron-bg {
+      clip-path: none !important;
+      border-radius: var(--radius-md) !important;
+    }
+
+    /* Hide desktop chevron connecting circle node */
+    .chevron-node {
+      display: none !important;
+    }
+
+    .chevron-content {
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.25rem !important;
+      pointer-events: none !important;
+    }
+
+    .chevron-top-icon {
+      font-size: 1.4rem !important;
+      margin-bottom: 0.2rem !important;
+      line-height: 1 !important;
+    }
+
+    .chevron-title {
+      font-size: 0.85rem !important;
+      font-weight: 800 !important;
+      line-height: 1.25 !important;
+      text-align: center !important;
+      margin-bottom: 0.25rem !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+    }
+
+    .chevron-meta {
+      font-size: 0.65rem !important;
+      font-weight: 700 !important;
+      padding: 0.22rem 0.5rem !important;
+      line-height: 1.2 !important;
+      white-space: normal !important;
+      text-align: center !important;
+      border-radius: 999px !important;
+    }
+
+    .chevron-item.active::before {
+      top: 5px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      font-size: 0.52rem !important;
+      padding: 1px 7px !important;
+      letter-spacing: 0.06em !important;
+    }
+
+    /* Mobile active card border glow per theme */
+    [data-theme="dark"] .chevron-item.active {
+      border-color: #dfc187 !important;
+      box-shadow: 0 0 14px rgba(223, 193, 135, 0.3) !important;
+    }
+    [data-theme="ice"] .chevron-item.active,
+    :root:not([data-theme]) .chevron-item.active {
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.3) !important;
+    }
+    [data-theme="light"] .chevron-item.active {
+      border-color: #0284c7 !important;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25) !important;
+    }
+    [data-theme="rose"] .chevron-item.active {
+      border-color: #fb7185 !important;
+      box-shadow: 0 0 14px rgba(251, 113, 133, 0.3) !important;
+    }
+
+    .collab-empty-card {
+      padding: 2.25rem 1.25rem !important;
+      margin: 1rem auto !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .collab-empty-icon {
+      font-size: 2.35rem !important;
+      margin-bottom: 0.6rem !important;
+    }
+
+    .collab-empty-title {
+      font-size: 1.15rem !important;
+    }
+
+    .collab-empty-desc {
+      font-size: 0.85rem !important;
+      line-height: 1.45 !important;
+    }
+  }
+
+  /* Ultra-narrow mobile devices (<= 340px) */
+  @media (max-width: 340px) {
+    .chevron-pipeline {
+      grid-template-columns: 1fr !important;
+      gap: 0.5rem !important;
+    }
+
+    .chevron-item {
+      min-height: 85px !important;
+      padding: 0.75rem 0.6rem !important;
+    }
+  }
 </style>
 {% endblock %}
 

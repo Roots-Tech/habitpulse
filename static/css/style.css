@@ -3386,6 +3386,20 @@ div[style*="overflow-x:auto"] {
    5. Breakpoint: Standard Tablets & Mobile Phones (<= 768px)
    -------------------------------------------------------------------------- */
 @media (max-width: 768px) {
+  /* Global Horizontal Overflow Prevention for Mobile */
+  html, body {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  .app-shell,
+  .app-main-layout,
+  .app-main-content {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
   /* Container Padding & Bottom Space for Mobile Nav */
   .app-container {
     padding: 1.15rem 0.85rem;

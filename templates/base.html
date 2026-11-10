@@ -7,7 +7,7 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>{% block title %}HabitPulse - Build Better Habits{% endblock %}</title>
   <link rel="icon" type="image/png" href="{% static 'images/habit_icon.png' %}">
-  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20261110_mobile_v1">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20261110_mobile_v2">
   <script>
     (function() {
       var savedTheme = localStorage.getItem('habitpulse_theme') || 'ice';
@@ -73,7 +73,7 @@
     {% include 'includes/bottom_nav.html' %}
   {% endif %}
 
-  <script src="{% static 'js/app.js' %}?v=20261110_mobile_v1"></script>
+  <script src="{% static 'js/app.js' %}?v=20261110_mobile_v2"></script>
   {% block extra_js %}{% endblock %}
   <script>
     // Register HabitPulse Service Worker for PWA Installation & Offline Capabilities

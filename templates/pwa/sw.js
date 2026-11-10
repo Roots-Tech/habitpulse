@@ -1,10 +1,10 @@
-const CACHE_NAME = 'habitpulse-pwa-v4';
+const CACHE_NAME = 'habitpulse-pwa-v5';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/offline/',
-  '/static/css/style.css?v=20261110_mobile_v1',
-  '/static/js/app.js?v=20261110_mobile_v1',
+  '/static/css/style.css?v=20261110_mobile_v2',
+  '/static/js/app.js?v=20261110_mobile_v2',
   '/static/images/habit_icon.png',
   '/static/images/pwa_icon_192.png',
   '/static/images/pwa_icon_512.png',
