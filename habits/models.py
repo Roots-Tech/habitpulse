@@ -274,6 +274,63 @@ class Habit(models.Model):
         blank=True,
         help_text="Pixel score allotted for completing this habit (2 for User-Created, 5 for Predefined, 10 for Expert).",
     )
+
+    # Location Geofencing Configuration
+    is_location_restricted = models.BooleanField(
+        default=False,
+        help_text="Require user to be physically present at target location to mark complete.",
+    )
+    location_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Venue name (e.g. Gold's Gym Indiranagar, Anytime Fitness, Central Park).",
+    )
+    target_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Target latitude coordinate (-90 to +90).",
+    )
+    target_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Target longitude coordinate (-180 to +180).",
+    )
+    allowed_radius_meters = models.PositiveIntegerField(
+        default=150,
+        help_text="Maximum allowed distance in meters from target location (e.g. 150m).",
+    )
+
+    # Modular Verification Layer Flags
+    enable_time_window = models.BooleanField(
+        default=False,
+        help_text="Require completion within a specific daily time window.",
+    )
+    enable_numeric_target = models.BooleanField(
+        default=False,
+        help_text="Require logging a numerical progress metric reaching the target value.",
+    )
+    enable_evidence_upload = models.BooleanField(
+        default=False,
+        help_text="Require uploading proof of work (photo or document).",
+    )
+    enable_duration_requirement = models.BooleanField(
+        default=False,
+        help_text="Require minimum time spent on the activity (workout/session duration).",
+    )
+    min_duration_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Minimum session duration required in minutes.",
+    )
+    enable_ai_proof_verification = models.BooleanField(
+        default=True,
+        help_text="Automatically verify with AI vision whether uploaded proof genuinely matches habit purpose.",
+    )
     idempotency_key = models.CharField(
         max_length=64,
         null=True,
@@ -358,7 +415,7 @@ class Habit(models.Model):
                         errors["selected_weekdays"] = "Invalid weekday values."
                         break
 
-        if self.validation_rule in [self.ValidationRule.TIME_WINDOW, self.ValidationRule.TIME_AND_EVIDENCE]:
+        if self.has_time_window:
             if not self.window_start_time:
                 errors["window_start_time"] = "Window start time is required for this rule."
             if not self.window_end_time:
@@ -366,11 +423,27 @@ class Habit(models.Model):
             if self.window_start_time and self.window_end_time and self.window_start_time >= self.window_end_time:
                 errors["window_end_time"] = "Window end time must be later than start time."
 
-        if self.validation_rule == self.ValidationRule.NUMERIC_TARGET:
+        if self.requires_numeric:
             if self.target_value is None or self.target_value <= 0:
                 errors["target_value"] = "Target value must be greater than zero."
             if not self.unit_label or not self.unit_label.strip():
                 errors["unit_label"] = "Unit label is required (e.g. pages, mins, km)."
+
+        # Duration verification validation
+        if self.enable_duration_requirement:
+            if not self.min_duration_minutes or self.min_duration_minutes <= 0:
+                errors["min_duration_minutes"] = "Minimum duration in minutes must be greater than zero."
+            elif self.min_duration_minutes > 1440:
+                errors["min_duration_minutes"] = "Minimum duration cannot exceed 24 hours (1440 minutes)."
+
+        # Location Geofencing Validation
+        if self.is_location_restricted:
+            if self.target_latitude is not None and (self.target_latitude < -90 or self.target_latitude > 90):
+                errors["target_latitude"] = "Target latitude must be between -90 and +90 degrees."
+            if self.target_longitude is not None and (self.target_longitude < -180 or self.target_longitude > 180):
+                errors["target_longitude"] = "Target longitude must be between -180 and +180 degrees."
+            if self.allowed_radius_meters is not None and self.allowed_radius_meters < 10:
+                errors["allowed_radius_meters"] = "Allowed radius must be at least 10 meters."
 
         # Pixel Score Rules Validation via Admin Configuration
         config = PixelRewardConfig.get_config(self.tenant)
@@ -416,33 +489,52 @@ class Habit(models.Model):
         return self.effective_weekly_target * 4
 
     @property
-    def requires_modal(self):
-        """
-        True if completion requires user input (evidence file or numeric metric).
-        """
-        return self.validation_rule in [
-            self.ValidationRule.EVIDENCE_FILE,
-            self.ValidationRule.NUMERIC_TARGET,
+    def has_time_window(self):
+        return bool(self.enable_time_window or (self.validation_rule in [
+            self.ValidationRule.TIME_WINDOW,
             self.ValidationRule.TIME_AND_EVIDENCE,
-        ]
+        ]))
 
     @property
     def requires_evidence(self):
-        return self.validation_rule in [
+        return bool(self.enable_evidence_upload or (self.validation_rule in [
             self.ValidationRule.EVIDENCE_FILE,
             self.ValidationRule.TIME_AND_EVIDENCE,
-        ]
+        ]))
 
     @property
     def requires_numeric(self):
-        return self.validation_rule == self.ValidationRule.NUMERIC_TARGET
+        return bool(self.enable_numeric_target or (self.validation_rule == self.ValidationRule.NUMERIC_TARGET))
 
     @property
-    def has_time_window(self):
-        return self.validation_rule in [
-            self.ValidationRule.TIME_WINDOW,
-            self.ValidationRule.TIME_AND_EVIDENCE,
-        ]
+    def requires_duration(self):
+        return bool(self.enable_duration_requirement and self.min_duration_minutes and self.min_duration_minutes > 0)
+
+    @property
+    def requires_modal(self):
+        """
+        True if completion requires user input (evidence file, numeric metric, duration, or geofence).
+        """
+        return bool(self.requires_evidence or self.requires_numeric or self.requires_duration or self.is_location_restricted)
+
+    def get_active_verifications_list(self):
+        """Returns human-readable badges for all active verification layers."""
+        badges = []
+        if self.has_time_window:
+            badges.append({"key": "time", "icon": "⏰", "label": self.get_time_window_display() or "Time Window"})
+        if self.is_location_restricted:
+            loc = self.location_name or "Geofence"
+            badges.append({"key": "location", "icon": "📍", "label": f"{loc} ({self.allowed_radius_meters}m)"})
+        if self.requires_duration:
+            badges.append({"key": "duration", "icon": "⏱️", "label": f"Min {self.min_duration_minutes}m"})
+        if self.requires_numeric:
+            badges.append({"key": "numeric", "icon": "🎯", "label": f"{self.target_value} {self.unit_label}"})
+        if self.requires_evidence:
+            ai_lbl = "AI Proof" if self.enable_ai_proof_verification else "Proof Upload"
+            badges.append({"key": "evidence", "icon": "📎", "label": ai_lbl})
+        if not badges:
+            badges.append({"key": "honor", "icon": "🤝", "label": "Honor System"})
+        return badges
 
     def get_time_window_display(self):
         """
@@ -543,12 +635,26 @@ class Habit(models.Model):
         elif self.rule_strategy_ref:
             self.validation_rule = self.rule_strategy_ref.engine_type
 
-        # 3. Enforce pixel score rules via dynamic Admin Configuration
+        # 3. Enforce dynamic stackable pixel score rules via Admin Configuration
         config = PixelRewardConfig.get_config(self.tenant)
+        bonuses = config.calculate_bonuses(self)
+
         if self.habit_type == self.HabitType.GENERAL:
-            self.pixel_score = config.user_defined_pixels
-        elif not self.pixel_score or self.pixel_score < 1:
-            self.pixel_score = config.get_pixel_for_type(self.habit_type)
+            self.pixel_score = config.user_defined_pixels + bonuses
+        elif self.is_template:
+            if not self.pixel_score or self.pixel_score < 1:
+                self.pixel_score = config.get_pixel_for_type(self.habit_type) + bonuses
+        elif self.template_source:
+            template_base = self.template_source.pixel_score or config.get_pixel_for_type(self.habit_type)
+            template_bonuses = config.calculate_bonuses(self.template_source)
+            extra_bonuses = max(0, bonuses - template_bonuses) if bonuses >= template_bonuses else bonuses
+            # If user added verification layers beyond the template, stack them on top of template base
+            self.pixel_score = template_base + (extra_bonuses if bonuses > 0 and bonuses != extra_bonuses else bonuses)
+        else:
+            if not self.pixel_score or self.pixel_score < 1:
+                self.pixel_score = config.get_pixel_for_type(self.habit_type) + bonuses
+            elif bonuses > 0:
+                self.pixel_score = self.pixel_score + bonuses
 
         super().save(*args, **kwargs)
 
@@ -612,6 +718,56 @@ class HabitCompletion(models.Model):
         blank=True,
         default="",
         help_text="Optional submission note or reflection.",
+    )
+    completion_latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="User latitude coordinate at completion.",
+    )
+    completion_longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="User longitude coordinate at completion.",
+    )
+    completion_distance_meters = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Calculated distance in meters from target location at completion.",
+    )
+    logged_duration_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Actual duration spent in minutes.",
+    )
+    session_started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when active habit session began.",
+    )
+    ai_verification_status = models.CharField(
+        max_length=30,
+        default="SKIPPED",
+        choices=[
+            ("APPROVED", "AI Approved"),
+            ("REJECTED", "AI Rejected"),
+            ("PENDING", "Pending Review"),
+            ("SKIPPED", "Skipped / Offline"),
+        ],
+        help_text="Result of AI verification check on uploaded proof.",
+    )
+    ai_verification_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text="Detailed AI reasoning regarding evidence relevance.",
+    )
+    ai_confidence_score = models.FloatField(
+        null=True,
+        blank=True,
+        help_text="Confidence level (0.0 to 1.0) of AI proof verification.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -929,6 +1085,56 @@ class PixelRewardConfig(models.Model):
         default=True,
         help_text="Automatically update existing active habits to match newly configured pixel rates.",
     )
+
+    # Dynamic Verification Layer Bonus Adders
+    bonus_time_window = models.PositiveIntegerField(
+        default=2,
+        help_text="Bonus pixels awarded for adhering to a strict daily time window",
+    )
+    bonus_location = models.PositiveIntegerField(
+        default=3,
+        help_text="Bonus pixels awarded for physical presence at a geofenced location",
+    )
+    bonus_duration = models.PositiveIntegerField(
+        default=2,
+        help_text="Bonus pixels awarded for verified session/workout duration",
+    )
+    bonus_numeric_target = models.PositiveIntegerField(
+        default=2,
+        help_text="Bonus pixels awarded for achieving a quantitative numerical metric target",
+    )
+    bonus_evidence_proof = models.PositiveIntegerField(
+        default=3,
+        help_text="Bonus pixels awarded for submitting verified proof of work (photo/document)",
+    )
+
+    def calculate_bonuses(self, habit) -> int:
+        """Calculates sum of bonus pixels for active verification layers."""
+        bonuses = 0
+        if getattr(habit, "has_time_window", False):
+            bonuses += self.bonus_time_window
+        if getattr(habit, "is_location_restricted", False):
+            bonuses += self.bonus_location
+        if getattr(habit, "requires_duration", False):
+            bonuses += self.bonus_duration
+        if getattr(habit, "requires_numeric", False):
+            bonuses += self.bonus_numeric_target
+        if getattr(habit, "requires_evidence", False):
+            bonuses += self.bonus_evidence_proof
+        return bonuses
+
+    def calculate_habit_pixels(self, habit):
+        """
+        Calculates dynamic total pixel score based on base habit classification
+        plus any active modular verification bonuses.
+        """
+        base = self.user_defined_pixels
+        if habit.habit_type == Habit.HabitType.PREDEFINED_PURPOSE:
+            base = self.predefined_pixels
+        elif habit.habit_type == Habit.HabitType.EXPERT_PRESCRIBED:
+            base = self.expert_prescribed_pixels
+
+        return base + self.calculate_bonuses(habit)
     notes = models.TextField(
         blank=True,
         default="",
@@ -1001,15 +1207,21 @@ class PixelRewardConfig(models.Model):
         if tenant:
             filter_kwargs["tenant"] = tenant
 
-        u_count = Habit.objects.filter(habit_type=Habit.HabitType.GENERAL, **filter_kwargs).update(
-            pixel_score=self.user_defined_pixels
-        )
-        p_count = Habit.objects.filter(habit_type=Habit.HabitType.PREDEFINED_PURPOSE, **filter_kwargs).update(
-            pixel_score=self.predefined_pixels
-        )
-        e_count = Habit.objects.filter(habit_type=Habit.HabitType.EXPERT_PRESCRIBED, **filter_kwargs).update(
-            pixel_score=self.expert_prescribed_pixels
-        )
+        habits = Habit.objects.filter(**filter_kwargs)
+        u_count = 0
+        p_count = 0
+        e_count = 0
+        for h in habits:
+            base = self.get_pixel_for_type(h.habit_type)
+            bonuses = self.calculate_bonuses(h)
+            h.pixel_score = base + bonuses
+            super(Habit, h).save(update_fields=["pixel_score"])
+            if h.habit_type == Habit.HabitType.GENERAL:
+                u_count += 1
+            elif h.habit_type == Habit.HabitType.PREDEFINED_PURPOSE:
+                p_count += 1
+            elif h.habit_type == Habit.HabitType.EXPERT_PRESCRIBED:
+                e_count += 1
         return {
             "user_defined": u_count,
             "predefined": p_count,

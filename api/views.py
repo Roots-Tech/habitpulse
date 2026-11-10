@@ -109,6 +109,11 @@ def dashboard_api(request):
             "requires_modal": habit.requires_modal,
             "requires_evidence": habit.requires_evidence,
             "requires_numeric": habit.requires_numeric,
+            "is_location_restricted": habit.is_location_restricted,
+            "location_name": habit.location_name,
+            "target_latitude": float(habit.target_latitude) if habit.target_latitude is not None else None,
+            "target_longitude": float(habit.target_longitude) if habit.target_longitude is not None else None,
+            "allowed_radius_meters": habit.allowed_radius_meters,
             "target_value": float(habit.target_value) if habit.target_value is not None else None,
             "unit_label": habit.unit_label,
         })
@@ -197,8 +202,43 @@ def habit_complete_api(request, pk):
     else:
         logged_val = None
 
+    raw_lat = request.POST.get("latitude")
+    raw_lng = request.POST.get("longitude")
+    comp_lat = None
+    comp_lng = None
+    comp_dist = None
+    if raw_lat is not None and raw_lng is not None and str(raw_lat).strip() and str(raw_lng).strip():
+        try:
+            comp_lat = Decimal(str(raw_lat).strip())
+            comp_lng = Decimal(str(raw_lng).strip())
+            if habit.target_latitude is not None and habit.target_longitude is not None:
+                from habits.validators import haversine_distance_meters
+                comp_dist = int(round(haversine_distance_meters(
+                    float(comp_lat), float(comp_lng), float(habit.target_latitude), float(habit.target_longitude)
+                )))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
+
+    raw_dur = request.POST.get("duration_minutes") or request.POST.get("logged_duration_minutes") or request.POST.get("logged_duration")
+    logged_dur = None
+    if raw_dur:
+        try:
+            logged_dur = int(float(str(raw_dur).strip()))
+        except (ValueError, TypeError):
+            logged_dur = None
+
+    ai_status = "SKIPPED"
+    ai_reason = ""
+    ai_confidence = None
+    if evidence_file and getattr(habit, "enable_ai_proof_verification", True):
+        from habits.services import verify_proof_relevance
+        ai_res = verify_proof_relevance(habit, evidence_file)
+        ai_status = ai_res.get("status", "APPROVED")
+        ai_reason = ai_res.get("reason", "")
+        ai_confidence = ai_res.get("confidence")
 
     with transaction.atomic():
         HabitCompletion.objects.create(
@@ -206,8 +246,15 @@ def habit_complete_api(request, pk):
             habit=habit,
             completion_date=target_date,
             logged_value=logged_val,
+            logged_duration_minutes=logged_dur,
+            ai_verification_status=ai_status,
+            ai_verification_reason=ai_reason,
+            ai_confidence_score=ai_confidence,
             evidence_file=evidence_file,
             notes=notes,
+            completion_latitude=comp_lat,
+            completion_longitude=comp_lng,
+            completion_distance_meters=comp_dist,
         )
 
     streaks = calculate_streaks(habit, today)
@@ -417,3 +464,18 @@ def admin_performance_reset_api(request):
     performance_tracker.reset()
     return JsonResponse({"status": "success", "message": "Performance metrics reset successfully."})
 
+
+
+def resolve_map_url_api(request):
+    """
+    GET or POST /api/v1/resolve-map-url/?url=...
+    Extracts geographic coordinates and place name from Google Maps URLs or coordinate strings.
+    """
+    url = request.GET.get("url") or request.POST.get("url")
+    if not url:
+        return JsonResponse({"success": False, "error": "URL or coordinates parameter is required."}, status=400)
+
+    from habits.services import parse_google_maps_url_or_coords
+    result = parse_google_maps_url_or_coords(url)
+    status_code = 200 if result.get("success") else 400
+    return JsonResponse(result, status=status_code)

@@ -788,6 +788,17 @@ def habit_adopt_view(request, pk):
                 "frequency",
                 "selected_weekdays",
                 "target_days_per_week",
+                "is_location_restricted",
+                "location_name",
+                "target_latitude",
+                "target_longitude",
+                "allowed_radius_meters",
+                "enable_time_window",
+                "enable_duration_requirement",
+                "min_duration_minutes",
+                "enable_numeric_target",
+                "enable_evidence_upload",
+                "enable_ai_proof_verification",
             ]
         )
         if has_custom_params:
@@ -805,6 +816,11 @@ def habit_adopt_view(request, pk):
             unit_label = cleaned.get("unit_label") or template_habit.unit_label
             frequency = cleaned.get("frequency") or template_habit.frequency
             start_date = cleaned.get("start_date") or timezone.localdate()
+            is_location_restricted = cleaned.get("is_location_restricted", False)
+            location_name = cleaned.get("location_name") or ""
+            target_latitude = cleaned.get("target_latitude")
+            target_longitude = cleaned.get("target_longitude")
+            allowed_radius_meters = cleaned.get("allowed_radius_meters") or 150
 
             if frequency == Habit.Frequency.WEEKLY_TARGET:
                 target_days_per_week = cleaned.get("target_days_per_week") or template_habit.target_days_per_week or 3
@@ -825,6 +841,11 @@ def habit_adopt_view(request, pk):
             selected_weekdays = template_habit.selected_weekdays
             target_days_per_week = template_habit.target_days_per_week
             start_date = timezone.localdate()
+            is_location_restricted = template_habit.is_location_restricted
+            location_name = template_habit.location_name
+            target_latitude = template_habit.target_latitude
+            target_longitude = template_habit.target_longitude
+            allowed_radius_meters = template_habit.allowed_radius_meters
 
         try:
             with transaction.atomic():
@@ -849,6 +870,17 @@ def habit_adopt_view(request, pk):
                     target_days_per_week=target_days_per_week,
                     selected_weekdays=selected_weekdays,
                     start_date=start_date,
+                    is_location_restricted=is_location_restricted,
+                    location_name=location_name,
+                    target_latitude=target_latitude,
+                    target_longitude=target_longitude,
+                    allowed_radius_meters=allowed_radius_meters,
+                    enable_time_window=cleaned.get("enable_time_window", template_habit.has_time_window) if has_custom_params else template_habit.has_time_window,
+                    enable_duration_requirement=cleaned.get("enable_duration_requirement", template_habit.enable_duration_requirement) if has_custom_params else template_habit.enable_duration_requirement,
+                    min_duration_minutes=cleaned.get("min_duration_minutes", template_habit.min_duration_minutes) if has_custom_params else template_habit.min_duration_minutes,
+                    enable_numeric_target=cleaned.get("enable_numeric_target", template_habit.requires_numeric) if has_custom_params else template_habit.requires_numeric,
+                    enable_evidence_upload=cleaned.get("enable_evidence_upload", template_habit.requires_evidence) if has_custom_params else template_habit.requires_evidence,
+                    enable_ai_proof_verification=cleaned.get("enable_ai_proof_verification", template_habit.enable_ai_proof_verification) if has_custom_params else template_habit.enable_ai_proof_verification,
                     is_active=True,
                 )
             messages.success(request, f'Habit "{adopted_habit.name}" has been personalized and added to your habit list!')
@@ -989,8 +1021,45 @@ def habit_complete_view(request, pk):
     else:
         logged_val = None
 
+    raw_lat = request.POST.get("latitude")
+    raw_lng = request.POST.get("longitude")
+    comp_lat = None
+    comp_lng = None
+    comp_dist = None
+    if raw_lat is not None and raw_lng is not None and str(raw_lat).strip() and str(raw_lng).strip():
+        try:
+            comp_lat = Decimal(str(raw_lat).strip())
+            comp_lng = Decimal(str(raw_lng).strip())
+            if habit.target_latitude is not None and habit.target_longitude is not None:
+                from .validators import haversine_distance_meters
+                comp_dist = int(round(haversine_distance_meters(
+                    float(comp_lat), float(comp_lng), float(habit.target_latitude), float(habit.target_longitude)
+                )))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
+
+    # Duration parsing
+    raw_dur = request.POST.get("duration_minutes") or request.POST.get("logged_duration_minutes") or request.POST.get("logged_duration")
+    logged_dur = None
+    if raw_dur:
+        try:
+            logged_dur = int(float(str(raw_dur).strip()))
+        except (ValueError, TypeError):
+            logged_dur = None
+
+    # AI Verification results
+    ai_status = "SKIPPED"
+    ai_reason = ""
+    ai_confidence = None
+    if evidence_file and getattr(habit, "enable_ai_proof_verification", True):
+        from .services import verify_proof_relevance
+        ai_res = verify_proof_relevance(habit, evidence_file)
+        ai_status = ai_res.get("status", "APPROVED")
+        ai_reason = ai_res.get("reason", "")
+        ai_confidence = ai_res.get("confidence")
 
     try:
         with transaction.atomic():
@@ -1000,7 +1069,14 @@ def habit_complete_view(request, pk):
                 completion_date=target_date,
                 evidence_file=evidence_file,
                 logged_value=logged_val,
+                logged_duration_minutes=logged_dur,
+                ai_verification_status=ai_status,
+                ai_verification_reason=ai_reason,
+                ai_confidence_score=ai_confidence,
                 notes=notes,
+                completion_latitude=comp_lat,
+                completion_longitude=comp_lng,
+                completion_distance_meters=comp_dist,
             )
         messages.success(request, f'Nice job! "{habit.name}" verified and completed successfully.')
     except IntegrityError:

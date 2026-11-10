@@ -11,4 +11,5 @@ urlpatterns = [
     path("users/", views.users_list_api, name="users_list"),
     path("admin/performance/", views.admin_performance_api, name="admin_performance"),
     path("admin/performance/reset/", views.admin_performance_reset_api, name="admin_performance_reset"),
+    path("resolve-map-url/", views.resolve_map_url_api, name="resolve_map_url"),
 ]

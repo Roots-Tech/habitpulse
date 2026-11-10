@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habitpulse-pwa-v1';
+const CACHE_NAME = 'habitpulse-pwa-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
