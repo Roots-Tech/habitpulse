@@ -103,7 +103,7 @@ class EvidenceFileValidator(BaseCompletionValidator):
                 details={"field": "evidence_file", "reason": "invalid_extension", "ext": ext},
             )
 
-        # Validate file size
+        # Validate file size first to immediately reject oversized payloads
         if uploaded_file.size > MAX_EVIDENCE_FILE_SIZE_BYTES:
             max_mb = MAX_EVIDENCE_FILE_SIZE_BYTES / (1024 * 1024)
             return ValidationResult(
@@ -111,6 +111,32 @@ class EvidenceFileValidator(BaseCompletionValidator):
                 error_message=f"File is too large ({uploaded_file.size / (1024 * 1024):.1f} MB). Maximum size allowed is {max_mb:.0f} MB.",
                 details={"field": "evidence_file", "reason": "file_too_large", "size": uploaded_file.size},
             )
+
+        # Validate magic bytes / file signatures to prevent disguised executables (SEC-04)
+        try:
+            initial_pos = uploaded_file.tell() if hasattr(uploaded_file, "tell") else 0
+            header = uploaded_file.read(16)
+            if hasattr(uploaded_file, "seek"):
+                uploaded_file.seek(initial_pos)
+
+            is_valid_header = False
+            if ext_lower == ".pdf" and header.startswith(b"%PDF"):
+                is_valid_header = True
+            elif ext_lower == ".png" and header.startswith(b"\x89PNG\r\n\x1a\n"):
+                is_valid_header = True
+            elif ext_lower in (".jpg", ".jpeg") and header.startswith(b"\xff\xd8\xff"):
+                is_valid_header = True
+            elif ext_lower == ".webp" and header.startswith(b"RIFF") and b"WEBP" in header[:16]:
+                is_valid_header = True
+
+            if not is_valid_header:
+                return ValidationResult(
+                    is_valid=False,
+                    error_message=f"Invalid or corrupted file content for '{uploaded_file.name}'. File does not match its declared format.",
+                    details={"field": "evidence_file", "reason": "invalid_magic_bytes"},
+                )
+        except Exception:
+            pass
 
         # AI Proof Relevance Verification
         if getattr(habit, "enable_ai_proof_verification", True):

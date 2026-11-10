@@ -1122,41 +1122,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Run on load and every second for instantaneous real-time UI transitions
   updateTimeWindowHabits();
-  setInterval(updateTimeWindowHabits, 1000);
-// 11. Dashboard Live API Telemetry & Network Diagnostics
-  if (window.location.pathname === "/" || window.location.pathname.startsWith("/dashboard")) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const scope = urlParams.get("scope") || "";
-    const apiUrl = `/api/v1/dashboard/${scope ? `?scope=${encodeURIComponent(scope)}` : ""}`;
-    fetch(apiUrl, {
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.info("[HabitPulse API] Dashboard synchronized via Network:", data);
-      })
-      .catch((err) => {
-        console.debug("[HabitPulse API] Dashboard sync idle", err);
-      });
-  }
-
-  // 12. Users Directory API Telemetry
-  if (window.location.pathname.includes("/admin-panel/users")) {
-    fetch("/api/v1/users/", {
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.info("[HabitPulse API] User directory synchronized via Network:", data);
-      })
-      .catch((err) => {
-        console.debug("[HabitPulse API] Users sync idle", err);
-      });
-  }
+  setInterval(updateTimeWindowHabits, 15000);
+// Redundant background telemetry fetch calls removed (PERF-07)
 
   // 13. Foldable & Expandable Pixel Score Allocation Section
   const pixelSection = document.getElementById("pixel-score-section");

@@ -47,26 +47,17 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // HTML navigation requests
+  // HTML navigation requests: network-only to prevent caching authenticated tenant data (PWA-01),
+  // falling back cleanly to cached /offline/ page only when network drops.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(event.request).then((cached) => {
-            return cached || caches.match('/offline/').then((offline) => {
-              return offline || new Response('<h1>HabitPulse is currently offline.</h1>', {
-                headers: { 'Content-Type': 'text/html' }
-              });
-            });
+      fetch(event.request).catch(() => {
+        return caches.match('/offline/').then((offline) => {
+          return offline || new Response('<h1>HabitPulse is currently offline.</h1>', {
+            headers: { 'Content-Type': 'text/html' }
           });
-        })
+        });
+      })
     );
     return;
   }
