@@ -172,3 +172,7 @@ MESSAGE_TAGS = {
 
 # Master password for Odoo-style Database Manager (/db-manager/)
 DB_MASTER_PASSWORD = os.getenv("DB_MASTER_PASSWORD", "admin")
+
+# Ollama Local AI Semantic Intent Classifier Configuration
+OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434').rstrip('/')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.2:1b')

@@ -17,6 +17,7 @@ def habit_notifications(request):
       4. Missed windows
     """
     if not hasattr(request, "user") or not request.user.is_authenticated:
+        from habits.models import PixelRewardConfig
         return {
             "habit_notifications": [],
             "unread_alarms_count": 0,
@@ -25,6 +26,7 @@ def habit_notifications(request):
             "upcoming_alarms_count": 0,
             "completed_today_count": 0,
             "pending_pixel_requests_count": 0,
+            "pixel_config": PixelRewardConfig.get_config(None),
         }
 
     tenant = getattr(request, "tenant", None)
@@ -209,6 +211,9 @@ def habit_notifications(request):
         from habits.models import PixelRequest
         pending_pixel_requests_count = PixelRequest.objects.filter(status=PixelRequest.Status.PENDING).count()
 
+    from habits.models import PixelRewardConfig
+    pixel_config = PixelRewardConfig.get_config(tenant=tenant)
+
     return {
         "habit_notifications": notifications,
         "unread_alarms_count": len(notifications),
@@ -217,4 +222,5 @@ def habit_notifications(request):
         "upcoming_alarms_count": upcoming_alarms_count,
         "completed_today_count": len(completed_habit_ids),
         "pending_pixel_requests_count": pending_pixel_requests_count,
+        "pixel_config": pixel_config,
     }
