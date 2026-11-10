@@ -19,6 +19,42 @@ services:
     networks:
       - habit_network
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: habitpulse_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - habit_network
+
+  ollama-puller:
+    image: curlimages/curl:latest
+    container_name: habitpulse_ollama_puller
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint:
+      - "sh"
+      - "-c"
+      - |
+        echo "==> [Ollama Puller] Checking and ensuring model '$${OLLAMA_MODEL:-llama3.2:1b}' is loaded..."
+        curl -s -f http://ollama:11434/api/pull -d "{\"name\": \"$${OLLAMA_MODEL:-llama3.2:1b}\", \"stream\": false}" || echo "Ollama pull warning: model download in progress or connection retry needed."
+        echo "==> [Ollama Puller] Initialization check finished."
+    environment:
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:1b}
+    networks:
+      - habit_network
+
   web:
     build:
       context: .
@@ -28,6 +64,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      ollama:
+        condition: service_started
     env_file:
       - .env.docker
     environment:
@@ -37,6 +75,8 @@ services:
       - DB_NAME=${DB_NAME:-habit_tracker}
       - DB_HOST=db
       - DB_PORT=5432
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:1b}
     volumes:
       - ./media:/app/media
       - static_data:/app/staticfiles
@@ -51,6 +91,8 @@ volumes:
     name: habitpulse_postgres_data
   static_data:
     name: habitpulse_static_data
+  ollama_data:
+    name: habitpulse_ollama_data
 
 networks:
   habit_network:
