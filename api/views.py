@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 import json
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -240,30 +240,37 @@ def habit_complete_api(request, pk):
         ai_reason = ai_res.get("reason", "")
         ai_confidence = ai_res.get("confidence")
 
-    with transaction.atomic():
-        HabitCompletion.objects.create(
-            tenant=habit.tenant,
-            habit=habit,
-            completion_date=target_date,
-            logged_value=logged_val,
-            logged_duration_minutes=logged_dur,
-            ai_verification_status=ai_status,
-            ai_verification_reason=ai_reason,
-            ai_confidence_score=ai_confidence,
-            evidence_file=evidence_file,
-            notes=notes,
-            completion_latitude=comp_lat,
-            completion_longitude=comp_lng,
-            completion_distance_meters=comp_dist,
-        )
+    is_idempotent_duplicate = False
+    try:
+        with transaction.atomic():
+            HabitCompletion.objects.create(
+                tenant=habit.tenant,
+                habit=habit,
+                completion_date=target_date,
+                logged_value=logged_val,
+                logged_duration_minutes=logged_dur,
+                ai_verification_status=ai_status,
+                ai_verification_reason=ai_reason,
+                ai_confidence_score=ai_confidence,
+                evidence_file=evidence_file,
+                notes=notes,
+                completion_latitude=comp_lat,
+                completion_longitude=comp_lng,
+                completion_distance_meters=comp_dist,
+            )
+    except IntegrityError:
+        # Idempotent response for duplicate submissions / mobile double-clicks (API-01)
+        is_idempotent_duplicate = True
 
     streaks = calculate_streaks(habit, today)
     rate_7d = calculate_completion_rate(habit, today - timedelta(days=6), today, today)
     wallet_data = calculate_user_pixel_wallet(request.user, tenant=habit.tenant, today=today)
 
+    success_msg = f"Habit '{habit.name}' was already completed for {target_date}." if is_idempotent_duplicate else f"Habit '{habit.name}' completed successfully!"
     return JsonResponse({
         "success": True,
-        "message": f"Habit '{habit.name}' completed successfully!",
+        "message": success_msg,
+        "idempotent": is_idempotent_duplicate,
         "habit_id": habit.id,
         "completion_date": str(target_date),
         "is_completed_today": True,

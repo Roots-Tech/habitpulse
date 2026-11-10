@@ -36,9 +36,29 @@ def register_view(request):
     return render(request, "accounts/register.html", {"form": form})
 
 
+from django.core.cache import cache
+
+
+def _get_client_ip(request):
+    """Extracts client IP from request headers (supporting reverse proxies)."""
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "127.0.0.1")
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
+
+    client_ip = _get_client_ip(request)
+    lockout_key = f"login_lockout_{client_ip}"
+    fails_key = f"login_fails_{client_ip}"
+
+    # Rate limiting / brute-force lockout check (SEC-05)
+    if request.method == "POST" and cache.get(lockout_key):
+        messages.error(request, "Too many failed login attempts. Please wait 5 minutes before trying again.")
+        form = UserLoginForm(request.POST)
+        return render(request, "accounts/login.html", {"form": form})
 
     form = UserLoginForm(request.POST or None)
     if request.method == "POST":
@@ -59,6 +79,9 @@ def login_view(request):
 
             if user is not None:
                 if user.is_active:
+                    # Clear failed attempt trackers on success
+                    cache.delete(fails_key)
+                    cache.delete(lockout_key)
                     login(request, user)
                     messages.success(request, f"Welcome back, {user.username}!")
                     next_url = request.GET.get("next") or request.POST.get("next")
@@ -77,7 +100,14 @@ def login_view(request):
                 else:
                     messages.error(request, "This account is inactive. Please contact an administrator.")
             else:
-                messages.error(request, "Invalid username/email or password.")
+                # Increment failed attempts and trigger lockout if limit reached (SEC-05)
+                fails = cache.get(fails_key, 0) + 1
+                cache.set(fails_key, fails, 300)
+                if fails >= 5:
+                    cache.set(lockout_key, True, 300)
+                    messages.error(request, "Too many failed login attempts. Your IP has been temporarily locked for 5 minutes.")
+                else:
+                    messages.error(request, "Invalid username/email or password.")
 
     return render(request, "accounts/login.html", {"form": form})
 
