@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+db.sqlite3
+*.log
+.env
+.env.example
+backups/*
+!backups/.gitkeep
+HabitPulse_Technical_Audit_Report.pdf
