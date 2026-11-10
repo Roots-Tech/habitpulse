@@ -542,8 +542,21 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
 PREDEFINED_PURPOSE_PATTERNS = {
     "Consistent Morning Wake-Up": [
         r"\bwak(e|ing)\s*(up)?\b",
-        r"\bearly\s*riser\b",
+        r"\bearly\s*ris(e|ing|er)\b",
         r"\brise\s*(and|&)\s*shine\b",
+        r"\brise\s*early\b",
+        r"\bearly\s*to\s*rise\b",
+        r"\bmorning\s*alarm\b",
+        r"\bget\s*up\s*(early|\d+)\b",
+        r"\bup\s*(at|by)\s*\d+\b",
+        r"\bwak(e|ing)\s*(at|by)\s*\d+\b",
+    ],
+    "Wake up early": [
+        r"\bwak(e|ing)\s*(up)?\b",
+        r"\brise\s*early\b",
+        r"\bearly\s*ris(e|ing|er)\b",
+        r"\brise\s*(and|&)\s*shine\b",
+        r"\bearly\s*to\s*rise\b",
         r"\bmorning\s*alarm\b",
         r"\bget\s*up\s*(early|\d+)\b",
         r"\bup\s*(at|by)\s*\d+\b",
@@ -621,6 +634,10 @@ CATALOG_DOMAIN_GUARDS = {
         "required_any": ["wake", "waking", "rise", "riser", "alarm", "morning", "early", "dawn", "get up", "up at"],
         "forbidden_any": [],
     },
+    "wake up early": {
+        "required_any": ["wake", "waking", "rise", "riser", "alarm", "morning", "early", "dawn", "get up", "up at"],
+        "forbidden_any": [],
+    },
     "circadian early riser protocol": {
         "required_any": ["circadian", "wake", "rise", "riser", "dawn", "early"],
         "forbidden_any": [],
@@ -671,38 +688,14 @@ def validate_matched_template_domain(template_name: str, user_text: str) -> bool
     return False
 
 
-def query_ollama_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 6.0):
-    """
-    Queries local Ollama (llama3.2:1b) to classify whether the user's habit input
-    semantically represents the same purpose as one of the active predefined templates.
-    Returns (matched_template, confidence, reason) or (None, 0.0, None).
-    Fails safely if Ollama is unreachable.
-    """
-    if not name or not name.strip():
-        return None, 0.0, None
-
-    import os
-    import json
-    import urllib.request
-    from django.conf import settings
-    from .models import Habit
-
-    ollama_base = getattr(settings, 'OLLAMA_BASE_URL', os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')).rstrip('/')
-    ollama_model = getattr(settings, 'OLLAMA_MODEL', os.getenv('OLLAMA_MODEL', 'llama3.2:1b'))
-
-    if active_templates is None:
-        active_templates = list(Habit.objects.filter(is_template=True, is_active=True))
-
-    if not active_templates:
-        return None, 0.0, None
-
+def build_intent_classification_prompt(active_templates, name: str, description: str = "") -> str:
+    """Constructs strict prompt for semantic habit classification."""
     catalog_lines = []
     for i, t in enumerate(active_templates, 1):
         desc = (t.description or "").strip()
         catalog_lines.append(f'{i}. "{t.name}" (Category: {t.category}. Purpose/Summary: {desc[:100]})')
 
     catalog_text = "\n".join(catalog_lines)
-
     user_text = f'"{name.strip()}"'
     if description:
         user_text += f' (Description: "{description.strip()}")'
@@ -716,7 +709,7 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
         "Guidelines:\n"
         "- Any form of gym workout, lifting weights, resistance training, or physical gym exercises (e.g., 'Hit the gym', 'Weightlifting', 'Go to gym', 'Workout at gym') MUST match 'Gym & Strength Training' (matches=true).\n"
         "- Any form of drinking water, consuming water, or staying hydrated (e.g., 'Have water', 'Drink H2O', 'Chug 2 bottles of Aqua', 'Water intake', '2L water') MUST match 'Daily Deep Hydration' (matches=true).\n"
-        "- Any form of waking up or rising in the morning (e.g., 'Wake up at 5am', 'Get up early', 'Up at 6') MUST match 'Consistent Morning Wake-Up' or 'Circadian Early Riser Protocol' (matches=true).\n"
+        "- Any form of waking up or rising in the morning (e.g., 'Wake up at 5am', 'Rise early', 'Get up early', 'Up at 6', 'Early riser') MUST match 'Consistent Morning Wake-Up', 'Wake up early', or 'Circadian Early Riser Protocol' (matches=true).\n"
         "- Any form of reading books/literature MUST match 'Deliberate Non-Fiction Reading' (matches=true).\n"
         "- Any form of focused work/studying MUST match 'Deep Work Sprint (45 Mins)' (matches=true).\n"
         "- DO NOT match distinct activities that merely share a word (e.g., 'Aqua bath' is bathing/hygiene -> matches=false; 'Water plants' is gardening -> matches=false; 'Cold water plunge' is cryotherapy/bathing -> matches=false; 'Evening Journaling' is writing -> matches=false).\n"
@@ -724,6 +717,132 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
         "Reply ONLY in valid JSON format:\n"
         '{"matches": true/false, "matched_name": "Exact Predefined Habit Name from Catalog or null", "confidence": 0.0-1.0, "reason": "brief explanation"}'
     )
+    return prompt
+
+
+def parse_and_validate_intent_json(response_text: str, active_templates, name: str, description: str = ""):
+    """Parses JSON response from any AI provider and validates against domain guardrails."""
+    import json
+    import re
+    try:
+        clean_json = response_text.strip()
+        if clean_json.startswith("```"):
+            clean_json = re.sub(r"^```[a-zA-Z]*\n?", "", clean_json)
+            clean_json = re.sub(r"\n?```$", "", clean_json).strip()
+
+        parsed = json.loads(clean_json)
+        if parsed.get("matches") and parsed.get("matched_name"):
+            matched_name = str(parsed["matched_name"]).strip().lower()
+            for t in active_templates:
+                if t.name.lower() == matched_name or matched_name in t.name.lower() or t.name.lower() in matched_name:
+                    full_user_input = f"{name} {description}".strip()
+                    if validate_matched_template_domain(t.name, full_user_input):
+                        return t, float(parsed.get("confidence", 0.9)), parsed.get("reason", "")
+    except Exception:
+        pass
+    return None, 0.0, None
+
+
+def query_gemini_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 4.5):
+    """Queries Google Gemini 1.5 Flash via REST API (Zero local server RAM, 100% Free Tier)."""
+    import os
+    import json
+    import urllib.request
+    from django.conf import settings
+
+    api_key = getattr(settings, "GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))).strip()
+    if not api_key:
+        return None, 0.0, None
+
+    prompt = build_intent_classification_prompt(active_templates, name, description)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "response_mime_type": "application/json",
+            "temperature": 0.0,
+        }
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            res_data = json.loads(res.read().decode("utf-8"))
+            candidates = res_data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    raw_text = parts[0].get("text", "{}")
+                    return parse_and_validate_intent_json(raw_text, active_templates, name, description)
+    except Exception:
+        pass
+
+    return None, 0.0, None
+
+
+def query_groq_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 4.5):
+    """Queries Groq Cloud API (Free Tier with high-speed Llama-3.1-8B inference)."""
+    import os
+    import json
+    import urllib.request
+    from django.conf import settings
+
+    api_key = getattr(settings, "GROQ_API_KEY", os.getenv("GROQ_API_KEY", "")).strip()
+    if not api_key:
+        return None, 0.0, None
+
+    prompt = build_intent_classification_prompt(active_templates, name, description)
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    payload = json.dumps({
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+            {"role": "system", "content": "You are a strict Habit Normalization Classifier. Reply in valid JSON."},
+            {"role": "user", "content": prompt}
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.0,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            res_data = json.loads(res.read().decode("utf-8"))
+            choices = res_data.get("choices", [])
+            if choices:
+                raw_text = choices[0].get("message", {}).get("content", "{}")
+                return parse_and_validate_intent_json(raw_text, active_templates, name, description)
+    except Exception:
+        pass
+
+    return None, 0.0, None
+
+
+def query_local_ollama_classifier(name: str, description: str = "", active_templates=None, timeout: float = 5.0):
+    """Queries local or containerized Ollama instance."""
+    import os
+    import json
+    import urllib.request
+    from django.conf import settings
+
+    ollama_base = getattr(settings, 'OLLAMA_BASE_URL', os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')).rstrip('/')
+    ollama_model = getattr(settings, 'OLLAMA_MODEL', os.getenv('OLLAMA_MODEL', 'llama3.2:1b'))
+
+    prompt = build_intent_classification_prompt(active_templates, name, description)
 
     payload = json.dumps({
         "model": ollama_model,
@@ -744,22 +863,61 @@ def query_ollama_intent_classifier(name: str, description: str = "", active_temp
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as res:
-            res_data = json.loads(res.read())
+            res_data = json.loads(res.read().decode("utf-8"))
             response_text = res_data.get("response", "{}")
-            parsed = json.loads(response_text)
-            if parsed.get("matches") and parsed.get("matched_name"):
-                matched_name = parsed["matched_name"].strip().lower()
-                for t in active_templates:
-                    if t.name.lower() == matched_name or matched_name in t.name.lower() or t.name.lower() in matched_name:
-                        full_user_input = f"{name} {description}".strip()
-                        if validate_matched_template_domain(t.name, full_user_input):
-                            return t, float(parsed.get("confidence", 0.9)), parsed.get("reason", "")
+            return parse_and_validate_intent_json(response_text, active_templates, name, description)
     except Exception:
-        # Fallback cleanly if Ollama is not running or timed out
         pass
 
     return None, 0.0, None
 
+
+def query_semantic_intent_classifier(name: str, description: str = "", active_templates=None, timeout: float = 5.0):
+    """
+    Unified multi-provider Tier 3 semantic intent classifier.
+    Cascade order:
+    1. Google Gemini 1.5 Flash (if GEMINI_API_KEY configured - Free, 0MB RAM)
+    2. Groq Cloud API (if GROQ_API_KEY configured - Free, 0MB RAM)
+    3. Local / Containerized Ollama (if running on localhost or Docker)
+    Fails safely without raising exceptions.
+    """
+    if not name or not name.strip():
+        return None, 0.0, None
+
+    from .models import Habit
+
+    if active_templates is None:
+        active_templates = list(Habit.objects.filter(is_template=True, is_active=True))
+
+    if not active_templates:
+        return None, 0.0, None
+
+    # 1. Try Google Gemini Flash (Cloud Free Tier)
+    gemini_match, conf, reason = query_gemini_intent_classifier(
+        name, description, active_templates=active_templates, timeout=timeout
+    )
+    if gemini_match and conf >= 0.80:
+        return gemini_match, conf, reason
+
+    # 2. Try Groq Cloud API (Cloud Free Tier)
+    groq_match, conf, reason = query_groq_intent_classifier(
+        name, description, active_templates=active_templates, timeout=timeout
+    )
+    if groq_match and conf >= 0.80:
+        return groq_match, conf, reason
+
+    # 3. Fall back to Ollama (Local / Container)
+    ollama_match, conf, reason = query_local_ollama_classifier(
+        name, description, active_templates=active_templates, timeout=timeout
+    )
+    if ollama_match and conf >= 0.80:
+        return ollama_match, conf, reason
+
+    return None, 0.0, None
+
+
+# Backward-compatible alias for existing callers and tests
+query_ollama_intent_classifier = query_semantic_intent_classifier
 
 def find_matching_predefined_template(name: str, description: str = "", use_ai: bool = True):
     """
@@ -812,7 +970,7 @@ def find_matching_predefined_template(name: str, description: str = "", use_ai: 
                     if matched:
                         return matched
                     for t in active_templates:
-                        if canonical_name.lower() in t.name.lower():
+                        if canonical_name.lower() in t.name.lower() or t.name.lower() in canonical_name.lower():
                             return t
             except re.error:
                 continue
