@@ -1,7 +1,14 @@
 {% load static %}
 <!-- ========================================================================= -->
-<!-- MOBILE APP EXPERIENCE BANNER                                              -->
+<!-- MOBILE APP EXPERIENCE BANNER (Desktop Only; Hidden on Mobile Phones)      -->
 <!-- ========================================================================= -->
+<style>
+@media (max-width: 768px) {
+  #mobile-app-announcement-banner {
+    display: none !important;
+  }
+}
+</style>
 <div id="mobile-app-announcement-banner" class="mobile-app-banner" style="display: none; background: linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(56, 189, 248, 0.12) 50%, rgba(168, 85, 247, 0.12) 100%); border-bottom: 1px solid rgba(99, 102, 241, 0.25); padding: 0.55rem 1.15rem; align-items: center; justify-content: space-between; font-size: 0.85rem; color: var(--text-main); transition: all 0.2s ease-in-out; position: relative; z-index: 100;">
   <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1; min-width: 0;">
     <div style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); flex-shrink: 0; font-size: 1rem;">

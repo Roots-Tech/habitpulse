@@ -993,150 +993,152 @@
   }
 }
 
-/* Responsive Mobile & Tablet Topbar Rules */
+/* ========================================================================== */
+/* RESPONSIVE MOBILE & TABLET TOPBAR RULES (<= 768px)                         */
+/* On mobile, hide congested desktop toolbars & admin switches into More sheet*/
+/* ========================================================================== */
 @media (max-width: 768px) {
+  /* Clean 52px Single-Row Native Mobile Header */
   .app-topbar {
-    min-height: 58px !important;
-    height: auto !important;
-    padding: 0.45rem 0.75rem !important;
-    gap: 0.4rem !important;
+    min-height: 52px !important;
+    height: 52px !important;
+    padding: 0.35rem 0.85rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    background: var(--surface-raised) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1001 !important;
   }
+
   .topbar-left {
-    gap: 0.4rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
     flex: 1 1 auto !important;
     min-width: 0 !important;
   }
+
+  /* Spacious, readable tenant pill */
   .topbar-left .tenant-badge {
-    max-width: 140px !important;
-    padding: 0.25rem 0.5rem !important;
-    font-size: 0.75rem !important;
+    max-width: 240px !important;
+    padding: 0.3rem 0.75rem !important;
+    font-size: 0.825rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    border-radius: var(--radius-pill) !important;
   }
+
   .tenant-badge-text {
-    max-width: 75px !important;
+    max-width: 160px !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
     display: inline-block !important;
   }
+
   .tenant-role-tag {
     display: none !important;
   }
-  .topbar-right {
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 0.35rem !important;
-    margin-left: auto !important;
-  }
+
+  /* STRICTLY HIDE desktop controls from cramped mobile header */
+  .sidebar-toggle-btn,
   .topbar-actions-row,
-  .topbar-controls-row {
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 0.35rem !important;
-  }
-  .topbar-btn-text,
-  .theme-label-text {
-    display: none !important;
-  }
-  .topbar-admin-dropdown .btn,
+  .topbar-theme-row,
+  .view-mode-form,
+  .view-mode-toggle-btn,
+  .topbar-admin-dropdown,
   .pwa-install-btn,
   .btn-logout {
-    padding: 0 !important;
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
-    justify-content: center !important;
-    border-radius: 50% !important;
-  }
-  .topbar-admin-dropdown .btn svg,
-  .pwa-install-btn svg,
-  .btn-logout svg {
-    margin: 0 !important;
-  }
-  .topbar-admin-dropdown .dropdown-arrow {
     display: none !important;
   }
-  .topbar-theme-row {
-    padding: 0.15rem 0.35rem !important;
+
+  .topbar-right {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.5rem !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
   }
-  .topbar-theme-select {
-    padding: 0.15rem 0.3rem !important;
-    font-size: 0.72rem !important;
-    max-width: 58px !important;
+
+  .topbar-controls-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
   }
+
+  /* Native Bell Button on Mobile Header */
+  .habit-bell-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    position: relative !important;
+  }
+
+  /* Native Profile Avatar Circle Button */
+  .topbar-mobile-profile-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    border: 2px solid var(--surface-raised) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25) !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+  }
+
+  .topbar-mobile-profile-btn:active {
+    transform: scale(0.92) !important;
+  }
+
   .habit-notification-menu {
     position: fixed !important;
-    top: 60px !important;
+    top: 56px !important;
     left: 8px !important;
     right: 8px !important;
     width: auto !important;
     max-width: calc(100vw - 16px) !important;
     max-height: calc(100vh - 74px) !important;
-    border-radius: 14px !important;
+    border-radius: 16px !important;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
-  }
-  .habit-notif-header {
-    padding: 0.75rem 1rem 0.65rem !important;
-  }
-  .habit-notif-title {
-    font-size: 1rem !important;
-  }
-  .habit-notif-tabs-bar {
-    padding: 0 1rem 0.5rem !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  .habit-notif-body {
-    max-height: calc(100vh - 210px) !important;
-    padding: 0.5rem 0.75rem 0.75rem !important;
-    gap: 0.65rem !important;
-  }
-  .habit-notif-row {
-    padding: 0.65rem 0.75rem !important;
-    gap: 0.65rem !important;
-  }
-  .habit-notif-avatar {
-    width: 36px !important;
-    height: 36px !important;
-    font-size: 1.1rem !important;
-  }
-  .habit-notif-sub-badge {
-    width: 15px !important;
-    height: 15px !important;
-    font-size: 0.55rem !important;
-  }
-  .habit-notif-actions-row {
-    flex-wrap: wrap !important;
+    z-index: 1060 !important;
   }
 }
 
 @media (max-width: 480px) {
   .app-topbar {
-    padding: 0.4rem 0.5rem !important;
-    gap: 0.25rem !important;
+    padding: 0.35rem 0.65rem !important;
   }
   .topbar-left .tenant-badge {
-    max-width: 105px !important;
-    padding: 0.2rem 0.4rem !important;
-    font-size: 0.72rem !important;
+    max-width: 190px !important;
+    padding: 0.25rem 0.6rem !important;
+    font-size: 0.78rem !important;
   }
   .tenant-badge-text {
-    max-width: 55px !important;
+    max-width: 130px !important;
   }
-  .sidebar-toggle-btn {
-    width: 32px !important;
-    height: 32px !important;
-  }
-  .topbar-admin-dropdown .btn,
-  .pwa-install-btn,
-  .btn-logout,
-  .habit-bell-btn {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-  }
-  .topbar-theme-select {
-    max-width: 50px !important;
+  .habit-bell-btn,
+  .topbar-mobile-profile-btn {
+    width: 35px !important;
+    height: 35px !important;
+    min-width: 35px !important;
   }
 }
 </style>
