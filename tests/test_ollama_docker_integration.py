@@ -4,7 +4,13 @@ import urllib.error
 from unittest.mock import patch, MagicMock
 from django.test import TestCase, override_settings
 from django.core.management import call_command
-from habits.services import query_ollama_intent_classifier
+from habits.services import (
+    query_semantic_intent_classifier,
+    query_gemini_intent_classifier,
+    query_groq_intent_classifier,
+    query_ollama_intent_classifier,
+    find_matching_predefined_template,
+)
 
 
 class SetupOllamaCommandTests(TestCase):
@@ -60,29 +66,117 @@ class SetupOllamaCommandTests(TestCase):
         self.assertIn("Pull completed: success", output)
 
 
-class OllamaSettingsAndDynamicUrlTests(TestCase):
-    """Tests dynamic Ollama URL and model configuration in services."""
+class CloudAndLocalAISemanticTests(TestCase):
+    """Tests multi-provider cloud AI (Gemini Flash, Groq) and local Ollama semantic intent classifiers."""
 
-    @override_settings(OLLAMA_BASE_URL="http://custom-ollama-host:11434", OLLAMA_MODEL="custom-llama:1b")
+    def setUp(self):
+        self.fake_template = MagicMock()
+        self.fake_template.name = "Consistent Morning Wake-Up"
+        self.fake_template.category = "Health"
+        self.fake_template.description = "Wake up at a set time"
+
+    @override_settings(GEMINI_API_KEY="test-gemini-key")
     @patch("urllib.request.urlopen")
-    def test_query_ollama_uses_dynamic_settings(self, mock_urlopen):
+    def test_gemini_flash_classifier_success(self, mock_urlopen):
         mock_res = MagicMock()
         mock_res.read.return_value = json.dumps({
-            "response": '{"matches": false}'
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "text": json.dumps({
+                            "matches": True,
+                            "matched_name": "Consistent Morning Wake-Up",
+                            "confidence": 0.95,
+                            "reason": "Rising early is waking up early."
+                        })
+                    }]
+                }
+            }]
         }).encode("utf-8")
         mock_res.__enter__.return_value = mock_res
         mock_urlopen.return_value = mock_res
 
-        fake_template = MagicMock()
-        fake_template.name = "Daily Deep Hydration"
-        fake_template.category = "Health"
-        fake_template.description = "Drink water"
+        matched, conf, reason = query_gemini_intent_classifier(
+            "Rise early tomorrow", active_templates=[self.fake_template]
+        )
 
-        query_ollama_intent_classifier("Some unusual habit", active_templates=[fake_template])
-
-        self.assertTrue(mock_urlopen.called)
+        self.assertIsNotNone(matched)
+        self.assertEqual(matched.name, "Consistent Morning Wake-Up")
+        self.assertGreaterEqual(conf, 0.9)
+        # Verify URL calls Gemini 1.5 Flash endpoint
         req = mock_urlopen.call_args[0][0]
-        self.assertEqual(req.full_url, "http://custom-ollama-host:11434/api/generate")
+        self.assertIn("gemini-1.5-flash", req.full_url)
+        self.assertIn("key=test-gemini-key", req.full_url)
 
-        payload = json.loads(req.data.decode("utf-8"))
-        self.assertEqual(payload["model"], "custom-llama:1b")
+    @override_settings(GEMINI_API_KEY="", GROQ_API_KEY="test-groq-key")
+    @patch("urllib.request.urlopen")
+    def test_groq_classifier_success(self, mock_urlopen):
+        mock_res = MagicMock()
+        mock_res.read.return_value = json.dumps({
+            "choices": [{
+                "message": {
+                    "content": json.dumps({
+                        "matches": True,
+                        "matched_name": "Consistent Morning Wake-Up",
+                        "confidence": 0.92,
+                        "reason": "Recognized as morning wake up."
+                    })
+                }
+            }]
+        }).encode("utf-8")
+        mock_res.__enter__.return_value = mock_res
+        mock_urlopen.return_value = mock_res
+
+        matched, conf, reason = query_groq_intent_classifier(
+            "Up at dawn", active_templates=[self.fake_template]
+        )
+
+        self.assertIsNotNone(matched)
+        self.assertEqual(matched.name, "Consistent Morning Wake-Up")
+        # Verify URL calls Groq API with Bearer token
+        req = mock_urlopen.call_args[0][0]
+        self.assertIn("api.groq.com", req.full_url)
+        self.assertEqual(req.headers.get("Authorization"), "Bearer test-groq-key")
+
+    @override_settings(GEMINI_API_KEY="", GROQ_API_KEY="", OLLAMA_BASE_URL="http://custom-ollama:11434")
+    @patch("urllib.request.urlopen")
+    def test_fallback_to_ollama_when_no_cloud_keys(self, mock_urlopen):
+        mock_res = MagicMock()
+        mock_res.read.return_value = json.dumps({
+            "response": json.dumps({
+                "matches": True,
+                "matched_name": "Consistent Morning Wake-Up",
+                "confidence": 0.88,
+                "reason": "Ollama local match"
+            })
+        }).encode("utf-8")
+        mock_res.__enter__.return_value = mock_res
+        mock_urlopen.return_value = mock_res
+
+        matched, conf, reason = query_semantic_intent_classifier(
+            "Rise early at 5", active_templates=[self.fake_template]
+        )
+
+        self.assertIsNotNone(matched)
+        req = mock_urlopen.call_args[0][0]
+        self.assertEqual(req.full_url, "http://custom-ollama:11434/api/generate")
+
+    def test_tier_2_rise_early_synonym_without_any_ai(self):
+        """Tests that Tier 2 regex instantly matches 'rise early' without calling any AI."""
+        from habits.models import Habit
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.create_user(username="test_user_ai", password="password123")
+
+        template = Habit.objects.create(
+            name="Wake up early",
+            created_by=user,
+            is_template=True,
+            is_active=True,
+            category="Personal Development",
+        )
+
+        # use_ai=False to guarantee it is matched entirely by Tier 2 regex patterns
+        matched = find_matching_predefined_template("rise early", use_ai=False)
+        self.assertIsNotNone(matched)
+        self.assertEqual(matched.pk, template.pk)
