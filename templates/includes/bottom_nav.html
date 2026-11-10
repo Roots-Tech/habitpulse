@@ -1,0 +1,266 @@
+{% load static %}
+<!-- ========================================================================= -->
+<!-- HABITPULSE MOBILE BOTTOM NAVIGATION & ACTION DRAWER                       -->
+<!-- Displays exclusively on mobile devices (<= 768px); hidden on desktop.     -->
+<!-- ========================================================================= -->
+
+<!-- Fixed Bottom Navigation Bar -->
+<nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Mobile Bottom Navigation">
+  <!-- 1. Daily Focus / Today -->
+  <a href="{% url 'dashboard' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+    <div class="mobile-nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">Today</span>
+  </a>
+
+  <!-- 2. Habits Directory -->
+  <a href="{% url 'habit_list' %}" class="mobile-nav-item {% if 'habit' in request.resolver_match.url_name and request.resolver_match.url_name != 'pixel_wallet' %}active{% endif %}">
+    <div class="mobile-nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 11l3 3L22 4"></path>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">Habits</span>
+  </a>
+
+  <!-- 3. Pixel Wallet -->
+  <a href="{% url 'pixel_wallet' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'pixel_wallet' or request.resolver_match.url_name == 'profile' and request.GET.tab == 'pixels' %}active{% endif %}">
+    <div class="mobile-nav-icon-wrap">
+      <img src="{% static 'images/pixel_crown.png' %}" class="mobile-nav-crown-icon" alt="Pixels">
+    </div>
+    <span class="mobile-nav-label">Wallet</span>
+  </a>
+
+  <!-- 4. Collaborators -->
+  <a href="{% url 'collaborators' %}" class="mobile-nav-item {% if request.resolver_match.url_name == 'collaborators' %}active{% endif %}">
+    <div class="mobile-nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">Social</span>
+  </a>
+
+  <!-- 5. More / App Drawer -->
+  <button type="button" class="mobile-nav-item mobile-nav-btn" id="openMobileMoreBtn" aria-label="Open More Menu and Settings">
+    <div class="mobile-nav-icon-wrap">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="1.5"></circle>
+        <circle cx="19" cy="12" r="1.5"></circle>
+        <circle cx="5" cy="12" r="1.5"></circle>
+      </svg>
+      {% if pending_pixel_requests_count %}
+        <span class="mobile-nav-dot-badge"></span>
+      {% endif %}
+    </div>
+    <span class="mobile-nav-label">More</span>
+  </button>
+</nav>
+
+<!-- Backdrop Overlay for Mobile More Drawer -->
+<div class="mobile-more-backdrop" id="mobileMoreBackdrop" aria-hidden="true"></div>
+
+<!-- Mobile More Slide-Up Action Sheet -->
+<aside class="mobile-more-sheet" id="mobileMoreSheet" role="dialog" aria-modal="true" aria-label="More Options and Settings">
+  <!-- Drag Indicator -->
+  <div class="sheet-drag-handle" aria-hidden="true"></div>
+
+  <!-- Sheet Header / User Profile -->
+  <div class="sheet-user-profile-card">
+    <div class="sheet-user-info">
+      <div class="sheet-avatar">
+        {{ user.username|make_list|first|upper }}
+      </div>
+      <div class="sheet-user-meta">
+        <div class="sheet-user-name">{{ user.get_full_name|default:user.username }}</div>
+        <div class="sheet-user-sub">
+          <span class="sheet-workspace-tag">🏢 {{ current_tenant.name|default:"Personal Workspace" }}</span>
+          {% if user.role %}
+            <span class="sheet-role-tag">#{{ user.get_role_display|default:user.role }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <button type="button" class="sheet-close-btn" id="closeMobileMoreBtn" aria-label="Close menu">&times;</button>
+  </div>
+
+  <div class="sheet-body-content">
+    <!-- View Mode Switcher (If Super Admin) -->
+    {% if user.is_real_super_admin %}
+      <div class="sheet-section sheet-section-preview-mode">
+        <form method="post" action="{% url 'toggle_view_mode' %}" style="margin: 0; width: 100%;">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          {% if request.is_user_view_mode %}
+            <input type="hidden" name="mode" value="admin">
+            <button type="submit" class="btn btn-block sheet-preview-mode-btn is-user">
+              <span>👑 Return to Super Admin Mode</span>
+            </button>
+          {% else %}
+            <input type="hidden" name="mode" value="user">
+            <button type="submit" class="btn btn-block sheet-preview-mode-btn is-admin">
+              <span>👤 Preview UI as Regular User</span>
+            </button>
+          {% endif %}
+        </form>
+      </div>
+    {% endif %}
+
+    <!-- Appearance Theme Section -->
+    <div class="sheet-section">
+      <div class="sheet-section-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <span>Theme &amp; Appearance</span>
+      </div>
+      <div class="sheet-theme-grid">
+        <button type="button" class="sheet-theme-pill theme-option" data-theme-value="ice">
+          <span class="sheet-theme-emoji">❄️</span>
+          <span>Cool Ice</span>
+        </button>
+        <button type="button" class="sheet-theme-pill theme-option" data-theme-value="light">
+          <span class="sheet-theme-emoji">☀️</span>
+          <span>Light</span>
+        </button>
+        <button type="button" class="sheet-theme-pill theme-option" data-theme-value="rose">
+          <span class="sheet-theme-emoji">🌸</span>
+          <span>Rose</span>
+        </button>
+        <button type="button" class="sheet-theme-pill theme-option" data-theme-value="dark">
+          <span class="sheet-theme-emoji">🌙</span>
+          <span>Dark</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Navigation / Profile Links -->
+    <div class="sheet-section">
+      <div class="sheet-section-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span>Account &amp; Workspace</span>
+      </div>
+      <div class="sheet-links-list">
+        <a href="{% url 'profile' %}" class="sheet-link-item">
+          <div class="sheet-link-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span>Workspace &amp; Profile Details</span>
+          </div>
+          <span class="sheet-link-arrow">&rarr;</span>
+        </a>
+        <a href="{% url 'general_settings' %}" class="sheet-link-item">
+          <div class="sheet-link-left">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>General System Settings</span>
+          </div>
+          <span class="sheet-link-arrow">&rarr;</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Administrative Access Links -->
+    {% if user.can_access_admin_panel %}
+      <div class="sheet-section">
+        <div class="sheet-section-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>Administration &amp; Management</span>
+        </div>
+        <div class="sheet-links-list">
+          {% if user.can_manage_roles %}
+            <a href="{% url 'admin_roles_list' %}" class="sheet-link-item">
+              <div class="sheet-link-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>User Roles</span>
+              </div>
+              <span class="sheet-link-arrow">&rarr;</span>
+            </a>
+          {% endif %}
+
+          {% if user.can_manage_users %}
+            <a href="{% url 'admin_users_list' %}" class="sheet-link-item">
+              <div class="sheet-link-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <span>Users Directory</span>
+              </div>
+              <span class="sheet-link-arrow">&rarr;</span>
+            </a>
+
+            <a href="{% url 'admin_pixel_requests' %}" class="sheet-link-item">
+              <div class="sheet-link-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Requests Approvals</span>
+              </div>
+              {% if pending_pixel_requests_count %}
+                <span class="badge" style="background: #f59e0b; color: #000; font-weight: 800; font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 999px;">{{ pending_pixel_requests_count }}</span>
+              {% else %}
+                <span class="sheet-link-arrow">&rarr;</span>
+              {% endif %}
+            </a>
+
+            <a href="{% url 'admin_performance_meter' %}" class="sheet-link-item">
+              <div class="sheet-link-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
+                <span>Performance Meter</span>
+              </div>
+              <span class="sheet-link-arrow">&rarr;</span>
+            </a>
+          {% endif %}
+
+          {% if user.can_manage_categories %}
+            <a href="{% url 'category_list' %}" class="sheet-link-item">
+              <div class="sheet-link-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>Habit Categories</span>
+              </div>
+              <span class="sheet-link-arrow">&rarr;</span>
+            </a>
+          {% endif %}
+
+          {% if user.can_manage_rule_strategies %}
+            <a href="{% url 'rule_strategy_list' %}" class="sheet-link-item">
+              <div class="sheet-link-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <span>Rule Strategies</span>
+              </div>
+              <span class="sheet-link-arrow">&rarr;</span>
+            </a>
+          {% endif %}
+
+          {% if user.is_super_admin %}
+            <a href="{% url 'admin_pixel_configuration' %}" class="sheet-link-item">
+              <div class="sheet-link-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span>Pixel Rewards Config</span>
+              </div>
+              <span class="sheet-link-arrow">&rarr;</span>
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- PWA Install Action in Sheet -->
+    <div class="sheet-section" id="sheetPwaSection" style="display: none;">
+      <button type="button" class="btn btn-outline btn-block sheet-pwa-install-btn" id="sheetPwaInstallBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>Install HabitPulse to Home Screen</span>
+      </button>
+    </div>
+
+    <!-- Sign Out Button -->
+    <div class="sheet-logout-wrap">
+      <a href="{% url 'logout' %}" class="btn sheet-logout-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        <span>Sign Out of HabitPulse</span>
+      </a>
+    </div>
+  </div>
+</aside>

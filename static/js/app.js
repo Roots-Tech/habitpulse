@@ -1257,8 +1257,12 @@ document.addEventListener("DOMContentLoaded", () => {
     deferredInstallPrompt = e;
 
     // Reveal the single stylish install button if not installed
-    if (!isAppInstalledOnDevice() && pwaInstallBtn) {
-      pwaInstallBtn.style.display = "inline-flex";
+    if (!isAppInstalledOnDevice()) {
+      if (pwaInstallBtn) pwaInstallBtn.style.display = "inline-flex";
+      const sheetPwaSection = document.getElementById("sheetPwaSection");
+      if (sheetPwaSection) sheetPwaSection.style.display = "block";
+      const bannerInstallBtn = document.getElementById("bannerPwaInstallBtn");
+      if (bannerInstallBtn) bannerInstallBtn.style.display = "inline-flex";
     }
   });
 
@@ -1270,18 +1274,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if (outcome === "accepted") {
       localStorage.setItem("habitpulse_installed", "true");
       if (pwaInstallBtn) pwaInstallBtn.style.display = "none";
+      const sheetPwaSection = document.getElementById("sheetPwaSection");
+      if (sheetPwaSection) sheetPwaSection.style.display = "none";
+      const bannerInstallBtn = document.getElementById("bannerPwaInstallBtn");
+      if (bannerInstallBtn) bannerInstallBtn.style.display = "none";
     }
     deferredInstallPrompt = null;
   };
+  window.triggerPwaInstall = triggerPwaInstall;
 
   if (pwaInstallBtn) {
     pwaInstallBtn.addEventListener("click", triggerPwaInstall);
+  }
+
+  const sheetPwaInstallBtn = document.getElementById("sheetPwaInstallBtn");
+  if (sheetPwaInstallBtn) {
+    sheetPwaInstallBtn.addEventListener("click", triggerPwaInstall);
   }
 
   // When app finishes installation on this device, remember and hide permanently
   window.addEventListener("appinstalled", () => {
     localStorage.setItem("habitpulse_installed", "true");
     if (pwaInstallBtn) pwaInstallBtn.style.display = "none";
+    const sheetPwaSection = document.getElementById("sheetPwaSection");
+    if (sheetPwaSection) sheetPwaSection.style.display = "none";
+    const bannerInstallBtn = document.getElementById("bannerPwaInstallBtn");
+    if (bannerInstallBtn) bannerInstallBtn.style.display = "none";
     deferredInstallPrompt = null;
     console.log("[PWA] HabitPulse installed on this device; install button permanently hidden.");
   });
@@ -1291,6 +1309,66 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.matches) {
       localStorage.setItem("habitpulse_installed", "true");
       if (pwaInstallBtn) pwaInstallBtn.style.display = "none";
+      const sheetPwaSection = document.getElementById("sheetPwaSection");
+      if (sheetPwaSection) sheetPwaSection.style.display = "none";
+      const bannerInstallBtn = document.getElementById("bannerPwaInstallBtn");
+      if (bannerInstallBtn) bannerInstallBtn.style.display = "none";
+    }
+  });
+
+  // 8. Mobile More Action Sheet Controller
+  const openMobileMoreBtn = document.getElementById("openMobileMoreBtn");
+  const topbarMobileProfileBtn = document.getElementById("topbarMobileProfileBtn");
+  const closeMobileMoreBtn = document.getElementById("closeMobileMoreBtn");
+  const mobileMoreBackdrop = document.getElementById("mobileMoreBackdrop");
+  const mobileMoreSheet = document.getElementById("mobileMoreSheet");
+
+  const toggleMobileMoreSheet = (shouldOpen) => {
+    if (!mobileMoreSheet || !mobileMoreBackdrop) return;
+    const isOpen = mobileMoreSheet.classList.contains("open");
+    const openState = typeof shouldOpen === "boolean" ? shouldOpen : !isOpen;
+
+    if (openState) {
+      mobileMoreSheet.classList.add("open");
+      mobileMoreBackdrop.classList.add("active");
+      document.body.classList.add("sheet-locked");
+    } else {
+      mobileMoreSheet.classList.remove("open");
+      mobileMoreBackdrop.classList.remove("active");
+      document.body.classList.remove("sheet-locked");
+    }
+  };
+
+  if (openMobileMoreBtn) {
+    openMobileMoreBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleMobileMoreSheet(true);
+    });
+  }
+
+  if (topbarMobileProfileBtn) {
+    topbarMobileProfileBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleMobileMoreSheet(true);
+    });
+  }
+
+  if (closeMobileMoreBtn) {
+    closeMobileMoreBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleMobileMoreSheet(false);
+    });
+  }
+
+  if (mobileMoreBackdrop) {
+    mobileMoreBackdrop.addEventListener("click", () => {
+      toggleMobileMoreSheet(false);
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && mobileMoreSheet && mobileMoreSheet.classList.contains("open")) {
+      toggleMobileMoreSheet(false);
     }
   });
 
