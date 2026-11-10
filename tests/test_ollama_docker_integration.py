@@ -180,3 +180,11 @@ class CloudAndLocalAISemanticTests(TestCase):
         matched = find_matching_predefined_template("rise early", use_ai=False)
         self.assertIsNotNone(matched)
         self.assertEqual(matched.pk, template.pk)
+
+        matched_rise_morning = find_matching_predefined_template("rise morning", use_ai=False)
+        self.assertIsNotNone(matched_rise_morning)
+        self.assertEqual(matched_rise_morning.pk, template.pk)
+
+        matched_sunrise = find_matching_predefined_template("sunrise morning", use_ai=False)
+        self.assertIsNotNone(matched_sunrise)
+        self.assertEqual(matched_sunrise.pk, template.pk)
