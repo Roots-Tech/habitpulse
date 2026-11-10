@@ -398,6 +398,11 @@
             <option value="dark">🌙 Obsidian Dark</option>
           </select>
         </div>
+
+        {# Mobile-Only Quick Profile Avatar Button #}
+        <button type="button" class="topbar-mobile-profile-btn" id="topbarMobileProfileBtn" aria-label="Open User Menu" title="{{ user.username }} ({{ user.role }})">
+          <span class="mobile-avatar-circle">{{ user.username|make_list|first|upper }}</span>
+        </button>
       </div>
     {% else %}
       <!-- Visitor controls -->
