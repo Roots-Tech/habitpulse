@@ -299,6 +299,11 @@ def _handle_user_edit(request, target_user, is_super_admin, redirect_url):
     if active_tab not in ["account", "pixels", "permissions", "security", "metadata"]:
         active_tab = "account"
 
+    from habits.models import RuleStrategy, seed_default_rule_strategies
+    if not RuleStrategy.objects.exists():
+        seed_default_rule_strategies()
+    rule_strategies = list(RuleStrategy.objects.filter(is_active=True).order_by("name"))
+
     return render(request, "accounts/admin_user_edit.html", {
         "form": form,
         "target_user": target_user,
@@ -313,6 +318,7 @@ def _handle_user_edit(request, target_user, is_super_admin, redirect_url):
         "user_permissions_data": user_permissions_data,
         "has_custom_override": has_custom,
         "active_tab": active_tab,
+        "rule_strategies": rule_strategies,
     })
 
 
@@ -371,8 +377,11 @@ def general_settings_view(request):
     total_pixels = user_habits_qs.aggregate(total=Sum("pixel_score"))["total"] or 0
     wallet_data = calculate_user_pixel_wallet(request.user, tenant=tenant)
 
-    from habits.models import PixelRewardConfig
+    from habits.models import PixelRewardConfig, RuleStrategy, seed_default_rule_strategies
     pixel_config = PixelRewardConfig.get_config(tenant=tenant)
+    if not RuleStrategy.objects.exists():
+        seed_default_rule_strategies()
+    rule_strategies = list(RuleStrategy.objects.filter(is_active=True).order_by("name"))
 
     return render(request, "accounts/general_settings.html", {
         "tenant": tenant,
@@ -381,6 +390,7 @@ def general_settings_view(request):
         "user_habits": list(user_habits_qs),
         "wallet_data": wallet_data,
         "pixel_config": pixel_config,
+        "rule_strategies": rule_strategies,
     })
 
 

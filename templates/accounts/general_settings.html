@@ -138,16 +138,18 @@
     <!-- Pixel Score Rules Card -->
     <div style="background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 1.15rem; font-size: 0.825rem; color: var(--text-muted); display: grid; gap: 0.45rem;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; flex-wrap: wrap; gap: 0.5rem;">
-        <span style="font-weight: 700; color: var(--text-main);">📌 Pixel Score Allocation Rules:</span>
-        {% if user.is_super_admin %}
-          <a href="{% url 'admin_pixel_configuration' %}" class="btn btn-primary btn-sm" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; font-weight: 700;">
-            ⚙️ Configure Pixel Rewards (Admin)
+        <span style="font-weight: 700; color: var(--text-main);">📌 Pixel Score Allocation Rules (By Rule Strategy):</span>
+        {% if user.can_manage_rule_strategies or user.is_super_admin %}
+          <a href="{% url 'rule_strategy_list' %}" class="btn btn-primary btn-sm" style="font-size: 0.72rem; padding: 0.2rem 0.6rem; font-weight: 700;">
+            ⚙️ Configure Rule Strategy Pixels
           </a>
         {% endif %}
       </div>
-      <div>• <strong>User Created Habits:</strong> Allotted <strong>{{ pixel_config.user_defined_pixels }} Pixels</strong> (Personal routine habits created by the user).</div>
-      <div>• <strong>Predefined Purpose Habits:</strong> Allotted <strong>{{ pixel_config.predefined_pixels }} Pixels</strong> (Goal-focused catalog habits).</div>
-      <div>• <strong>Expert Prescribed Habits:</strong> Allotted <strong>{{ pixel_config.expert_prescribed_pixels }} Pixels</strong> (Rigorously structured routines).</div>
+      {% for strat in rule_strategies %}
+        <div>• <strong>{{ strat.name }}:</strong> Allotted <strong>{{ strat.pixel_reward }} Pixel{{ strat.pixel_reward|pluralize }}</strong>{% if strat.description %} ({{ strat.description }}){% endif %}</div>
+      {% empty %}
+        <div>• All rule strategies default to <strong>0 Pixels</strong> unless configured by administrators.</div>
+      {% endfor %}
     </div>
   </div>
 </div>

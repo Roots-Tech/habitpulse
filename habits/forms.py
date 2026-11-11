@@ -60,7 +60,7 @@ class RuleStrategyForm(forms.ModelForm):
     """
     class Meta:
         model = RuleStrategy
-        fields = ["name", "engine_type", "default_unit", "description", "is_active"]
+        fields = ["name", "engine_type", "pixel_reward", "default_unit", "description", "is_active"]
         widgets = {
             "name": forms.TextInput(attrs={
                 "class": "form-control",
@@ -70,6 +70,11 @@ class RuleStrategyForm(forms.ModelForm):
             "engine_type": forms.Select(attrs={
                 "class": "form-control",
                 "id": "id_engine_type",
+            }),
+            "pixel_reward": forms.NumberInput(attrs={
+                "class": "form-control",
+                "placeholder": "0",
+                "min": "0",
             }),
             "default_unit": forms.TextInput(attrs={
                 "class": "form-control",
@@ -86,6 +91,13 @@ class RuleStrategyForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         kwargs.pop("tenant", None)
         super().__init__(*args, **kwargs)
+        self.fields["pixel_reward"].required = False
+        if not self.instance.pk and "pixel_reward" not in self.initial:
+            self.initial["pixel_reward"] = 0
+
+    def clean_pixel_reward(self):
+        val = self.cleaned_data.get("pixel_reward")
+        return val if val is not None else 0
 
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
@@ -328,39 +340,14 @@ class HabitForm(forms.ModelForm):
             or Habit.HabitType.GENERAL
         )
 
-        reward_config = PixelRewardConfig.get_config(self.tenant)
-
-        # Set initial pixel_score
-        if self.instance and self.instance.pk and self.instance.pixel_score:
-            self.initial["pixel_score"] = self.instance.pixel_score
-        elif "pixel_score" not in self.initial:
-            self.initial["pixel_score"] = reward_config.get_pixel_for_type(current_type)
-
-        if not is_admin_or_tech:
-            # Standard users can only create General habits with configured user-defined pixels
-            self.fields["habit_type"].choices = [
-                (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
-            ]
-            self.fields["habit_type"].initial = Habit.HabitType.GENERAL
-            self.fields["is_template"].initial = False
-            self.fields["is_template"].widget = forms.HiddenInput()
-            self.fields["pixel_score"].initial = reward_config.user_defined_pixels
-            self.fields["pixel_score"].widget = forms.HiddenInput()
-        else:
-            if habit_type_initial:
-                self.initial["habit_type"] = habit_type_initial
-            if is_template_initial is not None:
-                self.initial["is_template"] = is_template_initial
-            elif habit_type_initial in [Habit.HabitType.PREDEFINED_PURPOSE, Habit.HabitType.EXPERT_PRESCRIBED]:
-                self.initial["is_template"] = True
-
-        self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True)
-        self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True)
+        self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True).order_by("name")
+        self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True).order_by("name")
 
         if not self.instance.pk:
             if not self.initial.get("rule_strategy_ref"):
                 default_strat = RuleStrategy.objects.filter(
-                    engine_type=RuleStrategy.EngineType.STANDARD
+                    engine_type=RuleStrategy.EngineType.STANDARD,
+                    is_active=True,
                 ).first()
                 if default_strat:
                     self.initial["rule_strategy_ref"] = default_strat
@@ -369,6 +356,33 @@ class HabitForm(forms.ModelForm):
             if not self.initial.get("start_date"):
                 self.initial["start_date"] = timezone.localdate()
                 self.initial["is_active"] = True
+
+        # Set initial pixel_score directly from Rule Strategy
+        if self.instance and self.instance.pk and self.instance.pixel_score is not None:
+            self.initial["pixel_score"] = self.instance.pixel_score
+        elif "pixel_score" not in self.initial:
+            strat = (
+                (self.instance.rule_strategy_ref if (self.instance and self.instance.pk) else None)
+                or self.initial.get("rule_strategy_ref")
+            )
+            self.initial["pixel_score"] = strat.pixel_reward if strat else 0
+
+        if not is_admin_or_tech:
+            # Standard users can only create General habits with pixels governed by Rule Strategy
+            self.fields["habit_type"].choices = [
+                (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
+            ]
+            self.fields["habit_type"].initial = Habit.HabitType.GENERAL
+            self.fields["is_template"].initial = False
+            self.fields["is_template"].widget = forms.HiddenInput()
+            self.fields["pixel_score"].widget = forms.HiddenInput()
+        else:
+            if habit_type_initial:
+                self.initial["habit_type"] = habit_type_initial
+            if is_template_initial is not None:
+                self.initial["is_template"] = is_template_initial
+            elif habit_type_initial in [Habit.HabitType.PREDEFINED_PURPOSE, Habit.HabitType.EXPERT_PRESCRIBED]:
+                self.initial["is_template"] = True
 
         if self.instance.pk and self.instance.selected_weekdays:
             self.initial["weekdays"] = [str(d) for d in self.instance.selected_weekdays]
@@ -462,7 +476,10 @@ class HabitForm(forms.ModelForm):
         else:
             rule = cleaned_data.get("validation_rule") or Habit.ValidationRule.STANDARD
             cleaned_data["validation_rule"] = rule
-            strat = RuleStrategy.objects.filter(engine_type=rule).first()
+            if not RuleStrategy.objects.exists():
+                from .models import seed_default_rule_strategies
+                seed_default_rule_strategies()
+            strat = RuleStrategy.objects.filter(engine_type=rule, is_active=True).first()
             if strat:
                 cleaned_data["rule_strategy_ref"] = strat
 
@@ -558,27 +575,11 @@ class HabitForm(forms.ModelForm):
             if radius is not None and int(radius) < 10:
                 self.add_error("allowed_radius_meters", "Allowed radius must be at least 10 meters.")
 
-        # 3. Pixel Score Validation & Enforcement via dynamic Admin Configuration
-        reward_config = PixelRewardConfig.get_config(self.tenant)
-        if habit_type == Habit.HabitType.GENERAL or not is_admin_or_tech:
-            cleaned_data["pixel_score"] = reward_config.user_defined_pixels
-            self.instance.pixel_score = reward_config.user_defined_pixels
-        else:
-            score = cleaned_data.get("pixel_score")
-            if score is None or score == "":
-                default_score = reward_config.get_pixel_for_type(habit_type)
-                cleaned_data["pixel_score"] = default_score
-                self.instance.pixel_score = default_score
-            else:
-                try:
-                    int_score = int(score)
-                    if int_score < 1:
-                        self.add_error("pixel_score", "Pixel score must be at least 1.")
-                    else:
-                        cleaned_data["pixel_score"] = int_score
-                        self.instance.pixel_score = int_score
-                except (ValueError, TypeError):
-                    self.add_error("pixel_score", "Invalid pixel score value.")
+        # 3. Pixel Score Enforcement via Rule Strategy Master Data
+        rule_strat = cleaned_data.get("rule_strategy_ref") or getattr(self.instance, "rule_strategy_ref", None)
+        default_score = rule_strat.pixel_reward if rule_strat else 0
+        cleaned_data["pixel_score"] = default_score
+        self.instance.pixel_score = default_score
 
         return cleaned_data
 
@@ -590,7 +591,6 @@ class HabitForm(forms.ModelForm):
             habit.created_by = self.user
         habit.habit_type = self.cleaned_data.get("habit_type") or habit.habit_type or Habit.HabitType.GENERAL
         habit.is_template = bool(self.cleaned_data.get("is_template", False))
-        habit.pixel_score = self.cleaned_data.get("pixel_score") or PixelRewardConfig.get_config(self.tenant).user_defined_pixels
         habit.selected_weekdays = self.cleaned_data.get("selected_weekdays", [])
         if self.cleaned_data.get("category_ref"):
             habit.category_ref = self.cleaned_data["category_ref"]
@@ -603,6 +603,9 @@ class HabitForm(forms.ModelForm):
             habit.validation_rule = habit.rule_strategy_ref.engine_type
         elif self.cleaned_data.get("validation_rule"):
             habit.validation_rule = self.cleaned_data["validation_rule"]
+
+        # Recompute final pixel_score from linked RuleStrategy + modular extras on Habit.save()
+        habit.pixel_score = None
 
         idempotency_key = self.cleaned_data.get("idempotency_key")
         if idempotency_key and not habit.idempotency_key:

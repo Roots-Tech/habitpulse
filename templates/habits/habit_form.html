@@ -203,18 +203,37 @@
 
       <!-- Modular Accountability & Verification Requirements Section -->
       <div style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
           <div>
             <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.4rem;">
-              <span>🛡️ Modular Accountability &amp; Verification Requirements</span>
+              <span>🛡️ Rule Strategy &amp; Verification Requirements</span>
             </h3>
             <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0;">
-              Select verification routes from the menu to plot personal accountability rules and multiply your daily Pixel earnings.
+              Choose a Rule Strategy (whose base pixel reward is configured by administrators) and optionally layer additional verification checks.
             </p>
+          </div>
+          {% if is_admin_or_tech or user.can_manage_rule_strategies %}
+            <a href="{% url 'rule_strategy_list' %}" target="_blank" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 600;">
+              ⚙️ Manage Strategies &amp; Pixels
+            </a>
+          {% endif %}
+        </div>
+
+        <!-- Primary Rule Strategy Selector -->
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label" for="{{ form.rule_strategy_ref.id_for_label }}" style="font-weight: 700; font-size: 0.88rem;">
+            Verification Rule Strategy (Governs Base Pixels)
+          </label>
+          {{ form.rule_strategy_ref }}
+          {% if form.rule_strategy_ref.errors %}
+            <div class="form-error">{{ form.rule_strategy_ref.errors.0 }}</div>
+          {% endif %}
+          <div class="form-help" style="font-size: 0.78rem; color: var(--text-muted);">
+            Pixel awards are determined by the selected Rule Strategy, independent of habit classification.
           </div>
         </div>
 
-        <!-- Dynamic Stackable Pixel Calculator Banner (Data Driven from Admin Config) -->
+        <!-- Dynamic Stackable Pixel Calculator Banner -->
         <div class="pixel-calculation-banner"
              data-bonus-time="{{ pixel_config.bonus_time_window|default:2 }}"
              data-bonus-location="{{ pixel_config.bonus_location|default:3 }}"
@@ -225,15 +244,15 @@
           <div>
             <div style="font-weight: 700; font-size: 0.95rem; color: #c084fc; display: flex; align-items: center; gap: 0.4rem;">
               <span>💎 Allotted Accomplishment Reward:</span>
-              <span id="display-total-pixels" style="font-size: 1.3rem; font-weight: 800; color: #38bdf8;">{{ form.instance.pixel_score|default:2 }}</span>
+              <span id="display-total-pixels" style="font-size: 1.3rem; font-weight: 800; color: #38bdf8;">{% if form.instance.pk and form.instance.pixel_score is not None %}{{ form.instance.pixel_score }}{% else %}{{ form.initial.pixel_score|default_if_none:0 }}{% endif %}</span>
               <span>Pixels / Day</span>
             </div>
             <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
-              Base: <span id="display-base-pixels">{% if form.instance.habit_type == 'PREDEFINED_PURPOSE' %}{{ pixel_config.predefined_pixels|default:5 }}{% elif form.instance.habit_type == 'EXPERT_PRESCRIBED' %}{{ pixel_config.expert_prescribed_pixels|default:10 }}{% else %}{{ pixel_config.user_defined_pixels|default:2 }}{% endif %}</span> Px &bull; Active Verification Bonuses: +<span id="display-bonus-pixels">0</span> Px
+              Base (Rule Strategy): <span id="display-base-pixels">{% if form.instance.rule_strategy_ref %}{{ form.instance.rule_strategy_ref.pixel_reward }}{% elif form.instance.template_source and form.instance.template_source.rule_strategy_ref %}{{ form.instance.template_source.rule_strategy_ref.pixel_reward }}{% elif form.initial.rule_strategy_ref %}{{ form.initial.rule_strategy_ref.pixel_reward }}{% else %}0{% endif %}</span> Px &bull; Extra Verification Bonuses: +<span id="display-bonus-pixels">0</span> Px
             </div>
           </div>
           <div style="font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); padding: 0.35rem 0.65rem; border-radius: 4px; color: var(--text-dim);">
-            ⚡ Selected verification routes dynamically increase your accomplishment rewards
+            ⚡ Rule Strategy defines base pixels; additional verification layers stack bonuses
           </div>
         </div>
 
@@ -519,6 +538,7 @@
   {% for strat in available_rule_strategies %}
     "{{ strat.id }}": {
       "engine": "{{ strat.engine_type }}",
+      "pixel_reward": {{ strat.pixel_reward|default_if_none:0 }},
       "has_time_window": {{ strat.has_time_window_active|yesno:"true,false" }},
       "requires_numeric": {{ strat.requires_numeric_active|yesno:"true,false" }},
       "requires_evidence": {{ strat.requires_evidence_active|yesno:"true,false" }},
@@ -711,25 +731,75 @@
       }
     };
 
-    function updateDynamicPixels() {
-      const base = parseInt(baseEl ? baseEl.textContent : '2', 10) || 2;
-      let bonuses = 0;
+    function getRuleStrategiesMeta() {
+      const metaEl = document.getElementById('rule-strategies-meta');
+      if (!metaEl) return {};
+      try {
+        return JSON.parse(metaEl.textContent || '{}');
+      } catch (e) {
+        return {};
+      }
+    }
 
+    const ruleStrategySelect = document.getElementById('id_rule_strategy_ref');
+    const hiddenPixelInput = document.getElementById('id_pixel_score');
+    const ruleStrategiesMeta = getRuleStrategiesMeta();
+
+    function getSelectedStrategyMeta() {
+      if (!ruleStrategySelect) return null;
+      return ruleStrategiesMeta[ruleStrategySelect.value] || null;
+    }
+
+    function updateDynamicPixels() {
+      const stratMeta = getSelectedStrategyMeta();
+      let base = 0;
+      if (stratMeta && typeof stratMeta.pixel_reward === 'number') {
+        base = stratMeta.pixel_reward;
+        if (baseEl) baseEl.textContent = base;
+      } else {
+        const parsed = parseInt(baseEl ? baseEl.textContent : '0', 10);
+        base = Number.isNaN(parsed) ? 0 : parsed;
+      }
+
+      let bonuses = 0;
       for (const key in M2M_CONFIG) {
         const cfg = M2M_CONFIG[key];
         const cb = document.getElementById(cfg.cbId);
         if (cb && cb.checked) {
+          // Do not double-count layers already inherent to the selected Rule Strategy
+          if (key === 'time' && stratMeta && stratMeta.has_time_window) continue;
+          if (key === 'numeric' && stratMeta && stratMeta.requires_numeric) continue;
+          if (key === 'evidence' && stratMeta && stratMeta.requires_evidence) continue;
           bonuses += cfg.bonus;
         }
       }
 
       if (bonusEl) bonusEl.textContent = bonuses;
+      if (hiddenPixelInput) hiddenPixelInput.value = base + bonuses;
       if (totalEl) {
         totalEl.textContent = base + bonuses;
         totalEl.style.transition = 'transform 0.2s';
         totalEl.style.transform = 'scale(1.25)';
         setTimeout(() => { totalEl.style.transform = 'scale(1)'; }, 200);
       }
+    }
+
+    if (ruleStrategySelect) {
+      ruleStrategySelect.addEventListener('change', function() {
+        const stratMeta = getSelectedStrategyMeta();
+        if (stratMeta) {
+          if (stratMeta.has_time_window) plotLayer('time');
+          if (stratMeta.requires_numeric) {
+            plotLayer('numeric');
+            const unitInput = document.getElementById('id_unit_label');
+            if (unitInput && !unitInput.value && stratMeta.default_unit) {
+              unitInput.value = stratMeta.default_unit;
+            }
+          }
+          if (stratMeta.requires_evidence) plotLayer('evidence');
+        }
+        updateDynamicPixels();
+      });
     }
 
     function plotLayer(key) {

@@ -74,7 +74,7 @@ def habit_notifications(request):
             continue
 
         has_tw = bool(habit.window_start_time and habit.window_end_time)
-        pixel_score = habit.pixel_score or (2 if habit.is_general else (5 if habit.is_predefined_purpose else 10))
+        pixel_score = habit.pixel_score if habit.pixel_score is not None else (habit.rule_strategy_ref.pixel_reward if habit.rule_strategy_ref else 0)
 
         if has_tw:
             start_t = habit.window_start_time

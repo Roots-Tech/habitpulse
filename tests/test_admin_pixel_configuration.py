@@ -72,55 +72,49 @@ class AdminPixelRewardConfigurationTests(TestCase):
         self.assertEqual(cfg.predefined_pixels, 5)
         self.assertEqual(cfg.expert_prescribed_pixels, 10)
 
-    def test_habit_creation_respects_default_pixel_config(self):
+    def test_habit_creation_respects_rule_strategy_pixels_not_habit_type(self):
         """
-        New habits inherit configured pixel score based on their classification.
+        Habits inherit pixel_score from their RuleStrategy, NOT from habit_type.
         """
-        # User defined habit
-        h_user = Habit.objects.create(
-            tenant=self.tenant,
-            created_by=self.regular_user,
-            name="Daily Stretching",
-            habit_type=Habit.HabitType.GENERAL,
-            frequency=Habit.Frequency.DAILY,
-            start_date=self.today,
-        )
-        self.assertEqual(h_user.pixel_score, 2)
+        from habits.models import RuleStrategy, seed_default_rule_strategies
+        seed_default_rule_strategies()
+        honor_strat = RuleStrategy.objects.get(engine_type=RuleStrategy.EngineType.STANDARD)
 
-        # Predefined template habit
-        h_pred = Habit.objects.create(
-            tenant=self.tenant,
-            created_by=self.super_admin,
-            name="Hydration Protocol",
-            habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
-            frequency=Habit.Frequency.DAILY,
-            start_date=self.today,
-        )
-        self.assertEqual(h_pred.pixel_score, 5)
+        # User defined, predefined, and expert all receive Honor System's pixel_reward when linked to Honor System
+        for name, h_type in [
+            ("Daily Stretching", Habit.HabitType.GENERAL),
+            ("Hydration Protocol", Habit.HabitType.PREDEFINED_PURPOSE),
+            ("Zone 2 Training", Habit.HabitType.EXPERT_PRESCRIBED),
+        ]:
+            h = Habit.objects.create(
+                tenant=self.tenant,
+                created_by=self.super_admin,
+                name=name,
+                habit_type=h_type,
+                rule_strategy_ref=honor_strat,
+                frequency=Habit.Frequency.DAILY,
+                start_date=self.today,
+            )
+            self.assertEqual(h.pixel_score, honor_strat.pixel_reward)
 
-        # Expert prescribed habit
-        h_expert = Habit.objects.create(
-            tenant=self.tenant,
-            created_by=self.super_admin,
-            name="Zone 2 Training",
-            habit_type=Habit.HabitType.EXPERT_PRESCRIBED,
-            frequency=Habit.Frequency.DAILY,
-            start_date=self.today,
+    def test_admin_updates_rule_strategy_pixels_and_syncs_existing_habits(self):
+        """
+        Admin adjusts pixel reward on a RuleStrategy via Master Data edit page.
+        Existing linked habits automatically sync to match the new rate, and new habits receive it.
+        """
+        from habits.models import RuleStrategy
+        honor_strat = RuleStrategy.objects.create(
+            name="Configurable Honor System",
+            engine_type=RuleStrategy.EngineType.STANDARD,
+            pixel_reward=2,
         )
-        self.assertEqual(h_expert.pixel_score, 10)
 
-    def test_admin_updates_pixel_reward_config_and_syncs_existing_habits(self):
-        """
-        Admin adjusts reward configuration to (4, 8, 16).
-        Existing active habits are automatically updated to match new rates.
-        New habits receive updated amounts.
-        """
-        # 1. Create baseline habits
         h_user = Habit.objects.create(
             tenant=self.tenant,
             created_by=self.regular_user,
             name="User Routine",
             habit_type=Habit.HabitType.GENERAL,
+            rule_strategy_ref=honor_strat,
             frequency=Habit.Frequency.DAILY,
             start_date=self.today,
         )
@@ -129,61 +123,33 @@ class AdminPixelRewardConfigurationTests(TestCase):
             created_by=self.super_admin,
             name="Predefined Routine",
             habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
+            rule_strategy_ref=honor_strat,
             frequency=Habit.Frequency.DAILY,
             start_date=self.today,
         )
-        h_expert = Habit.objects.create(
-            tenant=self.tenant,
-            created_by=self.super_admin,
-            name="Expert Routine",
-            habit_type=Habit.HabitType.EXPERT_PRESCRIBED,
-            frequency=Habit.Frequency.DAILY,
-            start_date=self.today,
-        )
-
         self.assertEqual(h_user.pixel_score, 2)
-        self.assertEqual(h_pred.pixel_score, 5)
-        self.assertEqual(h_expert.pixel_score, 10)
+        self.assertEqual(h_pred.pixel_score, 2)
 
-        # 2. Super admin posts new configuration
+        # Super admin updates Honor System pixel reward to 4 on Rule Strategy page
         self.client.force_login(self.super_admin)
-        post_data = {
-            "user_defined_pixels": 4,
-            "predefined_pixels": 8,
-            "expert_prescribed_pixels": 16,
-            "auto_sync_active_habits": True,
-            "notes": "Q4 Incentive enhancement policy",
-        }
-        resp = self.client.post(reverse("admin_pixel_configuration"), post_data)
+        resp = self.client.post(reverse("rule_strategy_edit", args=[honor_strat.pk]), {
+            "name": honor_strat.name,
+            "engine_type": honor_strat.engine_type,
+            "pixel_reward": 4,
+            "description": "Updated to 4 Px.",
+            "is_active": True,
+        })
         self.assertEqual(resp.status_code, 302)
 
-        # Verify config saved
-        cfg = PixelRewardConfig.get_config(tenant=self.tenant)
-        self.assertEqual(cfg.user_defined_pixels, 4)
-        self.assertEqual(cfg.predefined_pixels, 8)
-        self.assertEqual(cfg.expert_prescribed_pixels, 16)
-        self.assertEqual(cfg.notes, "Q4 Incentive enhancement policy")
+        honor_strat.refresh_from_db()
+        self.assertEqual(honor_strat.pixel_reward, 4)
 
-        # 3. Verify existing habits synced to new scores
         h_user.refresh_from_db()
         h_pred.refresh_from_db()
-        h_expert.refresh_from_db()
         self.assertEqual(h_user.pixel_score, 4)
-        self.assertEqual(h_pred.pixel_score, 8)
-        self.assertEqual(h_expert.pixel_score, 16)
+        self.assertEqual(h_pred.pixel_score, 4)
 
-        # 4. Verify newly created habit receives new rate
-        h_new = Habit.objects.create(
-            tenant=self.tenant,
-            created_by=self.regular_user,
-            name="New User Habit",
-            habit_type=Habit.HabitType.GENERAL,
-            frequency=Habit.Frequency.DAILY,
-            start_date=self.today,
-        )
-        self.assertEqual(h_new.pixel_score, 4)
-
-        # 5. Verify wallet calculations now use updated 4 Px daily score
+        # Wallet reflects synced 4 Px rate
         wallet = calculate_user_pixel_wallet(self.regular_user, tenant=self.tenant)
         self.assertGreaterEqual(wallet["total_pixels"], 8)  # 4 + 4 = 8 Px daily
 
@@ -216,15 +182,15 @@ class AdminPixelRewardConfigurationTests(TestCase):
         resp = self.client.get(reverse("admin_pixel_configuration"))
         self.assertEqual(resp.status_code, 403)
 
-    def test_general_settings_displays_configured_pixel_values(self):
+    def test_general_settings_displays_rule_strategy_pixel_values(self):
         """
-        General Settings page reflects dynamic configured pixel values.
+        General Settings page reflects dynamic Rule Strategy pixel allocations.
         """
-        PixelRewardConfig.objects.create(
-            tenant=self.tenant,
-            user_defined_pixels=3,
-            predefined_pixels=7,
-            expert_prescribed_pixels=14,
+        from habits.models import RuleStrategy
+        RuleStrategy.objects.create(
+            name="Custom Location Check",
+            engine_type=RuleStrategy.EngineType.STANDARD,
+            pixel_reward=7,
         )
 
         self.client.force_login(self.regular_user)
@@ -240,7 +206,7 @@ class AdminPixelRewardConfigurationTests(TestCase):
 
         resp = self.client.get(reverse("general_settings"))
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "3 Pixels")
+        self.assertContains(resp, "By Rule Strategy")
+        self.assertContains(resp, "Custom Location Check")
         self.assertContains(resp, "7 Pixels")
-        self.assertContains(resp, "14 Pixels")
 

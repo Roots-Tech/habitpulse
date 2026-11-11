@@ -59,6 +59,10 @@ class RuleStrategy(models.Model):
     requires_numeric = models.BooleanField(default=False)
     has_time_window = models.BooleanField(default=False)
     default_unit = models.CharField(max_length=30, blank=True, default="", help_text="Default metric unit (optional)")
+    pixel_reward = models.PositiveIntegerField(
+        default=0,
+        help_text="Allocated pixels awarded for completing a habit under this rule strategy. Default 0.",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -110,6 +114,18 @@ class RuleStrategy(models.Model):
     @property
     def requires_evidence_active(self):
         return bool(self.requires_evidence or self.engine_type in [self.EngineType.EVIDENCE_FILE, self.EngineType.TIME_AND_EVIDENCE])
+
+    def sync_to_habits(self):
+        """
+        Recalculates and updates pixel_score for all habits governed by this RuleStrategy.
+        """
+        updated_count = 0
+        for habit in self.habits.all():
+            new_score = self.pixel_reward + habit._compute_modular_extra_bonuses()
+            if habit.pixel_score != new_score:
+                Habit.objects.filter(pk=habit.pk).update(pixel_score=new_score)
+                updated_count += 1
+        return updated_count
 
 
 class Habit(models.Model):
@@ -272,7 +288,7 @@ class Habit(models.Model):
     pixel_score = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Pixel score allotted for completing this habit (2 for User-Created, 5 for Predefined, 10 for Expert).",
+        help_text="Pixel score allotted for completing this habit, governed by its linked Rule Strategy.",
     )
 
     # Location Geofencing Configuration
@@ -445,14 +461,9 @@ class Habit(models.Model):
             if self.allowed_radius_meters is not None and self.allowed_radius_meters < 10:
                 errors["allowed_radius_meters"] = "Allowed radius must be at least 10 meters."
 
-        # Pixel Score Rules Validation via Admin Configuration
-        config = PixelRewardConfig.get_config(self.tenant)
-        if self.habit_type == self.HabitType.GENERAL:
-            if self.pixel_score is not None and self.pixel_score != config.user_defined_pixels:
-                errors["pixel_score"] = f"User-created personal habits have an allotted pixel score of {config.user_defined_pixels}."
-        else:
-            if self.pixel_score is not None and self.pixel_score < 1:
-                errors["pixel_score"] = "Pixel score must be at least 1."
+        # Pixel Score Validation (Rule Strategy governed)
+        if self.pixel_score is not None and self.pixel_score < 0:
+            errors["pixel_score"] = "Pixel score cannot be negative."
 
         # Purpose-oriented duplicate restriction
         if not self.is_template and not self.template_source_id and self.name:
@@ -604,7 +615,33 @@ class Habit(models.Model):
             return f"{self.effective_weekly_target} Days / Week"
         return self.get_frequency_display()
 
+    def _compute_modular_extra_bonuses(self):
+        """
+        Calculates extra bonus pixels only for modular verification layers
+        not already inherent to the linked RuleStrategy's engine.
+        """
+        extra_bonuses = 0
+        config = PixelRewardConfig.get_config(self.tenant)
+        if not config:
+            return 0
+
+        strat = self.rule_strategy_ref
+        if self.has_time_window and not (strat and strat.has_time_window_active):
+            extra_bonuses += config.bonus_time_window
+        if self.is_location_restricted and not (strat and getattr(strat, "is_location_restricted", False)):
+            extra_bonuses += config.bonus_location
+        if self.requires_duration and not (strat and getattr(strat, "requires_duration", False)):
+            extra_bonuses += config.bonus_duration
+        if self.requires_numeric and not (strat and strat.requires_numeric_active):
+            extra_bonuses += config.bonus_numeric_target
+        if self.requires_evidence and not (strat and strat.requires_evidence_active):
+            extra_bonuses += config.bonus_evidence_proof
+        return extra_bonuses
+
     def save(self, *args, **kwargs):
+        explicit_rule_strategy = bool(self.rule_strategy_ref_id or self.rule_strategy_ref)
+        has_explicit_pixel_score = (self.pixel_score is not None)
+
         # 1. Synchronize category and category_ref
         if self.category:
             if not self.category_ref or self.category_ref.name != self.category:
@@ -617,44 +654,39 @@ class Habit(models.Model):
             self.category = self.category_ref.name
 
         # 2. Synchronize validation_rule and rule_strategy_ref
-        if self.validation_rule:
-            if not self.rule_strategy_ref or self.rule_strategy_ref.engine_type != self.validation_rule:
-                strat = RuleStrategy.objects.filter(
-                    engine_type=self.validation_rule,
-                ).first()
-                if not strat:
-                    label = dict(self.ValidationRule.choices).get(self.validation_rule, self.validation_rule)
-                    strat, _ = RuleStrategy.objects.get_or_create(
-                        name=label,
-                        defaults={
-                            "engine_type": self.validation_rule,
-                            "is_active": True,
-                        },
-                    )
-                self.rule_strategy_ref = strat
-        elif self.rule_strategy_ref:
+        if self.rule_strategy_ref:
             self.validation_rule = self.rule_strategy_ref.engine_type
+        elif self.validation_rule:
+            if not RuleStrategy.objects.exists():
+                seed_default_rule_strategies()
+            strat = RuleStrategy.objects.filter(
+                engine_type=self.validation_rule,
+                is_active=True,
+            ).first()
+            if not strat:
+                label = dict(self.ValidationRule.choices).get(self.validation_rule, self.validation_rule)
+                strat, _ = RuleStrategy.objects.get_or_create(
+                    name=label,
+                    defaults={
+                        "engine_type": self.validation_rule,
+                        "is_active": True,
+                    },
+                )
+            self.rule_strategy_ref = strat
 
-        # 3. Enforce dynamic stackable pixel score rules via Admin Configuration
-        config = PixelRewardConfig.get_config(self.tenant)
-        bonuses = config.calculate_bonuses(self)
-
-        if self.habit_type == self.HabitType.GENERAL:
-            self.pixel_score = config.user_defined_pixels + bonuses
-        elif self.is_template:
-            if not self.pixel_score or self.pixel_score < 1:
-                self.pixel_score = config.get_pixel_for_type(self.habit_type) + bonuses
-        elif self.template_source:
-            template_base = self.template_source.pixel_score or config.get_pixel_for_type(self.habit_type)
-            template_bonuses = config.calculate_bonuses(self.template_source)
-            extra_bonuses = max(0, bonuses - template_bonuses) if bonuses >= template_bonuses else bonuses
-            # If user added verification layers beyond the template, stack them on top of template base
-            self.pixel_score = template_base + (extra_bonuses if bonuses > 0 and bonuses != extra_bonuses else bonuses)
+        # 3. Rule Strategy-based pixel score allocation:
+        # Pixel reward is governed directly by the linked RuleStrategy's pixel_reward (not habit_type).
+        if explicit_rule_strategy:
+            base_pixels = self.rule_strategy_ref.pixel_reward
+            self.pixel_score = base_pixels + self._compute_modular_extra_bonuses()
+        elif self.template_source and self.template_source.rule_strategy_ref:
+            base_pixels = self.template_source.rule_strategy_ref.pixel_reward
+            self.pixel_score = base_pixels + self._compute_modular_extra_bonuses()
+        elif has_explicit_pixel_score:
+            self.pixel_score = self.pixel_score
         else:
-            if not self.pixel_score or self.pixel_score < 1:
-                self.pixel_score = config.get_pixel_for_type(self.habit_type) + bonuses
-            elif bonuses > 0:
-                self.pixel_score = self.pixel_score + bonuses
+            base_pixels = self.rule_strategy_ref.pixel_reward if self.rule_strategy_ref else 0
+            self.pixel_score = base_pixels + self._compute_modular_extra_bonuses()
 
         super().save(*args, **kwargs)
 
@@ -1277,26 +1309,31 @@ def seed_default_rule_strategies():
             "name": "Honor System (One-Click)",
             "engine_type": RuleStrategy.EngineType.STANDARD,
             "description": "Standard honor system. Check off habit with a single tap.",
+            "pixel_reward": 2,
         },
         {
             "name": "Time Window Constrained",
             "engine_type": RuleStrategy.EngineType.TIME_WINDOW,
             "description": "Can only be completed within a defined daily time window.",
+            "pixel_reward": 2,
         },
         {
             "name": "Proof Required (Image/Doc)",
             "engine_type": RuleStrategy.EngineType.EVIDENCE_FILE,
             "description": "Requires uploading an image or document as proof of completion.",
+            "pixel_reward": 3,
         },
         {
             "name": "Quantitative Goal",
             "engine_type": RuleStrategy.EngineType.NUMERIC_TARGET,
             "description": "Requires logging a numeric value that reaches or exceeds your target.",
+            "pixel_reward": 2,
         },
         {
             "name": "Time Window + Proof Required",
             "engine_type": RuleStrategy.EngineType.TIME_AND_EVIDENCE,
             "description": "Requires completing within a time window AND uploading proof.",
+            "pixel_reward": 5,
         },
     ]
     for rule in default_rules:
@@ -1305,6 +1342,7 @@ def seed_default_rule_strategies():
             defaults={
                 "engine_type": rule["engine_type"],
                 "description": rule["description"],
+                "pixel_reward": rule.get("pixel_reward", 0),
                 "is_active": True,
             },
         )

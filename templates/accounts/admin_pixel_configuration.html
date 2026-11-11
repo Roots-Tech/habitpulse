@@ -31,6 +31,16 @@
     </p>
   </div>
 
+  <!-- Notice: Base Pixel Allocation moved to Rule Strategies -->
+  <div style="background: rgba(56, 189, 248, 0.1); border: 1.5px solid rgba(56, 189, 248, 0.4); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="font-size: 0.875rem; color: var(--text-main); line-height: 1.45;">
+      <strong>📌 Rule Strategy-Based Pixel Allocation Active:</strong> Base habit pixel rewards are configured directly on each <strong>Rule Strategy</strong> in Master Data (not by Habit Type) at <code>/rule-strategies/</code>. Use Rule Strategies to define base pixel awards for Honor System, Time Window, Proof Upload, and custom rules.
+    </div>
+    <a href="{% url 'rule_strategy_list' %}" class="btn btn-primary btn-sm" style="white-space: nowrap; font-weight: 700;">
+      Go to Rule Strategies &rarr;
+    </a>
+  </div>
+
   <!-- Workspace Habits Scope & Metrics -->
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
     <div class="card" style="padding: 1.15rem 1.25rem; border-left: 4px solid #34d399; background: var(--surface);">

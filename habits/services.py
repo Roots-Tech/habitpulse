@@ -391,7 +391,7 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
             completions_by_habit[hid].add(cdate)
 
     for h in habits_qs:
-        daily_score = h.pixel_score or PixelRewardConfig.get_config(tenant).get_pixel_for_type(h.habit_type)
+        daily_score = h.pixel_score if h.pixel_score is not None else (h.rule_strategy_ref.pixel_reward if h.rule_strategy_ref else 0)
         h_pending_days = get_pending_days_in_month(h, today)
         h_allocated = daily_score * h_pending_days
 
@@ -1049,11 +1049,14 @@ def import_catalog_templates_from_dict(data, creator=None):
         raise ValueError("Invalid template data format. Must be a JSON object or list.")
 
     from django.contrib.auth import get_user_model
-    from .models import Habit, HabitCategory
+    from .models import Habit, HabitCategory, RuleStrategy, seed_default_rule_strategies
 
     User = get_user_model()
     if creator is None:
         creator = User.objects.filter(is_superuser=True).first() or User.objects.first()
+
+    if not RuleStrategy.objects.exists():
+        seed_default_rule_strategies()
 
     created_count = 0
     updated_count = 0
@@ -1080,11 +1083,12 @@ def import_catalog_templates_from_dict(data, creator=None):
                 target_days_per_week = None
 
         validation_rule = item.get("validation_rule") or Habit.ValidationRule.STANDARD
+        rule_strategy_ref = RuleStrategy.objects.filter(engine_type=validation_rule, is_active=True).first()
         window_start = item.get("window_start_time")
         window_end = item.get("window_end_time")
         target_val = item.get("target_value")
         unit_label = item.get("unit_label") or ""
-        pixel_score = item.get("pixel_score") or 10
+        pixel_score = item.get("pixel_score")
         purpose_patterns = item.get("purpose_patterns") or []
 
         defaults = {
@@ -1096,6 +1100,7 @@ def import_catalog_templates_from_dict(data, creator=None):
             "frequency": frequency,
             "target_days_per_week": target_days_per_week,
             "selected_weekdays": item.get("selected_weekdays") or [],
+            "rule_strategy_ref": rule_strategy_ref,
             "validation_rule": validation_rule,
             "window_start_time": window_start,
             "window_end_time": window_end,
