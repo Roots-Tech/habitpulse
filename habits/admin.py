@@ -11,15 +11,15 @@ class HabitCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(RuleStrategy)
 class RuleStrategyAdmin(admin.ModelAdmin):
-    list_display = ["name", "engine_type", "default_unit", "is_active", "created_at"]
+    list_display = ["name", "engine_type", "pixel_reward", "default_unit", "is_active", "created_at"]
     list_filter = ["engine_type", "is_active"]
     search_fields = ["name", "description"]
 
 
 @admin.register(Habit)
 class HabitAdmin(admin.ModelAdmin):
-    list_display = ["name", "tenant", "category", "validation_rule", "frequency", "start_date", "is_active", "created_at"]
-    list_filter = ["tenant", "category", "validation_rule", "frequency", "is_active"]
+    list_display = ["name", "tenant", "category", "rule_strategy_ref", "validation_rule", "pixel_score", "frequency", "start_date", "is_active", "created_at"]
+    list_filter = ["tenant", "category", "rule_strategy_ref", "validation_rule", "frequency", "is_active"]
     search_fields = ["name", "description", "tenant__name"]
 
 

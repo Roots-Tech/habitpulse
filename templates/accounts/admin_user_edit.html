@@ -475,27 +475,19 @@
 
           <!-- Base Scores Breakdown Reference -->
           <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.5rem;">
-            📐 Base Pixel Scores By Habit Type
+            📐 Pixel Scores By Rule Strategy
           </div>
           <div style="display: grid; gap: 0.5rem; font-size: 0.825rem; color: var(--text-body);">
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px dashed var(--border);">
-              <span>🌱 <strong>User Created Habits:</strong> Fixed standard score</span>
-              <span class="badge badge-user-created" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
-                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> 2 Pixels
-              </span>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px dashed var(--border);">
-              <span>🎯 <strong>Predefined Purpose Habits:</strong> Goal-focused catalog routines</span>
-              <span class="badge badge-predefined" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
-                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> 5 Pixels
-              </span>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0;">
-              <span>⭐ <strong>Expert Prescribed Habits:</strong> High effort, structured routines</span>
-              <span class="badge badge-expert" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
-                <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> 10 Pixels
-              </span>
-            </div>
+            {% for strat in rule_strategies %}
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; {% if not forloop.last %}border-bottom: 1px dashed var(--border);{% endif %}">
+                <span>⚡ <strong>{{ strat.name }}</strong>{% if strat.description %}: {{ strat.description }}{% endif %}</span>
+                <span class="badge badge-user-created" style="font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;">
+                  <img src="{% static 'images/pixel_crown.png' %}" class="pixel-icon" alt="Pixels"> {{ strat.pixel_reward }} Pixel{{ strat.pixel_reward|pluralize }}
+                </span>
+              </div>
+            {% empty %}
+              <div>Rule strategy pixel allocations default to <strong>0 Pixels</strong> unless configured by administrators.</div>
+            {% endfor %}
           </div>
         </div>
       </div>

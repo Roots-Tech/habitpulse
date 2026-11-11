@@ -517,6 +517,10 @@ def habit_list_view(request):
     if active_tab not in ["user_created", "predefined", "expert"]:
         active_tab = "user_created"
 
+    if not RuleStrategy.objects.exists():
+        seed_default_rule_strategies()
+    rule_strategies = RuleStrategy.objects.filter(is_active=True).order_by("name")
+
     return render(request, "habits/habit_list.html", {
         "my_habits": my_habits,
         "predefined_habits": predefined_habits,
@@ -528,6 +532,7 @@ def habit_list_view(request):
         "all_habits_count": all_habits_count,
         "my_personal_habits_count": my_personal_habits_count,
         "active_tab": active_tab,
+        "rule_strategies": rule_strategies,
     })
 
 
@@ -1394,8 +1399,13 @@ def rule_strategy_update_view(request, pk):
     if request.method == "POST":
         form = RuleStrategyForm(request.POST, instance=strategy)
         if form.is_valid():
-            form.save()
-            messages.success(request, f'Rule Strategy "{strategy.name}" updated successfully!')
+            strategy = form.save()
+            synced_count = strategy.sync_to_habits()
+            sync_note = f" Updated pixel rewards on {synced_count} linked habit(s)." if synced_count else ""
+            messages.success(
+                request,
+                f'Rule Strategy "{strategy.name}" updated successfully ({strategy.pixel_reward} Px)!{sync_note}'
+            )
             return redirect("rule_strategy_list")
         else:
             messages.error(request, "Please fix the errors below.")
