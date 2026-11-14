@@ -1581,3 +1581,69 @@ def catalog_import_view(request):
 
     return redirect(f"{reverse('habit_list')}?tab=predefined")
 
+
+@login_required
+def habit_calendar_ics_view(request, pk):
+    """
+    Generates an iCalendar (.ics) file with a native alarm trigger (VALARM),
+    allowing users to sync their habit alarm directly to Apple Calendar,
+    Google Calendar, Outlook, or Android Clock/Calendar completely free.
+    """
+    from datetime import datetime, time, timedelta
+    from django.http import HttpResponse, Http404
+
+    habit = get_object_or_404(Habit, pk=pk)
+    tenant = getattr(request, "tenant", None)
+
+    if not request.user.is_super_admin:
+        if tenant and habit.tenant != tenant:
+            raise Http404("Habit not found.")
+        if not tenant and habit.created_by != request.user:
+            raise Http404("Habit not found.")
+
+    alarm_t = habit.reminder_time or habit.window_start_time or time(8, 0)
+    today = timezone.localdate()
+    dt_start = datetime.combine(today, alarm_t)
+    dt_end = dt_start + timedelta(minutes=30)
+
+    dt_start_str = dt_start.strftime("%Y%m%dT%H%M00")
+    dt_end_str = dt_end.strftime("%Y%m%dT%H%M00")
+    uid = f"habit-{habit.pk}-{today.strftime('%Y%m%d')}@habitpulse.local"
+
+    rrule = "RRULE:FREQ=DAILY"
+    if habit.frequency == Habit.Frequency.WEEKDAYS and habit.selected_weekdays:
+        day_map = {0: "MO", 1: "TU", 2: "WE", 3: "TH", 4: "FR", 5: "SA", 6: "SU"}
+        days = [day_map[int(d)] for d in habit.selected_weekdays if str(d).isdigit() and int(d) in day_map]
+        if days:
+            rrule = f"RRULE:FREQ=WEEKLY;BYDAY={','.join(days)}"
+
+    snooze_repeat = ""
+    if habit.reminder_snooze_interval in (15, 30, 60):
+        snooze_repeat = f"\nDURATION:PT{habit.reminder_snooze_interval}M\nREPEAT:3"
+
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//HabitPulse//Habit Alarm//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:{uid}
+DTSTAMP:{timezone.now().strftime("%Y%m%dT%H%M%SZ")}
+DTSTART:{dt_start_str}
+DTEND:{dt_end_str}
+{rrule}
+SUMMARY:⏰ HabitPulse: {habit.name}
+DESCRIPTION:Time to complete your habit '{habit.name}'! Earn {habit.pixel_score or 2} pixels on HabitPulse.
+LOCATION:{habit.location_name or 'HabitPulse'}
+BEGIN:VALARM
+TRIGGER:-PT0M
+ACTION:DISPLAY
+DESCRIPTION:Habit Alarm: {habit.name}{snooze_repeat}
+END:VALARM
+END:VEVENT
+END:VCALENDAR"""
+
+    response = HttpResponse(ics_content.strip(), content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="habit_{habit.pk}_alarm.ics"'
+    return response
+

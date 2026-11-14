@@ -27,6 +27,7 @@ def habit_notifications(request):
             "completed_today_count": 0,
             "pending_pixel_requests_count": 0,
             "pixel_config": PixelRewardConfig.get_config(None),
+            "VAPID_PUBLIC_KEY": "",
         }
 
     tenant = getattr(request, "tenant", None)
@@ -214,6 +215,9 @@ def habit_notifications(request):
     from habits.models import PixelRewardConfig
     pixel_config = PixelRewardConfig.get_config(tenant=tenant)
 
+    from django.conf import settings
+    vapid_key = getattr(settings, "VAPID_PUBLIC_KEY", "")
+
     return {
         "habit_notifications": notifications,
         "unread_alarms_count": len(notifications),
@@ -223,4 +227,5 @@ def habit_notifications(request):
         "completed_today_count": len(completed_habit_ids),
         "pending_pixel_requests_count": pending_pixel_requests_count,
         "pixel_config": pixel_config,
+        "VAPID_PUBLIC_KEY": vapid_key,
     }

@@ -194,6 +194,9 @@ class HabitForm(forms.ModelForm):
             "enable_duration_requirement",
             "min_duration_minutes",
             "enable_ai_proof_verification",
+            "reminder_enabled",
+            "reminder_time",
+            "reminder_snooze_interval",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -274,6 +277,9 @@ class HabitForm(forms.ModelForm):
             "enable_duration_requirement": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_duration_requirement"}),
             "min_duration_minutes": forms.NumberInput(attrs={"class": "form-control", "id": "id_min_duration_minutes", "placeholder": "e.g. 45", "min": 1}),
             "enable_ai_proof_verification": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_ai_proof_verification"}),
+            "reminder_enabled": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_reminder_enabled"}),
+            "reminder_time": forms.TimeInput(attrs={"type": "time", "class": "form-control", "id": "id_reminder_time"}),
+            "reminder_snooze_interval": forms.Select(attrs={"class": "form-control", "id": "id_reminder_snooze_interval"}),
         }
 
     def __init__(self, *args, tenant=None, user=None, habit_type_initial=None, is_template_initial=None, **kwargs):
@@ -302,6 +308,9 @@ class HabitForm(forms.ModelForm):
         self.fields["target_latitude"].required = False
         self.fields["target_longitude"].required = False
         self.fields["allowed_radius_meters"].required = False
+        self.fields["reminder_enabled"].required = False
+        self.fields["reminder_time"].required = False
+        self.fields["reminder_snooze_interval"].required = False
         self.fields["is_location_restricted"].label = "Location Verification (Geofenced)"
         self.fields["location_name"].label = "Location / Venue Name"
         self.fields["target_latitude"].label = "Target Latitude"
