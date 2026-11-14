@@ -31,6 +31,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
     path("api/v1/", include("api.urls")),
+    path("api/", include(("api.urls", "legacy_api"), namespace="legacy_api")),
     path("admin-panel/performance/", RedirectView.as_view(pattern_name="admin_performance_meter", permanent=False)),
     path("admin-panel/users/", RedirectView.as_view(pattern_name="admin_users_list", permanent=False)),
     path("admin-panel/roles/", RedirectView.as_view(pattern_name="admin_roles_list", permanent=False)),

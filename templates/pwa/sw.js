@@ -139,7 +139,7 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'complete' && habitId) {
     event.waitUntil(
-      fetch(`/api/habits/${habitId}/complete/`, {
+      fetch(`/api/v1/habits/${habitId}/complete/`, {
         method: 'POST',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       }).then(() => {
@@ -155,7 +155,7 @@ self.addEventListener('notificationclick', (event) => {
     );
   } else if (event.action === 'snooze' && habitId) {
     event.waitUntil(
-      fetch(`/api/habits/${habitId}/reminder/snooze/`, {
+      fetch(`/api/v1/habits/${habitId}/reminder/snooze/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

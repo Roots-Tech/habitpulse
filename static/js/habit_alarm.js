@@ -115,7 +115,7 @@
 
     var csrfToken = getCsrfToken();
 
-    return fetch('/api/push/subscribe/', {
+    return fetch('/api/v1/push/subscribe/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -187,7 +187,7 @@
     toast.querySelector('.alarm-dismiss-btn').onclick = function () { toast.remove(); };
 
     toast.querySelector('.alarm-done-btn').onclick = function () {
-      fetch('/api/habits/' + habit.id + '/complete/', {
+      fetch('/api/v1/habits/' + habit.id + '/complete/', {
         method: 'POST',
         headers: {
           'X-CSRFToken': getCsrfToken(),
@@ -205,7 +205,7 @@
     };
 
     toast.querySelector('.alarm-snooze-btn').onclick = function () {
-      fetch('/api/habits/' + habit.id + '/reminder/snooze/', {
+      fetch('/api/v1/habits/' + habit.id + '/reminder/snooze/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,10 +231,13 @@
   var alertedAlarmsMap = {}; // key: "habitId_date_time" to avoid re-alerting inside the same minute
 
   function checkDueAlarms() {
-    fetch('/api/habits/reminders/active/', {
+    fetch('/api/v1/habits/reminders/active/', {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then(function (data) {
         if (!data || !data.reminders || !Array.isArray(data.reminders)) return;
 
@@ -383,7 +386,7 @@
           reminder_snooze_interval: parseInt(snoozeSelect.value, 10) || 0
         };
 
-        fetch('/api/habits/' + habitId + '/reminder/', {
+        fetch('/api/v1/habits/' + habitId + '/reminder/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -392,7 +395,19 @@
           },
           body: JSON.stringify(payload)
         })
-          .then(function (r) { return r.json(); })
+          .then(function (r) {
+            if (!r.ok) {
+              return r.text().then(function (text) {
+                var msg = 'Server returned ' + r.status;
+                try {
+                  var errJson = JSON.parse(text);
+                  if (errJson.error || errJson.detail) msg = errJson.error || errJson.detail;
+                } catch (e) {}
+                throw new Error(msg);
+              });
+            }
+            return r.json();
+          })
           .then(function (res) {
             closeModal();
             // Update button badge on page
