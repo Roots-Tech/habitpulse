@@ -390,7 +390,8 @@
 
       habitIdInput.value = habitId;
       habitNameEl.textContent = habitName;
-      enabledInput.checked = enabled;
+      // Default alarm toggle to ON (true) when configuring
+      enabledInput.checked = (btn.getAttribute('data-enabled') === '0') ? true : enabled;
       timeInput.value = timeVal || '08:00';
       snoozeSelect.value = snoozeVal;
 
@@ -414,11 +415,22 @@
         var habitName = habitNameEl.textContent || 'Habit';
 
         playAlarmChime();
+        showFloatingAlarm({ id: habitId, name: habitName, pixel_score: 2 });
+
+        if ('Notification' in window && Notification.permission === 'denied') {
+          if (testStatusEl) {
+            testStatusEl.style.display = 'block';
+            testStatusEl.style.background = 'rgba(239, 68, 68, 0.15)';
+            testStatusEl.style.color = '#ef4444';
+            testStatusEl.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            testStatusEl.textContent = '⚠️ Desktop notifications blocked in browser settings. Click the lock/tune icon in your address bar and set Notifications to Allow.';
+          }
+        }
 
         // 1. Request notification permission if not yet decided
         var reqPromise = ('Notification' in window && Notification.permission === 'default')
           ? Notification.requestPermission()
-          : Promise.resolve(Notification.permission);
+          : Promise.resolve('Notification' in window ? Notification.permission : 'denied');
 
         reqPromise.then(function (perm) {
           if (perm === 'granted') {
