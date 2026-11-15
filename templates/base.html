@@ -98,11 +98,12 @@
 
   {% if user.is_authenticated %}
     {% include 'includes/bottom_nav.html' %}
+    {% include 'habits/includes/alarm_modal.html' %}
   {% endif %}
 
   <script src="{% static 'js/app.js' %}?v=20261110_mobile_v2"></script>
   {% if user.is_authenticated %}
-  <script src="{% static 'js/habit_alarm.js' %}?v=20261114_alarm_v3"></script>
+  <script src="{% static 'js/habit_alarm.js' %}?v=20261115_alarm_v4"></script>
   {% endif %}
   {% block extra_js %}{% endblock %}
   <script>

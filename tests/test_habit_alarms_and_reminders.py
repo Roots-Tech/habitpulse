@@ -291,3 +291,49 @@ class HabitAlarmAndReminderTests(TestCase):
         self.assertIn("Download Catalog (JSON)", content_admin)
         self.assertIn("Upload Catalog (JSON)", content_admin)
         self.assertIn("catalog-import-modal", content_admin)
+
+    def test_dashboard_renders_alarm_button_and_global_modal(self):
+        """
+        Verify the dashboard habit card renders the alert/bell button
+        and the global alarm modal is accessible on the dashboard page.
+        """
+        self._login_user(self.user)
+        self.habit.reminder_enabled = True
+        self.habit.reminder_time = time(10, 0)
+        self.habit.save()
+
+        res = self.client.get(reverse("dashboard"))
+        self.assertEqual(res.status_code, 200)
+        content = res.content.decode("utf-8")
+        self.assertIn("habit-alarm-btn", content)
+        self.assertIn("10:00 AM", content)
+        self.assertIn("habit-alarm-modal", content)
+
+    def test_test_push_api(self):
+        """Verify /api/v1/habits/reminders/test-push/ sends test notification."""
+        self._login_user(self.user)
+        res = self.client.post(
+            reverse("api:test_habit_reminder_push"),
+            data=json.dumps({"habit_id": self.habit.pk}),
+            content_type="application/json",
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data["success"])
+        self.assertIn("message", data)
+
+    def test_dispatch_due_habit_alarms_scheduler(self):
+        """Verify the background alarm dispatcher marks last_reminded_at."""
+        from habits.alarm_scheduler import dispatch_due_habit_alarms
+
+        self.habit.reminder_enabled = True
+        # Set reminder time in the past for today so it's due
+        now_time = timezone.localtime().time()
+        past_time = time(max(0, now_time.hour - 1), 0)
+        self.habit.reminder_time = past_time
+        self.habit.last_reminded_at = None
+        self.habit.save()
+
+        dispatched = dispatch_due_habit_alarms()
+        self.habit.refresh_from_db()
+        self.assertIsNotNone(self.habit.last_reminded_at)

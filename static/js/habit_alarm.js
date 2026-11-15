@@ -1,10 +1,11 @@
 /**
  * HabitPulse Habit Alarm & Free Intimation System
  * Supports:
- * 1. Native Web Push Notifications (via Service Worker)
- * 2. In-App Web Audio Alarm Chimes (Zero-asset oscillator)
- * 3. Client-side Real-time Alarm Scheduler & Snooze System
- * 4. 1-Click Phone Calendar (.ics) Native Alarm Sync
+ * 1. Native Web Push Notifications (via Service Worker) to Mobile Phones & Desktops
+ * 2. Windows Notification Center / Action Center Desktop Notifications
+ * 3. In-App Web Audio Alarm Chimes (Zero-asset oscillator)
+ * 4. Client-side Real-time Alarm Scheduler & Snooze System
+ * 5. 1-Click Phone Calendar (.ics) Native Alarm Sync
  */
 
 (function () {
@@ -82,14 +83,14 @@
     var vapidKey = vapidMeta ? vapidMeta.getAttribute('content') : '';
 
     if (!vapidKey || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      return;
+      return Promise.resolve(null);
     }
 
     if (Notification.permission !== 'granted') {
-      return;
+      return Promise.resolve(null);
     }
 
-    navigator.serviceWorker.ready.then(function (reg) {
+    return navigator.serviceWorker.ready.then(function (reg) {
       return reg.pushManager.getSubscription().then(function (sub) {
         if (sub) {
           return sendSubscriptionToServer(sub);
@@ -142,39 +143,88 @@
   }
 
   // -------------------------------------------------------------------------
-  // 3. Floating Alarm Alert Banner
+  // 3. System / Windows Desktop Notification Center Integration
+  // -------------------------------------------------------------------------
+  function showSystemNotification(title, body, habitId, url) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+      return;
+    }
+
+    var options = {
+      body: body,
+      icon: '/static/images/pwa_icon_192.png',
+      badge: '/static/images/habit_icon.png',
+      tag: 'habit-alarm-' + (habitId || 'general'),
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [250, 100, 250, 100, 250],
+      data: {
+        url: url || '/habits/',
+        habit_id: habitId
+      },
+      actions: [
+        { action: 'complete', title: '✅ Mark Done' },
+        { action: 'snooze', title: '⏳ Snooze 1h' }
+      ]
+    };
+
+    // Prefer Service Worker registration to route to Windows Action Center
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(function (reg) {
+        return reg.showNotification(title, options);
+      }).catch(function () {
+        fallbackNotification(title, options, url);
+      });
+    } else {
+      fallbackNotification(title, options, url);
+    }
+  }
+
+  function fallbackNotification(title, options, url) {
+    try {
+      var n = new Notification(title, options);
+      n.onclick = function () {
+        window.focus();
+        window.location.href = url || '/habits/';
+      };
+    } catch (e) {
+      console.warn('[HabitAlarm] Notification fallback failed:', e);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. In-App Floating Alarm Banner (Guaranteed visual fallback)
   // -------------------------------------------------------------------------
   function showFloatingAlarm(habit) {
     var container = document.getElementById('habit-alarm-toast-container');
     if (!container) {
       container = document.createElement('div');
       container.id = 'habit-alarm-toast-container';
-      container.style.cssText = 'position: fixed; top: 1.25rem; right: 1.25rem; z-index: 999999; display: flex; flex-direction: column; gap: 0.75rem; max-width: 380px; width: 92%; pointer-events: none;';
+      container.style.cssText = 'position: fixed; top: 1.25rem; right: 1.25rem; z-index: 999999; display: flex; flex-direction: column; gap: 0.75rem; max-width: 390px; width: 92%; pointer-events: none;';
       document.body.appendChild(container);
     }
 
-    // Check if toast for this habit already visible
     var existing = document.getElementById('alarm-toast-' + habit.id);
     if (existing) return;
 
     var toast = document.createElement('div');
     toast.id = 'alarm-toast-' + habit.id;
-    toast.style.cssText = 'pointer-events: auto; background: var(--surface-raised, #1e293b); color: var(--text-main, #f8fafc); border: 1.5px solid #f59e0b; border-radius: 12px; padding: 1rem 1.15rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px rgba(245, 158, 11, 0.25); animation: habitAlarmSlideIn 0.3s ease; position: relative;';
+    toast.style.cssText = 'pointer-events: auto; background: var(--surface-raised, #1e293b); color: var(--text-main, #f8fafc); border: 2px solid #f59e0b; border-radius: 12px; padding: 1rem 1.15rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px rgba(245, 158, 11, 0.3); animation: habitAlarmSlideIn 0.3s ease; position: relative;';
 
     toast.innerHTML = [
       '<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem;">',
       '  <div style="display: flex; align-items: center; gap: 0.5rem;">',
-      '    <span style="font-size: 1.25rem; animation: habitBellRing 1.5s infinite;">⏰</span>',
-      '    <strong style="font-size: 0.95rem; color: #fbbf24;">Habit Alarm Intimation</strong>',
+      '    <span style="font-size: 1.25rem; animation: habitBellRing 1.5s infinite;">🔔</span>',
+      '    <strong style="font-size: 0.95rem; color: #fbbf24;">Habit Alert &amp; Reminder</strong>',
       '  </div>',
-      '  <button type="button" class="close-alarm-toast-btn" style="background: none; border: none; color: var(--text-muted, #94a3b8); font-size: 1.2rem; cursor: pointer; padding: 0 0.2rem; line-height: 1;">&times;</button>',
+      '  <button type="button" class="close-alarm-toast-btn" style="background: none; border: none; color: var(--text-muted, #94a3b8); font-size: 1.25rem; cursor: pointer; padding: 0 0.2rem; line-height: 1;">&times;</button>',
       '</div>',
-      '<div style="font-size: 0.88rem; font-weight: 700; margin-bottom: 0.25rem;">' + escapeHtml(habit.name) + '</div>',
-      '<p style="font-size: 0.78rem; color: var(--text-muted, #94a3b8); line-height: 1.4; margin: 0 0 0.75rem 0;">',
-      '  Time to complete your habit! Preserve your consistency streak and earn <strong>' + (habit.pixel_score || 2) + ' pixels</strong>.',
+      '<div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.25rem;">' + escapeHtml(habit.name) + '</div>',
+      '<p style="font-size: 0.8rem; color: var(--text-muted, #94a3b8); line-height: 1.4; margin: 0 0 0.75rem 0;">',
+      '  This habit is open to be marked! Preserve your consistency streak and earn <strong>' + (habit.pixel_score || 2) + ' pixels</strong>.',
       '</p>',
       '<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">',
-      '  <button type="button" class="alarm-done-btn btn btn-sm btn-primary" style="font-size: 0.75rem; padding: 0.3rem 0.65rem;">✅ Mark Done</button>',
+      '  <button type="button" class="alarm-done-btn btn btn-sm btn-primary" style="font-size: 0.75rem; padding: 0.3rem 0.65rem; background: #10b981; border-color: #059669; font-weight: 700;">✅ Mark Done</button>',
       '  <button type="button" class="alarm-snooze-btn btn btn-sm btn-outline" style="font-size: 0.75rem; padding: 0.3rem 0.65rem;">⏳ Snooze 1h</button>',
       '  <button type="button" class="alarm-dismiss-btn btn btn-sm btn-ghost" style="font-size: 0.75rem; padding: 0.3rem 0.5rem;">Dismiss</button>',
       '</div>'
@@ -182,7 +232,6 @@
 
     container.appendChild(toast);
 
-    // Event listeners
     toast.querySelector('.close-alarm-toast-btn').onclick = function () { toast.remove(); };
     toast.querySelector('.alarm-dismiss-btn').onclick = function () { toast.remove(); };
 
@@ -226,10 +275,8 @@
   }
 
   // -------------------------------------------------------------------------
-  // 4. Real-time Alarm Poller & Local Intimation Dispatcher
+  // 5. Real-time Alarm Poller & Local Intimation Dispatcher
   // -------------------------------------------------------------------------
-  var alertedAlarmsMap = {}; // key: "habitId_date_time" to avoid re-alerting inside the same minute
-
   function checkDueAlarms() {
     fetch('/api/v1/habits/reminders/active/', {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -242,10 +289,9 @@
         if (!data || !data.reminders || !Array.isArray(data.reminders)) return;
 
         var now = new Date();
-        var currentHours = String(now.getHours()).padStart(2, '0');
-        var currentMins = String(now.getMinutes()).padStart(2, '0');
-        var currentTimeStr = currentHours + ':' + currentMins;
+        var nowTotalMins = now.getHours() * 60 + now.getMinutes();
         var todayDateStr = data.server_date || now.toISOString().slice(0, 10);
+        var nowTs = Date.now();
 
         data.reminders.forEach(function (habit) {
           if (!habit.reminder_time) return;
@@ -258,13 +304,32 @@
             }
           }
 
-          var habitTime = habit.reminder_time.slice(0, 5); // "HH:MM"
-          var alertKey = habit.id + '_' + todayDateStr + '_' + currentTimeStr;
+          var parts = habit.reminder_time.split(':');
+          var remHours = parseInt(parts[0], 10);
+          var remMins = parseInt(parts[1], 10);
+          var remTotalMins = remHours * 60 + remMins;
 
-          // If current minute matches the reminder time and not already fired for this minute
-          if (currentTimeStr === habitTime && !alertedAlarmsMap[alertKey]) {
-            alertedAlarmsMap[alertKey] = true;
-            triggerHabitAlarm(habit);
+          // Check if configured reminder time has arrived or passed
+          if (nowTotalMins >= remTotalMins) {
+            var habitStateKey = 'habitpulse_alarm_last_' + habit.id + '_' + todayDateStr;
+            var lastAlerted = parseInt(localStorage.getItem(habitStateKey) || '0', 10);
+
+            var shouldAlert = false;
+            if (!lastAlerted) {
+              // Not yet alerted today
+              shouldAlert = true;
+            } else if (habit.reminder_snooze_interval > 0) {
+              // Repeat interval in minutes
+              var intervalMs = habit.reminder_snooze_interval * 60 * 1000;
+              if (nowTs - lastAlerted >= intervalMs) {
+                shouldAlert = true;
+              }
+            }
+
+            if (shouldAlert) {
+              localStorage.setItem(habitStateKey, String(nowTs));
+              triggerHabitAlarm(habit);
+            }
           }
         });
       })
@@ -272,33 +337,20 @@
   }
 
   function triggerHabitAlarm(habit) {
-    // 1. Play audio chime
+    // 1. Play Web Audio chime
     playAlarmChime();
 
-    // 2. Show native system notification if permitted
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        var n = new Notification('⏰ HabitPulse: ' + habit.name, {
-          body: 'Time to complete your habit! Keep your streak and earn ' + (habit.pixel_score || 2) + ' pixels.',
-          icon: '/static/images/pwa_icon_192.png',
-          tag: 'habit-alarm-' + habit.id,
-          requireInteraction: true
-        });
-        n.onclick = function () {
-          window.focus();
-          window.location.href = '/habits/';
-        };
-      } catch (e) {
-        console.log('[HabitAlarm] Notification error:', e);
-      }
-    }
+    // 2. Dispatch to Windows Notification Center / Action Center via Service Worker
+    var title = '⏰ Habit Alert: ' + habit.name;
+    var body = 'Time to complete your habit! Keep your streak and earn ' + (habit.pixel_score || 2) + ' pixels.';
+    showSystemNotification(title, body, habit.id, '/habits/');
 
     // 3. Show in-app floating banner
     showFloatingAlarm(habit);
   }
 
   // -------------------------------------------------------------------------
-  // 5. Alarm Configuration Modal Handler
+  // 6. Alarm Configuration Modal Handler
   // -------------------------------------------------------------------------
   function initAlarmModal() {
     var modal = document.getElementById('habit-alarm-modal');
@@ -309,6 +361,7 @@
     var enabledInput = document.getElementById('modal-alarm-enabled');
     var timeInput = document.getElementById('modal-alarm-time');
     var snoozeSelect = document.getElementById('modal-alarm-snooze');
+    var testStatusEl = document.getElementById('modal-alarm-test-status');
     var form = document.getElementById('habit-alarm-form');
     var testBtn = document.getElementById('modal-alarm-test-btn');
     var calSyncBtn = document.getElementById('modal-alarm-calendar-btn');
@@ -317,12 +370,13 @@
 
     function closeModal() {
       modal.style.display = 'none';
+      if (testStatusEl) testStatusEl.style.display = 'none';
     }
 
     if (closeBtn) closeBtn.onclick = closeModal;
     if (cancelBtn) cancelBtn.onclick = closeModal;
 
-    // Delegate click on any .habit-alarm-btn
+    // Delegate click on any .habit-alarm-btn across the page (Dashboard and Habits List)
     document.addEventListener('click', function (e) {
       var btn = e.target.closest('.habit-alarm-btn');
       if (!btn) return;
@@ -344,32 +398,77 @@
         calSyncBtn.href = '/habits/' + habitId + '/calendar.ics';
       }
 
+      if (testStatusEl) {
+        testStatusEl.style.display = 'none';
+        testStatusEl.textContent = '';
+      }
+
       modal.style.display = 'flex';
-      getAudioContext(); // Pre-warm audio context on user click
+      getAudioContext(); // Pre-warm audio context on user gesture
     });
 
     // Test Audio & Notification Button
     if (testBtn) {
       testBtn.onclick = function () {
+        var habitId = habitIdInput.value;
+        var habitName = habitNameEl.textContent || 'Habit';
+
         playAlarmChime();
-        if ('Notification' in window) {
-          if (Notification.permission === 'default') {
-            Notification.requestPermission().then(function (perm) {
-              if (perm === 'granted') {
-                setupWebPushSubscription();
-                new Notification('⏰ HabitPulse Alarm Test', {
-                  body: 'Habit alarms and intimations are working perfectly on this device!',
-                  icon: '/static/images/pwa_icon_192.png'
-                });
+
+        // 1. Request notification permission if not yet decided
+        var reqPromise = ('Notification' in window && Notification.permission === 'default')
+          ? Notification.requestPermission()
+          : Promise.resolve(Notification.permission);
+
+        reqPromise.then(function (perm) {
+          if (perm === 'granted') {
+            setupWebPushSubscription();
+            showSystemNotification(
+              '⏰ Test Alert: ' + habitName,
+              'Windows and Phone notifications are working perfectly on HabitPulse!',
+              habitId,
+              '/habits/'
+            );
+          }
+
+          // 2. Dispatch server test push to all connected devices (phones + laptop)
+          if (testStatusEl) {
+            testStatusEl.style.display = 'block';
+            testStatusEl.style.background = 'rgba(245, 158, 11, 0.15)';
+            testStatusEl.style.color = '#fbbf24';
+            testStatusEl.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+            testStatusEl.textContent = '⏳ Dispatching test alert to your devices...';
+          }
+
+          fetch('/api/v1/habits/reminders/test-push/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCsrfToken(),
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ habit_id: habitId })
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+              if (testStatusEl) {
+                testStatusEl.style.display = 'block';
+                testStatusEl.style.background = 'rgba(16, 185, 129, 0.15)';
+                testStatusEl.style.color = '#10b981';
+                testStatusEl.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+                testStatusEl.textContent = '✓ ' + (res.message || 'Test alert dispatched!');
+              }
+            })
+            .catch(function () {
+              if (testStatusEl) {
+                testStatusEl.style.display = 'block';
+                testStatusEl.style.background = 'rgba(59, 130, 246, 0.15)';
+                testStatusEl.style.color = '#60a5fa';
+                testStatusEl.style.border = '1px solid rgba(59, 130, 246, 0.3)';
+                testStatusEl.textContent = '✓ Local audio & desktop alert triggered!';
               }
             });
-          } else if (Notification.permission === 'granted') {
-            new Notification('⏰ HabitPulse Alarm Test', {
-              body: 'Habit alarms and intimations are working perfectly on this device!',
-              icon: '/static/images/pwa_icon_192.png'
-            });
-          }
-        }
+        });
       };
     }
 
@@ -410,25 +509,33 @@
           })
           .then(function (res) {
             closeModal();
-            // Update button badge on page
-            var btn = document.querySelector('.habit-alarm-btn[data-habit-id="' + habitId + '"]');
-            if (btn) {
+            // Update all button badges matching this habit (Dashboard and Habits list)
+            var btns = document.querySelectorAll('.habit-alarm-btn[data-habit-id="' + habitId + '"]');
+            btns.forEach(function (btn) {
               btn.setAttribute('data-enabled', res.reminder_enabled ? '1' : '0');
               btn.setAttribute('data-time', res.reminder_time || '');
               btn.setAttribute('data-snooze', payload.reminder_snooze_interval);
               if (res.reminder_enabled && res.reminder_display && res.reminder_display !== 'Off') {
-                btn.innerHTML = '<span style="color: #f59e0b;">⏰</span> ' + escapeHtml(res.reminder_display);
+                btn.innerHTML = '<span style="color: #f59e0b;">🔔</span> <span>' + escapeHtml(res.reminder_display) + '</span>';
                 btn.classList.add('has-alarm');
+                btn.style.borderColor = '#f59e0b';
+                btn.style.color = '#fbbf24';
+                btn.style.background = 'rgba(245, 158, 11, 0.08)';
               } else {
-                btn.innerHTML = '<span style="opacity: 0.65;">🔕</span> Set Alarm';
+                btn.innerHTML = '<span style="opacity: 0.65;">🔔</span> <span>Alert</span>';
                 btn.classList.remove('has-alarm');
+                btn.style.borderColor = '';
+                btn.style.color = '';
+                btn.style.background = '';
               }
-            }
+            });
 
-            // Request notification permission if not yet decided
+            // Prompt permission if enabled and default
             if ('Notification' in window && Notification.permission === 'default' && payload.reminder_enabled) {
               Notification.requestPermission().then(function (perm) {
-                if (perm === 'granted') setupWebPushSubscription();
+                if (perm === 'granted') {
+                  setupWebPushSubscription();
+                }
               });
             }
           })
@@ -440,14 +547,13 @@
   }
 
   // -------------------------------------------------------------------------
-  // 6. Request Notification Permission Prompt Banner (PWA & Desktop)
+  // 7. Request Notification Permission Prompt Banner (PWA & Desktop)
   // -------------------------------------------------------------------------
   function checkNotificationBanner() {
     if (!('Notification' in window) || Notification.permission !== 'default') {
       return;
     }
 
-    // Check if dismissed previously
     if (localStorage.getItem('habitpulse_alarm_banner_dismissed')) {
       return;
     }
@@ -465,6 +571,12 @@
             if (permission === 'granted') {
               setupWebPushSubscription();
               playAlarmChime();
+              showSystemNotification(
+                '🔔 Habit Alerts Enabled',
+                'You will now receive habit alerts directly in your Windows notification bar and on your phone!',
+                null,
+                '/habits/'
+              );
             }
           });
         };
@@ -480,22 +592,23 @@
   }
 
   // -------------------------------------------------------------------------
-  // 7. Initialization
+  // 8. Initialization
   // -------------------------------------------------------------------------
   window.addEventListener('DOMContentLoaded', function () {
     initAlarmModal();
     checkNotificationBanner();
     setupWebPushSubscription();
 
-    // Start background alarm polling every 30 seconds
+    // Start background alarm polling immediately and then every 30 seconds
     checkDueAlarms();
     setInterval(checkDueAlarms, 30000);
   });
 
-  // Export helper functions to global window for external access
+  // Export helpers for console or manual testing
   window.HabitPulseAlarm = {
     playChime: playAlarmChime,
     checkDueAlarms: checkDueAlarms,
-    setupPush: setupWebPushSubscription
+    setupPush: setupWebPushSubscription,
+    showNotification: showSystemNotification
   };
 })();

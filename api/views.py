@@ -621,6 +621,7 @@ def active_reminders_api(request):
     tenant = getattr(request, "tenant", None)
     today = timezone.localdate()
     now_dt = timezone.localtime()
+    now_time = now_dt.time()
 
     if tenant:
         habits_qs = Habit.objects.filter(tenant=tenant, is_template=False, is_active=True)
@@ -644,6 +645,11 @@ def active_reminders_api(request):
         if is_completed:
             continue
 
+        # Check if completion is currently allowed / open
+        time_allowed, time_status = habit.is_time_window_active(now_time)
+        if not time_allowed:
+            continue
+
         alarm_time_str = None
         if habit.reminder_enabled and habit.reminder_time:
             alarm_time_str = habit.reminder_time.strftime("%H:%M")
@@ -659,10 +665,12 @@ def active_reminders_api(request):
             "reminder_enabled": habit.reminder_enabled,
             "reminder_time": alarm_time_str,
             "reminder_display": habit.reminder_display or alarm_time_str,
-            "reminder_snooze_interval": habit.reminder_snooze_interval,
+            "reminder_snooze_interval": habit.reminder_snooze_interval or 0,
             "snoozed_until": habit.snoozed_until.isoformat() if habit.snoozed_until else None,
-            "pixel_score": habit.pixel_score or 0,
+            "pixel_score": habit.pixel_score or 2,
             "is_completed_today": is_completed,
+            "time_allowed": time_allowed,
+            "time_status": time_status,
         })
 
     return JsonResponse({
@@ -725,3 +733,50 @@ def push_subscribe_api(request):
     )
 
     return JsonResponse({"success": True, "message": "Push subscription registered successfully."})
+
+
+@require_POST
+def test_habit_reminder_push_api(request):
+    """
+    POST /api/v1/habits/reminders/test-push/
+    Dispatches an immediate live test Web Push notification to all user's registered devices (phones/desktops).
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else request.POST
+    except Exception:
+        data = request.POST
+
+    habit_id = data.get("habit_id")
+    habit_name = "Habit Reminder"
+    pixel_score = 2
+    if habit_id:
+        try:
+            habit = Habit.objects.get(pk=habit_id)
+            habit_name = habit.name
+            pixel_score = habit.pixel_score or 2
+        except Habit.DoesNotExist:
+            pass
+
+    from habits.services import send_habit_web_push
+    sent_count = send_habit_web_push(
+        user=request.user,
+        title=f"⏰ Test Alert: {habit_name}",
+        body=f"Your habit alarms are active! Time to complete '{habit_name}' and earn {pixel_score} pixels.",
+        habit_id=habit_id,
+        url="/habits/",
+    )
+
+    if sent_count > 0:
+        msg = f"Test alert successfully sent to {sent_count} registered device(s) (including your phone)!"
+    else:
+        msg = "Desktop sound and local alerts are active! To receive push alerts on your phone, open HabitPulse in your phone browser or PWA and enable notifications."
+
+    return JsonResponse({
+        "success": True,
+        "devices_notified": sent_count,
+        "message": msg,
+    })

@@ -381,6 +381,11 @@ class Habit(models.Model):
         blank=True,
         help_text="Timestamp until which the current intimation is snoozed.",
     )
+    last_reminded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the most recent push intimation dispatched for this habit.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

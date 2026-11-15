@@ -244,7 +244,22 @@
 
         <!-- Action Buttons -->
         <div class="habit-card-actions">
-          <div style="display: flex; gap: 0.4rem;">
+          <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+            <button type="button"
+                    class="btn btn-outline btn-sm habit-alarm-btn {% if item.habit.reminder_enabled %}has-alarm{% endif %}"
+                    data-habit-id="{{ item.habit.pk }}"
+                    data-habit-name="{{ item.habit.name }}"
+                    data-enabled="{% if item.habit.reminder_enabled %}1{% else %}0{% endif %}"
+                    data-time="{{ item.habit.reminder_time|time:'H:i'|default:'' }}"
+                    data-snooze="{{ item.habit.reminder_snooze_interval|default:0 }}"
+                    style="font-size: 0.75rem; padding: 0.25rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem; {% if item.habit.reminder_enabled %}border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.08);{% endif %}"
+                    title="Configure habit alarm & intimation">
+              {% if item.habit.reminder_enabled and item.habit.reminder_time %}
+                <span style="color: #f59e0b;">🔔</span> <span>{{ item.habit.reminder_display }}</span>
+              {% else %}
+                <span style="opacity: 0.65;">🔔</span> <span>Alert</span>
+              {% endif %}
+            </button>
             <a href="{% url 'habit_calendar' item.habit.pk %}" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;" title="View monthly calendar">📅 Calendar</a>
             <a href="{% url 'habit_stats' item.habit.pk %}" class="btn btn-outline btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;" title="View detailed statistics">📊 Stats</a>
           </div>
