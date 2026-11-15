@@ -23,6 +23,9 @@
   <meta name="apple-mobile-web-app-title" content="HabitPulse">
   <link rel="apple-touch-icon" href="{% static 'images/apple_touch_icon.png' %}">
   <link rel="icon" type="image/png" sizes="192x192" href="{% static 'images/pwa_icon_192.png' %}">
+  {% if user.is_authenticated and VAPID_PUBLIC_KEY %}
+  <meta name="vapid-public-key" content="{{ VAPID_PUBLIC_KEY }}">
+  {% endif %}
   {% block extra_head %}{% endblock %}
 </head>
 <body class="{% if user.is_authenticated %}has-sidebar{% else %}is-anonymous{% endif %}">
@@ -58,6 +61,30 @@
 
       <main class="app-main-content {% block container_class %}app-container{% endblock %}">
         {% include 'includes/messages.html' %}
+        {% if user.is_authenticated %}
+        <!-- Free Habit Alarm & Push Intimation Permission Prompt Banner -->
+        <div id="habit-notification-permission-banner" style="display: none; background: linear-gradient(90deg, var(--surface-raised) 0%, var(--surface) 100%); border: 1.5px solid #f59e0b; border-radius: var(--radius-md); padding: 0.75rem 1.25rem; margin-bottom: 1.25rem; box-shadow: var(--shadow-sm);">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span style="font-size: 1.4rem;">⏰</span>
+              <div>
+                <strong style="color: #fbbf24; font-size: 0.92rem;">Enable Free Habit Alarms &amp; Intimations</strong>
+                <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0.15rem 0 0 0;">
+                  Never forget a habit or miss a time window. Get intimated via phone push notifications and sound chimes completely free!
+                </p>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button type="button" id="enable-push-notifications-btn" class="btn btn-sm btn-primary" style="font-size: 0.78rem; padding: 0.35rem 0.85rem; background: #f59e0b; border-color: #d97706; color: #1e1e2e; font-weight: 700;">
+                🔔 Turn On Alarms
+              </button>
+              <button type="button" id="dismiss-push-notifications-btn" class="btn btn-sm btn-ghost" style="font-size: 0.78rem; padding: 0.35rem 0.65rem;">
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
       </main>
 
@@ -71,9 +98,13 @@
 
   {% if user.is_authenticated %}
     {% include 'includes/bottom_nav.html' %}
+    {% include 'habits/includes/alarm_modal.html' %}
   {% endif %}
 
   <script src="{% static 'js/app.js' %}?v=20261110_mobile_v2"></script>
+  {% if user.is_authenticated %}
+  <script src="{% static 'js/habit_alarm.js' %}?v=20261115_alarm_v9"></script>
+  {% endif %}
   {% block extra_js %}{% endblock %}
   <script>
     // Register HabitPulse Service Worker for PWA Installation & Offline Capabilities

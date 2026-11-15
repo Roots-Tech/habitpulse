@@ -15,6 +15,7 @@ urlpatterns = [
     path("habits/<int:pk>/complete/", views.habit_complete_view, name="habit_complete"),
     path("habits/<int:pk>/undo/", views.habit_undo_complete_view, name="habit_undo_complete"),
     path("habits/<int:pk>/calendar/", views.habit_calendar_view, name="habit_calendar"),
+    path("habits/<int:pk>/calendar.ics", views.habit_calendar_ics_view, name="habit_calendar_ics"),
     path("habits/<int:pk>/stats/", views.habit_stats_view, name="habit_stats"),
 
     # Catalog Templates Import & Export (Download & Upload)

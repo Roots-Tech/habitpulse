@@ -262,6 +262,11 @@
                   📍 {{ habit.location_name|default:"Geofenced"|truncatechars:18 }}
                 </span>
               {% endif %}
+              {% if habit.reminder_enabled and habit.reminder_time %}
+                <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);" title="Personal Habit Alarm Active ({{ habit.reminder_display }})">
+                  ⏰ {{ habit.reminder_display }}
+                </span>
+              {% endif %}
               {% if not habit.is_active %}
                 <span class="badge" style="background-color: var(--surface-raised); color: var(--text-dim); border: 1px solid var(--border-strong);">
                   Inactive
@@ -281,6 +286,27 @@
           </div>
 
           <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+            <button type="button"
+                    class="btn btn-outline btn-sm habit-alarm-btn"
+                    data-habit-id="{{ habit.pk }}"
+                    data-habit-name="{{ habit.name }}"
+                    data-enabled="{% if habit.reminder_enabled %}1{% else %}0{% endif %}"
+                    data-time="{{ habit.reminder_time|time:'H:i'|default:'' }}"
+                    data-snooze="{{ habit.reminder_snooze_interval|default:0 }}"
+                    style="display: inline-flex; align-items: center; gap: 0.35rem; {% if habit.reminder_enabled %}border-color: #f59e0b; color: #fbbf24;{% endif %}"
+                    title="Configure alarm & reminder for this habit">
+              {% if habit.reminder_enabled and habit.reminder_time %}
+                <span>⏰</span> {{ habit.reminder_display }}
+              {% else %}
+                <span style="opacity: 0.65;">🔕</span> Set Alarm
+              {% endif %}
+            </button>
+            <a href="{% url 'habit_calendar_ics' habit.pk %}"
+               class="btn btn-ghost btn-sm"
+               style="padding: 0.25rem 0.45rem; font-size: 0.76rem;"
+               title="Sync recurring alarm to phone clock/calendar (.ics)">
+              📱 Phone Alarm
+            </a>
             <a href="{% url 'habit_calendar' habit.pk %}" class="btn btn-outline btn-sm" title="View monthly calendar">📅 Calendar</a>
             <a href="{% url 'habit_stats' habit.pk %}" class="btn btn-outline btn-sm" title="View detailed statistics">📊 Stats</a>
             <a href="{% url 'habit_edit' habit.pk %}" class="btn btn-secondary btn-sm">Edit</a>
@@ -603,4 +629,5 @@
   </div>
 </div>
 {% endif %}
+
 {% endblock %}

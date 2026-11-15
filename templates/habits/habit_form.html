@@ -513,6 +513,42 @@
         </div>
       </div>
 
+      <!-- Habit Alarming & Intimation System -->
+      <div class="card" style="margin-top: 1.5rem; background: var(--surface-raised); border: 1.5px solid rgba(245, 158, 11, 0.4); border-radius: var(--radius-md); padding: 1.25rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.25rem;">⏰</span>
+            <div>
+              <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0;">Habit Alarm &amp; Intimation</h3>
+              <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0;">Free audio chime and phone push notifications to remind you when this habit is due.</p>
+            </div>
+          </div>
+          <div class="form-check" style="margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+            {{ form.reminder_enabled }}
+            <label class="form-label" for="{{ form.reminder_enabled.id_for_label }}" style="margin-bottom: 0; cursor: pointer; font-weight: 700;">
+              Enable Alarm
+            </label>
+          </div>
+        </div>
+
+        <div id="habit-form-alarm-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;" for="{{ form.reminder_time.id_for_label }}">Daily Alarm Time</label>
+            {{ form.reminder_time }}
+            {% if form.reminder_time.errors %}
+              <div class="form-error">{{ form.reminder_time.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;" for="{{ form.reminder_snooze_interval.id_for_label }}">Snooze &amp; Repeat Alert</label>
+            {{ form.reminder_snooze_interval }}
+            {% if form.reminder_snooze_interval.errors %}
+              <div class="form-error">{{ form.reminder_snooze_interval.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
       <div class="form-group" style="margin-top: 1.25rem;">
         <div class="form-check">
           {{ form.is_active }}
@@ -654,6 +690,18 @@
   document.addEventListener('DOMContentLoaded', function() {
     const isRestrictedCheckbox = document.getElementById('id_is_location_restricted');
     const geofenceContainer = document.getElementById('location-geofence-container');
+
+    // Alarm toggle handler
+    const reminderEnabledCheckbox = document.getElementById('id_reminder_enabled');
+    const reminderFieldsBox = document.getElementById('habit-form-alarm-fields');
+    if (reminderEnabledCheckbox && reminderFieldsBox) {
+      function syncReminderFields() {
+        reminderFieldsBox.style.opacity = reminderEnabledCheckbox.checked ? '1' : '0.45';
+        reminderFieldsBox.style.pointerEvents = reminderEnabledCheckbox.checked ? 'auto' : 'none';
+      }
+      reminderEnabledCheckbox.addEventListener('change', syncReminderFields);
+      syncReminderFields();
+    }
     const mapInput = document.getElementById('id_map_url_input');
     const parseBtn = document.getElementById('btn-parse-map-url');
     const statusBox = document.getElementById('map-url-status');

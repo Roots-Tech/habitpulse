@@ -1514,3 +1514,67 @@ def verify_proof_relevance(habit, file_obj) -> dict:
         "reason": f"Proof image verified for {habit.name} ({habit.category or 'General'}).",
         "confidence": 0.88,
     }
+
+
+def send_habit_web_push(user, title, body, habit_id=None, url="/habits/"):
+    """
+    Sends a free Web Push notification to all active devices subscribed by the user.
+    """
+    from .models import PushSubscription
+    from django.conf import settings
+    import json
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        return 0
+
+    subscriptions = PushSubscription.objects.filter(user=user)
+    if not subscriptions.exists():
+        return 0
+
+    vapid_private_key = getattr(settings, "VAPID_PRIVATE_KEY", None)
+    vapid_key_arg = vapid_private_key
+    if vapid_private_key and isinstance(vapid_private_key, str) and "BEGIN" in vapid_private_key:
+        try:
+            from py_vapid import Vapid
+            vapid_key_arg = Vapid.from_pem(vapid_private_key.encode("utf-8"))
+        except Exception:
+            vapid_key_arg = vapid_private_key
+
+    vapid_claims = {
+        "sub": getattr(settings, "VAPID_ADMIN_EMAIL", "mailto:admin@habitpulse.local")
+    }
+
+    payload = json.dumps({
+        "title": title,
+        "body": body,
+        "habit_id": habit_id,
+        "url": url,
+        "icon": "/static/images/pwa_icon_192.png",
+        "badge": "/static/images/habit_icon.png",
+    })
+
+    sent_count = 0
+    for sub in subscriptions:
+        sub_info = {
+            "endpoint": sub.endpoint,
+            "keys": {
+                "p256dh": sub.p256dh,
+                "auth": sub.auth,
+            }
+        }
+        try:
+            webpush(
+                subscription_info=sub_info,
+                data=payload,
+                vapid_private_key=vapid_key_arg,
+                vapid_claims=vapid_claims,
+            )
+            sent_count += 1
+        except WebPushException as ex:
+            if ex.response and ex.response.status_code in (404, 410):
+                sub.delete()
+        except Exception:
+            pass
+
+    return sent_count

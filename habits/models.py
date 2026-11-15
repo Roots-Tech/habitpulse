@@ -355,6 +355,38 @@ class Habit(models.Model):
         help_text="Unique client submission key to ensure idempotent creation.",
     )
 
+    # Personal Habit Alarming & Intimation System
+    reminder_enabled = models.BooleanField(
+        default=False,
+        help_text="Whether personal alarms/reminders are active for this habit.",
+    )
+    reminder_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="Time of day for personal habit alarm intimation (e.g., 08:30 AM).",
+    )
+    reminder_snooze_interval = models.PositiveIntegerField(
+        default=0,
+        blank=True,
+        choices=[
+            (0, "No Snooze (Single Alert)"),
+            (15, "Every 15 Minutes"),
+            (30, "Every 30 Minutes"),
+            (60, "Every 1 Hour"),
+        ],
+        help_text="Recurring intimation interval (in minutes) until completed.",
+    )
+    snoozed_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp until which the current intimation is snoozed.",
+    )
+    last_reminded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the most recent push intimation dispatched for this habit.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -520,6 +552,18 @@ class Habit(models.Model):
     @property
     def requires_duration(self):
         return bool(self.enable_duration_requirement and self.min_duration_minutes and self.min_duration_minutes > 0)
+
+    @property
+    def reminder_display(self):
+        """Human-readable display for personal habit alarms & reminders."""
+        if not self.reminder_enabled or not self.reminder_time:
+            return None
+        time_str = self.reminder_time.strftime("%I:%M %p").lstrip("0")
+        if self.reminder_snooze_interval == 60:
+            return f"{time_str} (Hourly)"
+        elif self.reminder_snooze_interval > 0:
+            return f"{time_str} ({self.reminder_snooze_interval}m snooze)"
+        return time_str
 
     @property
     def requires_modal(self):
@@ -1366,3 +1410,27 @@ def seed_default_catalog_habits(creator=None, tenant=None):
 
     from .services import import_catalog_templates_from_file
     import_catalog_templates_from_file(creator=creator)
+
+
+class PushSubscription(models.Model):
+    """
+    Stores browser Push API subscriptions for delivering free native Web Push
+    intimation alerts to user devices.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="push_subscriptions",
+    )
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=512, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"PushSubscription for {self.user.username} ({self.created_at.strftime('%Y-%m-%d')})"
