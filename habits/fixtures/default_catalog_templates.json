@@ -7,7 +7,6 @@
     "frequency": "WEEKLY_TARGET",
     "target_days_per_week": 3,
     "validation_rule": "STANDARD",
-    "pixel_score": 10,
     "purpose_patterns": [
       "\\bgym\\b",
       "\\bworkout\\b",

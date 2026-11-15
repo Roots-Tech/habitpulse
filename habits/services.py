@@ -391,7 +391,7 @@ def calculate_user_pixel_wallet(user, tenant=None, today=None, completions_by_ha
             completions_by_habit[hid].add(cdate)
 
     for h in habits_qs:
-        daily_score = h.pixel_score or PixelRewardConfig.get_config(tenant).get_pixel_for_type(h.habit_type)
+        daily_score = h.pixel_score if h.pixel_score is not None else (h.rule_strategy_ref.pixel_reward if h.rule_strategy_ref else 0)
         h_pending_days = get_pending_days_in_month(h, today)
         h_allocated = daily_score * h_pending_days
 
@@ -1049,11 +1049,14 @@ def import_catalog_templates_from_dict(data, creator=None):
         raise ValueError("Invalid template data format. Must be a JSON object or list.")
 
     from django.contrib.auth import get_user_model
-    from .models import Habit, HabitCategory
+    from .models import Habit, HabitCategory, RuleStrategy, seed_default_rule_strategies
 
     User = get_user_model()
     if creator is None:
         creator = User.objects.filter(is_superuser=True).first() or User.objects.first()
+
+    if not RuleStrategy.objects.exists():
+        seed_default_rule_strategies()
 
     created_count = 0
     updated_count = 0
@@ -1080,11 +1083,12 @@ def import_catalog_templates_from_dict(data, creator=None):
                 target_days_per_week = None
 
         validation_rule = item.get("validation_rule") or Habit.ValidationRule.STANDARD
+        rule_strategy_ref = RuleStrategy.objects.filter(engine_type=validation_rule, is_active=True).first()
         window_start = item.get("window_start_time")
         window_end = item.get("window_end_time")
         target_val = item.get("target_value")
         unit_label = item.get("unit_label") or ""
-        pixel_score = item.get("pixel_score") or 10
+        pixel_score = item.get("pixel_score")
         purpose_patterns = item.get("purpose_patterns") or []
 
         defaults = {
@@ -1096,6 +1100,7 @@ def import_catalog_templates_from_dict(data, creator=None):
             "frequency": frequency,
             "target_days_per_week": target_days_per_week,
             "selected_weekdays": item.get("selected_weekdays") or [],
+            "rule_strategy_ref": rule_strategy_ref,
             "validation_rule": validation_rule,
             "window_start_time": window_start,
             "window_end_time": window_end,
@@ -1509,3 +1514,67 @@ def verify_proof_relevance(habit, file_obj) -> dict:
         "reason": f"Proof image verified for {habit.name} ({habit.category or 'General'}).",
         "confidence": 0.88,
     }
+
+
+def send_habit_web_push(user, title, body, habit_id=None, url="/habits/"):
+    """
+    Sends a free Web Push notification to all active devices subscribed by the user.
+    """
+    from .models import PushSubscription
+    from django.conf import settings
+    import json
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        return 0
+
+    subscriptions = PushSubscription.objects.filter(user=user)
+    if not subscriptions.exists():
+        return 0
+
+    vapid_private_key = getattr(settings, "VAPID_PRIVATE_KEY", None)
+    vapid_key_arg = vapid_private_key
+    if vapid_private_key and isinstance(vapid_private_key, str) and "BEGIN" in vapid_private_key:
+        try:
+            from py_vapid import Vapid
+            vapid_key_arg = Vapid.from_pem(vapid_private_key.encode("utf-8"))
+        except Exception:
+            vapid_key_arg = vapid_private_key
+
+    vapid_claims = {
+        "sub": getattr(settings, "VAPID_ADMIN_EMAIL", "mailto:admin@habitpulse.local")
+    }
+
+    payload = json.dumps({
+        "title": title,
+        "body": body,
+        "habit_id": habit_id,
+        "url": url,
+        "icon": "/static/images/pwa_icon_192.png",
+        "badge": "/static/images/habit_icon.png",
+    })
+
+    sent_count = 0
+    for sub in subscriptions:
+        sub_info = {
+            "endpoint": sub.endpoint,
+            "keys": {
+                "p256dh": sub.p256dh,
+                "auth": sub.auth,
+            }
+        }
+        try:
+            webpush(
+                subscription_info=sub_info,
+                data=payload,
+                vapid_private_key=vapid_key_arg,
+                vapid_claims=vapid_claims,
+            )
+            sent_count += 1
+        except WebPushException as ex:
+            if ex.response and ex.response.status_code in (404, 410):
+                sub.delete()
+        except Exception:
+            pass
+
+    return sent_count

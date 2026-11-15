@@ -68,6 +68,15 @@
       </div>
 
       <div class="form-group">
+        <label class="form-label" for="{{ form.pixel_reward.id_for_label }}">Allocated Pixel Reward (Pixels Awarded)</label>
+        {{ form.pixel_reward }}
+        {% if form.pixel_reward.errors %}
+          <div class="form-error">{{ form.pixel_reward.errors.0 }}</div>
+        {% endif %}
+        <div class="form-help">Number of pixels awarded upon completing a habit governed by this strategy. Set by admins. Defaults to 0 if left unconfigured.</div>
+      </div>
+
+      <div class="form-group">
         <label class="form-label" for="{{ form.description.id_for_label }}">Description & User Instructions (Optional)</label>
         {{ form.description }}
         {% if form.description.errors %}

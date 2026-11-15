@@ -7,3 +7,4 @@ dj-database-url==3.0.1
 pytest==8.4.2
 pytest-django==4.11.1
 tzdata==2026.6
+pywebpush==2.1.2

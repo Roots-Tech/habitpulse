@@ -220,11 +220,11 @@
           <div>
             <div style="font-weight: 700; font-size: 0.95rem; color: #c084fc; display: flex; align-items: center; gap: 0.4rem;">
               <span>💎 Allotted Accomplishment Reward:</span>
-              <span id="adopt-display-total-pixels" style="font-size: 1.3rem; font-weight: 800; color: #38bdf8;">{{ template_habit.pixel_score|default:5 }}</span>
+              <span id="adopt-display-total-pixels" style="font-size: 1.3rem; font-weight: 800; color: #38bdf8;">{% if template_habit.rule_strategy_ref %}{{ template_habit.rule_strategy_ref.pixel_reward }}{% else %}{{ template_habit.pixel_score|default_if_none:0 }}{% endif %}</span>
               <span>Pixels / Day</span>
             </div>
             <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
-              Template Base: <span id="adopt-display-base-pixels">{% if template_habit.habit_type == 'EXPERT_PRESCRIBED' %}10{% else %}5{% endif %}</span> Px &bull; Active Verification Bonuses: +<span id="adopt-display-bonus-pixels">0</span> Px
+              Template Base (Rule Strategy): <span id="adopt-display-base-pixels">{% if template_habit.rule_strategy_ref %}{{ template_habit.rule_strategy_ref.pixel_reward }}{% else %}{{ template_habit.pixel_score|default_if_none:0 }}{% endif %}</span> Px &bull; Extra Verification Bonuses: +<span id="adopt-display-bonus-pixels">0</span> Px
             </div>
           </div>
           <div style="font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); padding: 0.35rem 0.65rem; border-radius: 4px; color: var(--text-dim);">
@@ -580,14 +580,22 @@
       }
     };
 
+    const stratHasTime = {% if template_habit.rule_strategy_ref and template_habit.rule_strategy_ref.has_time_window_active %}true{% else %}false{% endif %};
+    const stratHasNum = {% if template_habit.rule_strategy_ref and template_habit.rule_strategy_ref.requires_numeric_active %}true{% else %}false{% endif %};
+    const stratHasEvi = {% if template_habit.rule_strategy_ref and template_habit.rule_strategy_ref.requires_evidence_active %}true{% else %}false{% endif %};
+
     function updateDynamicPixels() {
-      const base = parseInt(baseEl ? baseEl.textContent : '5', 10) || 5;
+      const parsed = parseInt(baseEl ? baseEl.textContent : '0', 10);
+      const base = Number.isNaN(parsed) ? 0 : parsed;
       let bonuses = 0;
 
       for (const key in M2M_CONFIG) {
         const cfg = M2M_CONFIG[key];
         const cb = document.getElementById(cfg.cbId);
         if (cb && cb.checked) {
+          if (key === 'time' && stratHasTime) continue;
+          if (key === 'numeric' && stratHasNum) continue;
+          if (key === 'evidence' && stratHasEvi) continue;
           bonuses += cfg.bonus;
         }
       }

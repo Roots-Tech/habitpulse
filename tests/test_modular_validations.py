@@ -279,14 +279,20 @@ class ModularValidationAndDynamicPixelsTestCase(TestCase):
         Verify that a regular user can adopt a catalog template and configure
         their personal modular verification requirements and get the stacked pixel rewards.
         """
-        # Create catalog template as super admin
+        # Create catalog template linked to a 5 Px RuleStrategy
+        from habits.models import RuleStrategy
+        gym_strat = RuleStrategy.objects.create(
+            name="Strength & Conditioning Standard",
+            engine_type=RuleStrategy.EngineType.STANDARD,
+            pixel_reward=5,
+        )
         template = Habit.objects.create(
             tenant=self.admin_tenant,
             created_by=self.admin,
             name="Gym & Strength Training",
             habit_type=Habit.HabitType.PREDEFINED_PURPOSE,
+            rule_strategy_ref=gym_strat,
             is_template=True,
-            pixel_score=5,
         )
 
         adopt_url = reverse("habit_adopt", args=[template.pk])
