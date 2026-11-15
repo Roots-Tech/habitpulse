@@ -553,7 +553,8 @@ def habit_reminder_api(request, pk):
         habit.reminder_time = parsed_time
     habit.reminder_snooze_interval = snooze_interval
     habit.snoozed_until = None
-    habit.save(update_fields=["reminder_enabled", "reminder_time", "reminder_snooze_interval", "snoozed_until", "updated_at"])
+    habit.last_reminded_at = None
+    habit.save(update_fields=["reminder_enabled", "reminder_time", "reminder_snooze_interval", "snoozed_until", "last_reminded_at", "updated_at"])
 
     return JsonResponse({
         "success": True,
@@ -650,14 +651,10 @@ def active_reminders_api(request):
         if not time_allowed:
             continue
 
-        alarm_time_str = None
-        if habit.reminder_enabled and habit.reminder_time:
-            alarm_time_str = habit.reminder_time.strftime("%H:%M")
-        elif habit.window_start_time:
-            alarm_time_str = habit.window_start_time.strftime("%H:%M")
-
-        if not alarm_time_str:
+        if not habit.reminder_enabled or not habit.reminder_time:
             continue
+
+        alarm_time_str = habit.reminder_time.strftime("%H:%M")
 
         items.append({
             "id": habit.id,

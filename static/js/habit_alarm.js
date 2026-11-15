@@ -320,7 +320,7 @@
         var nowTs = Date.now();
 
         data.reminders.forEach(function (habit) {
-          if (!habit.reminder_time) return;
+          if (!habit.reminder_enabled || !habit.reminder_time) return;
 
           // Check if snoozed
           if (habit.snoozed_until) {
@@ -337,12 +337,13 @@
 
           // Check if configured reminder time has arrived or passed
           if (nowTotalMins >= remTotalMins) {
-            var habitStateKey = 'habitpulse_alarm_last_' + habit.id + '_' + todayDateStr;
+            var timeTag = (habit.reminder_time || '').replace(/[^0-9]/g, '');
+            var habitStateKey = 'habitpulse_alarm_last_' + habit.id + '_' + timeTag + '_' + todayDateStr;
             var lastAlerted = parseInt(localStorage.getItem(habitStateKey) || '0', 10);
 
             var shouldAlert = false;
             if (!lastAlerted) {
-              // Not yet alerted today
+              // Not yet alerted for this configured time today
               shouldAlert = true;
             } else if (habit.reminder_snooze_interval > 0) {
               // Repeat interval in minutes
@@ -547,6 +548,17 @@
           })
           .then(function (res) {
             closeModal();
+
+            // Clear any old alert lockouts for this habit so the newly configured time fires immediately
+            try {
+              for (var i = localStorage.length - 1; i >= 0; i--) {
+                var k = localStorage.key(i);
+                if (k && k.indexOf('habitpulse_alarm_last_' + habitId + '_') === 0) {
+                  localStorage.removeItem(k);
+                }
+              }
+            } catch (e) {}
+
             // Update all button badges matching this habit (Dashboard and Habits list)
             var btns = document.querySelectorAll('.habit-alarm-btn[data-habit-id="' + habitId + '"]');
             btns.forEach(function (btn) {
@@ -568,14 +580,19 @@
               }
             });
 
-            // Prompt permission if enabled and default
+            // Prompt permission if enabled and default, or sync subscription
             if ('Notification' in window && Notification.permission === 'default' && payload.reminder_enabled) {
               Notification.requestPermission().then(function (perm) {
                 if (perm === 'granted') {
                   setupWebPushSubscription();
                 }
               });
+            } else if ('Notification' in window && Notification.permission === 'granted') {
+              setupWebPushSubscription();
             }
+
+            // Immediately evaluate due alarms with the new configuration
+            checkDueAlarms();
           })
           .catch(function (err) {
             alert('Failed to update alarm: ' + err);
