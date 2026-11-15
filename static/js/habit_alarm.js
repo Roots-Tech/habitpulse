@@ -415,6 +415,51 @@
       var timeVal = btn.getAttribute('data-time') || '';
       var snoozeVal = btn.getAttribute('data-snooze') || '0';
 
+      var isCompleted = btn.getAttribute('data-completed') === '1';
+      var completedNoticeEl = document.getElementById('modal-alarm-completed-notice');
+      var undoBtnEl = document.getElementById('modal-alarm-undo-btn');
+
+      if (completedNoticeEl) {
+        completedNoticeEl.style.display = isCompleted ? 'flex' : 'none';
+      }
+
+      if (undoBtnEl) {
+        undoBtnEl.onclick = function () {
+          undoBtnEl.disabled = true;
+          undoBtnEl.textContent = 'Undoing...';
+          fetch('/api/v1/habits/' + habitId + '/undo/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': getCsrfToken(),
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+              if (res.success || res.status === 'success') {
+                btn.setAttribute('data-completed', '0');
+                if (completedNoticeEl) completedNoticeEl.style.display = 'none';
+                if (testStatusEl) {
+                  testStatusEl.style.display = 'block';
+                  testStatusEl.style.background = 'rgba(16, 185, 129, 0.15)';
+                  testStatusEl.style.color = '#10b981';
+                  testStatusEl.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+                  testStatusEl.textContent = '✓ Habit completion undone! Habit is now open and alert is active.';
+                }
+                // Immediately check alarms now that habit is open
+                checkDueAlarms();
+              } else {
+                alert(res.error || res.message || 'Could not undo completion.');
+                undoBtnEl.disabled = false;
+                undoBtnEl.textContent = '↺ Undo Today';
+              }
+            })
+            .catch(function () {
+              window.location.reload();
+            });
+        };
+      }
+
       habitIdInput.value = habitId;
       habitNameEl.textContent = habitName;
       // Default alarm toggle to ON (true) when configuring
@@ -495,7 +540,7 @@
                 testStatusEl.style.background = 'rgba(16, 185, 129, 0.15)';
                 testStatusEl.style.color = '#10b981';
                 testStatusEl.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-                testStatusEl.textContent = '✓ ' + (res.message || 'Test alert dispatched!');
+                testStatusEl.textContent = '✓ ' + (res.message || 'Test alert dispatched!') + ' Note: If Windows popup does not appear, check that "Do not disturb" is off in bottom-right taskbar and Chrome notifications are allowed in Windows Settings > System > Notifications.';
               }
             })
             .catch(function () {

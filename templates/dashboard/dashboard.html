@@ -252,6 +252,7 @@
                     data-enabled="{% if item.habit.reminder_enabled %}1{% else %}0{% endif %}"
                     data-time="{{ item.habit.reminder_time|time:'H:i'|default:'' }}"
                     data-snooze="{{ item.habit.reminder_snooze_interval|default:0 }}"
+                    data-completed="{% if item.is_completed_today %}1{% else %}0{% endif %}"
                     style="font-size: 0.75rem; padding: 0.25rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem; {% if item.habit.reminder_enabled %}border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.08);{% endif %}"
                     title="Configure habit alarm & intimation">
               {% if item.habit.reminder_enabled and item.habit.reminder_time %}
