@@ -185,7 +185,7 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 # Free Web Push & Intimation Configuration (VAPID)
 VAPID_PUBLIC_KEY = os.getenv(
     "VAPID_PUBLIC_KEY",
-    "BOUAoUFvnmijAMQdWMWPNADAaMo6sZP3JZHRc8p0sK70oH8KJEgtimS7gTV9MA8QLKI6HwZP2aTLXz_YgnziGWI",
+    "BMW32MTKRw5723uwzMCSQIxEJFW7YzE1IFnNzUf9Mno3PGwnZQ5Zzqk1o39co3JxoV3F94mS1fKI0sbCdSheeBg",
 )
 VAPID_PRIVATE_KEY = os.getenv(
     "VAPID_PRIVATE_KEY",

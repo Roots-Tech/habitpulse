@@ -92,12 +92,38 @@
 
     return navigator.serviceWorker.ready.then(function (reg) {
       return reg.pushManager.getSubscription().then(function (sub) {
+        var keyBytes = urlB64ToUint8Array(vapidKey);
         if (sub) {
+          var existingKey = sub.options ? sub.options.applicationServerKey : null;
+          var needsResubscribe = false;
+          if (existingKey) {
+            var existingBytes = new Uint8Array(existingKey);
+            if (existingBytes.length !== keyBytes.length) {
+              needsResubscribe = true;
+            } else {
+              for (var i = 0; i < keyBytes.length; i++) {
+                if (existingBytes[i] !== keyBytes[i]) {
+                  needsResubscribe = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (needsResubscribe) {
+            return sub.unsubscribe().then(function () {
+              return reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: keyBytes
+              }).then(function (newSub) {
+                return sendSubscriptionToServer(newSub);
+              });
+            });
+          }
           return sendSubscriptionToServer(sub);
         }
         return reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlB64ToUint8Array(vapidKey)
+          applicationServerKey: keyBytes
         }).then(function (newSub) {
           return sendSubscriptionToServer(newSub);
         });

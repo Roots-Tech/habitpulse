@@ -1533,6 +1533,14 @@ def send_habit_web_push(user, title, body, habit_id=None, url="/habits/"):
         return 0
 
     vapid_private_key = getattr(settings, "VAPID_PRIVATE_KEY", None)
+    vapid_key_arg = vapid_private_key
+    if vapid_private_key and isinstance(vapid_private_key, str) and "BEGIN" in vapid_private_key:
+        try:
+            from py_vapid import Vapid
+            vapid_key_arg = Vapid.from_pem(vapid_private_key.encode("utf-8"))
+        except Exception:
+            vapid_key_arg = vapid_private_key
+
     vapid_claims = {
         "sub": getattr(settings, "VAPID_ADMIN_EMAIL", "mailto:admin@habitpulse.local")
     }
@@ -1559,7 +1567,7 @@ def send_habit_web_push(user, title, body, habit_id=None, url="/habits/"):
             webpush(
                 subscription_info=sub_info,
                 data=payload,
-                vapid_private_key=vapid_private_key,
+                vapid_private_key=vapid_key_arg,
                 vapid_claims=vapid_claims,
             )
             sent_count += 1
