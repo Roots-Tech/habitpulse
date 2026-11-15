@@ -105,6 +105,7 @@ else:
             "PASSWORD": DB_PASSWORD,
             "HOST": DB_HOST,
             "PORT": DB_PORT,
+            "CONN_MAX_AGE": 600,
         }
     }
 
@@ -172,3 +173,22 @@ MESSAGE_TAGS = {
 
 # Master password for Odoo-style Database Manager (/db-manager/)
 DB_MASTER_PASSWORD = os.getenv("DB_MASTER_PASSWORD", "admin")
+
+# Ollama Local AI Semantic Intent Classifier Configuration
+OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434').rstrip('/')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.2:1b')
+
+# Free Cloud AI Semantic Intent Classifier Configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', os.getenv('GOOGLE_API_KEY', ''))
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+
+# Free Web Push & Intimation Configuration (VAPID)
+VAPID_PUBLIC_KEY = os.getenv(
+    "VAPID_PUBLIC_KEY",
+    "BMW32MTKRw5723uwzMCSQIxEJFW7YzE1IFnNzUf9Mno3PGwnZQ5Zzqk1o39co3JxoV3F94mS1fKI0sbCdSheeBg",
+)
+VAPID_PRIVATE_KEY = os.getenv(
+    "VAPID_PRIVATE_KEY",
+    "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgUWgWf7W09RlxGwuP\nSbZ8ibb6rgKGl8Y49JoITTEAYv+hRANCAATFt9jEykcOe9t7sMzAkkCMRCRVu2Mx\nNSBZzc1H/TJ6NzxsJ2UOWc6pNaN/XKNycaFdxfeJktXyiNLGwnUoXngY\n-----END PRIVATE KEY-----",
+)
+VAPID_ADMIN_EMAIL = os.getenv("VAPID_ADMIN_EMAIL", "mailto:admin@habitpulse.local")

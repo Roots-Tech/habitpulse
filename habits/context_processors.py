@@ -17,6 +17,7 @@ def habit_notifications(request):
       4. Missed windows
     """
     if not hasattr(request, "user") or not request.user.is_authenticated:
+        from habits.models import PixelRewardConfig
         return {
             "habit_notifications": [],
             "unread_alarms_count": 0,
@@ -25,6 +26,8 @@ def habit_notifications(request):
             "upcoming_alarms_count": 0,
             "completed_today_count": 0,
             "pending_pixel_requests_count": 0,
+            "pixel_config": PixelRewardConfig.get_config(None),
+            "VAPID_PUBLIC_KEY": "",
         }
 
     tenant = getattr(request, "tenant", None)
@@ -72,7 +75,7 @@ def habit_notifications(request):
             continue
 
         has_tw = bool(habit.window_start_time and habit.window_end_time)
-        pixel_score = habit.pixel_score or (2 if habit.is_general else (5 if habit.is_predefined_purpose else 10))
+        pixel_score = habit.pixel_score if habit.pixel_score is not None else (habit.rule_strategy_ref.pixel_reward if habit.rule_strategy_ref else 0)
 
         if has_tw:
             start_t = habit.window_start_time
@@ -209,6 +212,12 @@ def habit_notifications(request):
         from habits.models import PixelRequest
         pending_pixel_requests_count = PixelRequest.objects.filter(status=PixelRequest.Status.PENDING).count()
 
+    from habits.models import PixelRewardConfig
+    pixel_config = PixelRewardConfig.get_config(tenant=tenant)
+
+    from django.conf import settings
+    vapid_key = getattr(settings, "VAPID_PUBLIC_KEY", "")
+
     return {
         "habit_notifications": notifications,
         "unread_alarms_count": len(notifications),
@@ -217,4 +226,6 @@ def habit_notifications(request):
         "upcoming_alarms_count": upcoming_alarms_count,
         "completed_today_count": len(completed_habit_ids),
         "pending_pixel_requests_count": pending_pixel_requests_count,
+        "pixel_config": pixel_config,
+        "VAPID_PUBLIC_KEY": vapid_key,
     }

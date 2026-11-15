@@ -1,3 +1,4 @@
+from decimal import Decimal
 import uuid
 from django import forms
 from django.utils import timezone
@@ -59,7 +60,7 @@ class RuleStrategyForm(forms.ModelForm):
     """
     class Meta:
         model = RuleStrategy
-        fields = ["name", "engine_type", "default_unit", "description", "is_active"]
+        fields = ["name", "engine_type", "pixel_reward", "default_unit", "description", "is_active"]
         widgets = {
             "name": forms.TextInput(attrs={
                 "class": "form-control",
@@ -69,6 +70,11 @@ class RuleStrategyForm(forms.ModelForm):
             "engine_type": forms.Select(attrs={
                 "class": "form-control",
                 "id": "id_engine_type",
+            }),
+            "pixel_reward": forms.NumberInput(attrs={
+                "class": "form-control",
+                "placeholder": "0",
+                "min": "0",
             }),
             "default_unit": forms.TextInput(attrs={
                 "class": "form-control",
@@ -85,6 +91,13 @@ class RuleStrategyForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         kwargs.pop("tenant", None)
         super().__init__(*args, **kwargs)
+        self.fields["pixel_reward"].required = False
+        if not self.instance.pk and "pixel_reward" not in self.initial:
+            self.initial["pixel_reward"] = 0
+
+    def clean_pixel_reward(self):
+        val = self.cleaned_data.get("pixel_reward")
+        return val if val is not None else 0
 
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
@@ -138,6 +151,15 @@ class HabitForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
+    map_url = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "id": "id_map_url_input",
+            "placeholder": "Paste Google Maps URL (e.g. https://maps.app.goo.gl/... or https://google.com/maps/place/...) or raw coordinates",
+        }),
+        label="Google Maps URL or Coordinates",
+    )
 
     class Meta:
         model = Habit
@@ -161,6 +183,20 @@ class HabitForm(forms.ModelForm):
             "window_end_time",
             "target_value",
             "unit_label",
+            "is_location_restricted",
+            "location_name",
+            "target_latitude",
+            "target_longitude",
+            "allowed_radius_meters",
+            "enable_time_window",
+            "enable_numeric_target",
+            "enable_evidence_upload",
+            "enable_duration_requirement",
+            "min_duration_minutes",
+            "enable_ai_proof_verification",
+            "reminder_enabled",
+            "reminder_time",
+            "reminder_snooze_interval",
         ]
         widgets = {
             "name": forms.TextInput(attrs={
@@ -230,6 +266,20 @@ class HabitForm(forms.ModelForm):
                 "id": "id_unit_label",
             }),
             "idempotency_key": forms.HiddenInput(attrs={"id": "id_idempotency_key"}),
+            "is_location_restricted": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_is_location_restricted"}),
+            "location_name": forms.TextInput(attrs={"class": "form-control", "id": "id_location_name", "placeholder": "e.g. Gold's Gym Indiranagar, Anytime Fitness, Central Park"}),
+            "target_latitude": forms.NumberInput(attrs={"class": "form-control", "id": "id_target_latitude", "step": "any", "placeholder": "e.g. 12.971598"}),
+            "target_longitude": forms.NumberInput(attrs={"class": "form-control", "id": "id_target_longitude", "step": "any", "placeholder": "e.g. 77.594566"}),
+            "allowed_radius_meters": forms.NumberInput(attrs={"class": "form-control", "id": "id_allowed_radius_meters", "min": "10", "placeholder": "150"}),
+            "enable_time_window": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_time_window"}),
+            "enable_numeric_target": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_numeric_target"}),
+            "enable_evidence_upload": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_evidence_upload"}),
+            "enable_duration_requirement": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_duration_requirement"}),
+            "min_duration_minutes": forms.NumberInput(attrs={"class": "form-control", "id": "id_min_duration_minutes", "placeholder": "e.g. 45", "min": 1}),
+            "enable_ai_proof_verification": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_enable_ai_proof_verification"}),
+            "reminder_enabled": forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_reminder_enabled"}),
+            "reminder_time": forms.TimeInput(attrs={"type": "time", "class": "form-control", "id": "id_reminder_time"}),
+            "reminder_snooze_interval": forms.Select(attrs={"class": "form-control", "id": "id_reminder_snooze_interval"}),
         }
 
     def __init__(self, *args, tenant=None, user=None, habit_type_initial=None, is_template_initial=None, **kwargs):
@@ -253,6 +303,21 @@ class HabitForm(forms.ModelForm):
         self.fields["unit_label"].required = False
         self.fields["habit_type"].required = False
         self.fields["is_template"].required = False
+        self.fields["is_location_restricted"].required = False
+        self.fields["location_name"].required = False
+        self.fields["target_latitude"].required = False
+        self.fields["target_longitude"].required = False
+        self.fields["allowed_radius_meters"].required = False
+        self.fields["reminder_enabled"].required = False
+        self.fields["reminder_time"].required = False
+        self.fields["reminder_snooze_interval"].required = False
+        self.fields["is_location_restricted"].label = "Location Verification (Geofenced)"
+        self.fields["location_name"].label = "Location / Venue Name"
+        self.fields["target_latitude"].label = "Target Latitude"
+        self.fields["target_longitude"].label = "Target Longitude"
+        self.fields["allowed_radius_meters"].label = "Allowed Radius (Meters)"
+        if not self.instance.pk and "allowed_radius_meters" not in self.initial:
+            self.initial["allowed_radius_meters"] = 150
         self.fields["name"].label = "Habit Name"
         self.fields["category_ref"].label = "Category"
         self.fields["rule_strategy_ref"].label = "Rule Strategy"
@@ -284,39 +349,14 @@ class HabitForm(forms.ModelForm):
             or Habit.HabitType.GENERAL
         )
 
-        reward_config = PixelRewardConfig.get_config(self.tenant)
-
-        # Set initial pixel_score
-        if self.instance and self.instance.pk and self.instance.pixel_score:
-            self.initial["pixel_score"] = self.instance.pixel_score
-        elif "pixel_score" not in self.initial:
-            self.initial["pixel_score"] = reward_config.get_pixel_for_type(current_type)
-
-        if not is_admin_or_tech:
-            # Standard users can only create General habits with configured user-defined pixels
-            self.fields["habit_type"].choices = [
-                (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
-            ]
-            self.fields["habit_type"].initial = Habit.HabitType.GENERAL
-            self.fields["is_template"].initial = False
-            self.fields["is_template"].widget = forms.HiddenInput()
-            self.fields["pixel_score"].initial = reward_config.user_defined_pixels
-            self.fields["pixel_score"].widget = forms.HiddenInput()
-        else:
-            if habit_type_initial:
-                self.initial["habit_type"] = habit_type_initial
-            if is_template_initial is not None:
-                self.initial["is_template"] = is_template_initial
-            elif habit_type_initial in [Habit.HabitType.PREDEFINED_PURPOSE, Habit.HabitType.EXPERT_PRESCRIBED]:
-                self.initial["is_template"] = True
-
-        self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True)
-        self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True)
+        self.fields["category_ref"].queryset = HabitCategory.objects.filter(is_active=True).order_by("name")
+        self.fields["rule_strategy_ref"].queryset = RuleStrategy.objects.filter(is_active=True).order_by("name")
 
         if not self.instance.pk:
             if not self.initial.get("rule_strategy_ref"):
                 default_strat = RuleStrategy.objects.filter(
-                    engine_type=RuleStrategy.EngineType.STANDARD
+                    engine_type=RuleStrategy.EngineType.STANDARD,
+                    is_active=True,
                 ).first()
                 if default_strat:
                     self.initial["rule_strategy_ref"] = default_strat
@@ -325,6 +365,33 @@ class HabitForm(forms.ModelForm):
             if not self.initial.get("start_date"):
                 self.initial["start_date"] = timezone.localdate()
                 self.initial["is_active"] = True
+
+        # Set initial pixel_score directly from Rule Strategy
+        if self.instance and self.instance.pk and self.instance.pixel_score is not None:
+            self.initial["pixel_score"] = self.instance.pixel_score
+        elif "pixel_score" not in self.initial:
+            strat = (
+                (self.instance.rule_strategy_ref if (self.instance and self.instance.pk) else None)
+                or self.initial.get("rule_strategy_ref")
+            )
+            self.initial["pixel_score"] = strat.pixel_reward if strat else 0
+
+        if not is_admin_or_tech:
+            # Standard users can only create General habits with pixels governed by Rule Strategy
+            self.fields["habit_type"].choices = [
+                (Habit.HabitType.GENERAL, "General Habit (Honor System)"),
+            ]
+            self.fields["habit_type"].initial = Habit.HabitType.GENERAL
+            self.fields["is_template"].initial = False
+            self.fields["is_template"].widget = forms.HiddenInput()
+            self.fields["pixel_score"].widget = forms.HiddenInput()
+        else:
+            if habit_type_initial:
+                self.initial["habit_type"] = habit_type_initial
+            if is_template_initial is not None:
+                self.initial["is_template"] = is_template_initial
+            elif habit_type_initial in [Habit.HabitType.PREDEFINED_PURPOSE, Habit.HabitType.EXPERT_PRESCRIBED]:
+                self.initial["is_template"] = True
 
         if self.instance.pk and self.instance.selected_weekdays:
             self.initial["weekdays"] = [str(d) for d in self.instance.selected_weekdays]
@@ -418,7 +485,10 @@ class HabitForm(forms.ModelForm):
         else:
             rule = cleaned_data.get("validation_rule") or Habit.ValidationRule.STANDARD
             cleaned_data["validation_rule"] = rule
-            strat = RuleStrategy.objects.filter(engine_type=rule).first()
+            if not RuleStrategy.objects.exists():
+                from .models import seed_default_rule_strategies
+                seed_default_rule_strategies()
+            strat = RuleStrategy.objects.filter(engine_type=rule, is_active=True).first()
             if strat:
                 cleaned_data["rule_strategy_ref"] = strat
 
@@ -474,35 +544,62 @@ class HabitForm(forms.ModelForm):
             if not unit_label or not unit_label.strip():
                 self.add_error("unit_label", "Please specify a unit label (e.g. mins, km, pages).")
 
-        # 3. Pixel Score Validation & Enforcement via dynamic Admin Configuration
-        reward_config = PixelRewardConfig.get_config(self.tenant)
-        if habit_type == Habit.HabitType.GENERAL or not is_admin_or_tech:
-            cleaned_data["pixel_score"] = reward_config.user_defined_pixels
-            self.instance.pixel_score = reward_config.user_defined_pixels
-        else:
-            score = cleaned_data.get("pixel_score")
-            if score is None or score == "":
-                default_score = reward_config.get_pixel_for_type(habit_type)
-                cleaned_data["pixel_score"] = default_score
-                self.instance.pixel_score = default_score
-            else:
-                try:
-                    int_score = int(score)
-                    if int_score < 1:
-                        self.add_error("pixel_score", "Pixel score must be at least 1.")
-                    else:
-                        cleaned_data["pixel_score"] = int_score
-                        self.instance.pixel_score = int_score
-                except (ValueError, TypeError):
-                    self.add_error("pixel_score", "Invalid pixel score value.")
+        # Location Geofencing cross-field checks
+        is_loc = cleaned_data.get("is_location_restricted", False)
+        if is_loc:
+            t_lat = cleaned_data.get("target_latitude")
+            t_lng = cleaned_data.get("target_longitude")
+            radius = cleaned_data.get("allowed_radius_meters")
+
+            # Robust server-side auto-resolution from Google Maps URL if lat/lng are missing
+            map_url = (cleaned_data.get("map_url") or (hasattr(self, "data") and (self.data.get("map_url") or self.data.get("adopt_map_url"))) or "").strip()
+            if (t_lat is None or t_lng is None) and map_url:
+                from habits.services import parse_google_maps_url_or_coords
+                res = parse_google_maps_url_or_coords(map_url)
+                if res.get("success"):
+                    t_lat = Decimal(f"{res['latitude']:.6f}")
+                    t_lng = Decimal(f"{res['longitude']:.6f}")
+                    cleaned_data["target_latitude"] = t_lat
+                    cleaned_data["target_longitude"] = t_lng
+                    if hasattr(self, "instance"):
+                        self.instance.target_latitude = t_lat
+                        self.instance.target_longitude = t_lng
+                    if not cleaned_data.get("location_name") and res.get("location_name"):
+                        cleaned_data["location_name"] = res["location_name"]
+                        if hasattr(self, "instance"):
+                            self.instance.location_name = res["location_name"]
+                else:
+                    self.add_error("map_url", res.get("error", "Could not extract GPS coordinates from this link."))
+
+            if t_lat is None:
+                self.add_error("target_latitude", "Target latitude is required when location geofencing is enabled.")
+            elif not (-90.0 <= float(t_lat) <= 90.0):
+                self.add_error("target_latitude", "Latitude must be between -90 and +90 degrees.")
+
+            if t_lng is None:
+                self.add_error("target_longitude", "Target longitude is required when location geofencing is enabled.")
+            elif not (-180.0 <= float(t_lng) <= 180.0):
+                self.add_error("target_longitude", "Longitude must be between -180 and +180 degrees.")
+
+            if radius is not None and int(radius) < 10:
+                self.add_error("allowed_radius_meters", "Allowed radius must be at least 10 meters.")
+
+        # 3. Pixel Score Enforcement via Rule Strategy Master Data
+        rule_strat = cleaned_data.get("rule_strategy_ref") or getattr(self.instance, "rule_strategy_ref", None)
+        default_score = rule_strat.pixel_reward if rule_strat else 0
+        cleaned_data["pixel_score"] = default_score
+        self.instance.pixel_score = default_score
 
         return cleaned_data
 
     def save(self, commit=True):
         habit = super().save(commit=False)
+        if self.tenant and not habit.tenant_id:
+            habit.tenant = self.tenant
+        if self.user and not habit.created_by_id:
+            habit.created_by = self.user
         habit.habit_type = self.cleaned_data.get("habit_type") or habit.habit_type or Habit.HabitType.GENERAL
         habit.is_template = bool(self.cleaned_data.get("is_template", False))
-        habit.pixel_score = self.cleaned_data.get("pixel_score") or PixelRewardConfig.get_config(self.tenant).user_defined_pixels
         habit.selected_weekdays = self.cleaned_data.get("selected_weekdays", [])
         if self.cleaned_data.get("category_ref"):
             habit.category_ref = self.cleaned_data["category_ref"]
@@ -515,6 +612,9 @@ class HabitForm(forms.ModelForm):
             habit.validation_rule = habit.rule_strategy_ref.engine_type
         elif self.cleaned_data.get("validation_rule"):
             habit.validation_rule = self.cleaned_data["validation_rule"]
+
+        # Recompute final pixel_score from linked RuleStrategy + modular extras on Habit.save()
+        habit.pixel_score = None
 
         idempotency_key = self.cleaned_data.get("idempotency_key")
         if idempotency_key and not habit.idempotency_key:
@@ -570,10 +670,16 @@ class HabitCompletionSubmissionForm(forms.ModelForm):
 
 class PixelRewardConfigForm(forms.ModelForm):
     """
-    Administrative form for configuring dynamic pixel allocations per habit classification:
+    Administrative form for configuring dynamic pixel allocations per habit classification
+    and modular accountability verification reward bonuses:
     - User-Defined (General)
     - Predefined Purposeful
     - Expert Prescribed
+    - Bonus: Time Window Restriction
+    - Bonus: Physical Location Geofence
+    - Bonus: Session Duration Tracking
+    - Bonus: Quantitative Target Metric
+    - Bonus: Proof of Work & AI Relevance Audit
     """
     class Meta:
         model = PixelRewardConfig
@@ -581,6 +687,11 @@ class PixelRewardConfigForm(forms.ModelForm):
             "user_defined_pixels",
             "predefined_pixels",
             "expert_prescribed_pixels",
+            "bonus_time_window",
+            "bonus_location",
+            "bonus_duration",
+            "bonus_numeric_target",
+            "bonus_evidence_proof",
             "auto_sync_active_habits",
             "notes",
         ]
@@ -603,6 +714,36 @@ class PixelRewardConfigForm(forms.ModelForm):
                 "id": "id_expert_prescribed_pixels",
                 "style": "font-size: 1.25rem; font-weight: 800; text-align: center; max-width: 140px;",
             }),
+            "bonus_time_window": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "0",
+                "id": "id_bonus_time_window",
+                "style": "font-size: 1.15rem; font-weight: 800; text-align: center; max-width: 110px;",
+            }),
+            "bonus_location": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "0",
+                "id": "id_bonus_location",
+                "style": "font-size: 1.15rem; font-weight: 800; text-align: center; max-width: 110px;",
+            }),
+            "bonus_duration": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "0",
+                "id": "id_bonus_duration",
+                "style": "font-size: 1.15rem; font-weight: 800; text-align: center; max-width: 110px;",
+            }),
+            "bonus_numeric_target": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "0",
+                "id": "id_bonus_numeric_target",
+                "style": "font-size: 1.15rem; font-weight: 800; text-align: center; max-width: 110px;",
+            }),
+            "bonus_evidence_proof": forms.NumberInput(attrs={
+                "class": "form-control",
+                "min": "0",
+                "id": "id_bonus_evidence_proof",
+                "style": "font-size: 1.15rem; font-weight: 800; text-align: center; max-width: 110px;",
+            }),
             "auto_sync_active_habits": forms.CheckboxInput(attrs={
                 "class": "form-check-input",
                 "id": "id_auto_sync_active_habits",
@@ -617,9 +758,20 @@ class PixelRewardConfigForm(forms.ModelForm):
             "user_defined_pixels": "User Defined Habits (General)",
             "predefined_pixels": "Predefined Purposeful Habits",
             "expert_prescribed_pixels": "Expert Prescribed Habits",
+            "bonus_time_window": "Time Window Restriction Bonus",
+            "bonus_location": "Physical Location Geofence Bonus",
+            "bonus_duration": "Session Duration Tracking Bonus",
+            "bonus_numeric_target": "Quantitative Target Metric Bonus",
+            "bonus_evidence_proof": "Proof of Work & AI Audit Bonus",
             "auto_sync_active_habits": "Sync to existing active habits across workspace",
             "notes": "Policy Notes / Reason for Adjustment",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for f in ["bonus_time_window", "bonus_location", "bonus_duration", "bonus_numeric_target", "bonus_evidence_proof"]:
+            if f in self.fields:
+                self.fields[f].required = False
 
     def clean_user_defined_pixels(self):
         val = self.cleaned_data.get("user_defined_pixels")
@@ -638,6 +790,26 @@ class PixelRewardConfigForm(forms.ModelForm):
         if val is None or val < 1:
             raise forms.ValidationError("Expert prescribed habit pixels must be at least 1 Px.")
         return val
+
+    def clean_bonus_time_window(self):
+        val = self.cleaned_data.get("bonus_time_window")
+        return 2 if val is None else val
+
+    def clean_bonus_location(self):
+        val = self.cleaned_data.get("bonus_location")
+        return 3 if val is None else val
+
+    def clean_bonus_duration(self):
+        val = self.cleaned_data.get("bonus_duration")
+        return 2 if val is None else val
+
+    def clean_bonus_numeric_target(self):
+        val = self.cleaned_data.get("bonus_numeric_target")
+        return 2 if val is None else val
+
+    def clean_bonus_evidence_proof(self):
+        val = self.cleaned_data.get("bonus_evidence_proof")
+        return 3 if val is None else val
 
 
 class AdoptHabitPersonalizationForm(forms.Form):
@@ -698,6 +870,79 @@ class AdoptHabitPersonalizationForm(forms.Form):
         widget=forms.DateInput(attrs={"class": "form-control", "type": "date", "id": "id_adopt_start_date"}),
         label="Start Date",
     )
+    is_location_restricted = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_is_location_restricted"}),
+        label="Require Physical Location (Geofenced GPS Check-in)",
+    )
+    location_name = forms.CharField(
+        required=False,
+        max_length=150,
+        widget=forms.TextInput(attrs={"class": "form-control", "id": "id_adopt_location_name", "placeholder": "e.g. Gold's Gym Indiranagar"}),
+        label="Venue / Gym Name",
+    )
+    target_latitude = forms.DecimalField(
+        required=False,
+        max_digits=9,
+        decimal_places=6,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_target_latitude", "step": "any", "placeholder": "e.g. 12.971598"}),
+        label="Target Latitude",
+    )
+    target_longitude = forms.DecimalField(
+        required=False,
+        max_digits=9,
+        decimal_places=6,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_target_longitude", "step": "any", "placeholder": "e.g. 77.594566"}),
+        label="Target Longitude",
+    )
+    map_url = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "id": "id_adopt_map_url_input",
+            "placeholder": "Paste Google Maps URL (e.g. https://maps.app.goo.gl/... or https://google.com/maps/place/...) or raw coordinates",
+        }),
+        label="Google Maps URL or Coordinates",
+    )
+    allowed_radius_meters = forms.IntegerField(
+        required=False,
+        min_value=10,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_allowed_radius_meters", "placeholder": "150"}),
+        label="Allowed Radius (Meters)",
+    )
+    enable_time_window = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_time_window"}),
+        label="Time Window Restriction",
+    )
+    enable_duration_requirement = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_duration_requirement"}),
+        label="Workout / Session Duration",
+    )
+    min_duration_minutes = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=1440,
+        widget=forms.NumberInput(attrs={"class": "form-control", "id": "id_adopt_min_duration_minutes", "placeholder": "e.g. 45"}),
+        label="Minimum Duration (Minutes)",
+    )
+    enable_numeric_target = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_numeric_target"}),
+        label="Quantitative Target Metric",
+    )
+    enable_evidence_upload = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_evidence_upload"}),
+        label="Proof of Work Upload",
+    )
+    enable_ai_proof_verification = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_adopt_enable_ai_proof_verification"}),
+        label="AI Proof Relevance Verification",
+    )
 
     def __init__(self, *args, template_habit=None, **kwargs):
         self.template_habit = template_habit
@@ -717,6 +962,17 @@ class AdoptHabitPersonalizationForm(forms.Form):
                     self.fields["target_days_per_week"].initial = 3
                 if template_habit.selected_weekdays:
                     self.fields["selected_weekdays"].initial = [str(d) for d in template_habit.selected_weekdays]
+                self.fields["is_location_restricted"].initial = template_habit.is_location_restricted
+                self.fields["location_name"].initial = template_habit.location_name
+                self.fields["target_latitude"].initial = template_habit.target_latitude
+                self.fields["target_longitude"].initial = template_habit.target_longitude
+                self.fields["allowed_radius_meters"].initial = template_habit.allowed_radius_meters or 150
+                self.fields["enable_time_window"].initial = template_habit.has_time_window
+                self.fields["enable_duration_requirement"].initial = template_habit.enable_duration_requirement
+                self.fields["min_duration_minutes"].initial = template_habit.min_duration_minutes
+                self.fields["enable_numeric_target"].initial = template_habit.requires_numeric
+                self.fields["enable_evidence_upload"].initial = template_habit.requires_evidence
+                self.fields["enable_ai_proof_verification"].initial = template_habit.enable_ai_proof_verification
 
             if template_habit.validation_rule in [Habit.ValidationRule.TIME_WINDOW, Habit.ValidationRule.TIME_AND_EVIDENCE]:
                 self.fields["window_start_time"].required = True
@@ -766,5 +1022,41 @@ class AdoptHabitPersonalizationForm(forms.Form):
 
         if not cleaned_data.get("start_date"):
             cleaned_data["start_date"] = timezone.localdate()
+
+        is_loc = cleaned_data.get("is_location_restricted", False)
+        if is_loc:
+            t_lat = cleaned_data.get("target_latitude")
+            t_lng = cleaned_data.get("target_longitude")
+            radius = cleaned_data.get("allowed_radius_meters")
+
+            # Robust server-side auto-resolution from Google Maps URL if lat/lng are missing
+            map_url = (cleaned_data.get("map_url") or (hasattr(self, "data") and (self.data.get("map_url") or self.data.get("adopt_map_url"))) or "").strip()
+            if (t_lat is None or t_lng is None) and map_url:
+                from habits.services import parse_google_maps_url_or_coords
+                res = parse_google_maps_url_or_coords(map_url)
+                if res.get("success"):
+                    t_lat = Decimal(f"{res['latitude']:.6f}")
+                    t_lng = Decimal(f"{res['longitude']:.6f}")
+                    cleaned_data["target_latitude"] = t_lat
+                    cleaned_data["target_longitude"] = t_lng
+                    if not cleaned_data.get("location_name") and res.get("location_name"):
+                        cleaned_data["location_name"] = res["location_name"]
+                else:
+                    self.add_error("map_url", res.get("error", "Could not extract GPS coordinates from this link."))
+
+            if t_lat is None:
+                self.add_error("target_latitude", "Target latitude is required when location restriction is enabled.")
+            elif not (-90.0 <= float(t_lat) <= 90.0):
+                self.add_error("target_latitude", "Latitude must be between -90 and +90 degrees.")
+
+            if t_lng is None:
+                self.add_error("target_longitude", "Target longitude is required when location restriction is enabled.")
+            elif not (-180.0 <= float(t_lng) <= 180.0):
+                self.add_error("target_longitude", "Longitude must be between -180 and +180 degrees.")
+
+            if radius is not None and int(radius) < 10:
+                self.add_error("allowed_radius_meters", "Allowed radius must be at least 10 meters.")
+            if not radius:
+                cleaned_data["allowed_radius_meters"] = 150
 
         return cleaned_data

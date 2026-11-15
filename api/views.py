@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 import json
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -109,6 +109,11 @@ def dashboard_api(request):
             "requires_modal": habit.requires_modal,
             "requires_evidence": habit.requires_evidence,
             "requires_numeric": habit.requires_numeric,
+            "is_location_restricted": habit.is_location_restricted,
+            "location_name": habit.location_name,
+            "target_latitude": float(habit.target_latitude) if habit.target_latitude is not None else None,
+            "target_longitude": float(habit.target_longitude) if habit.target_longitude is not None else None,
+            "allowed_radius_meters": habit.allowed_radius_meters,
             "target_value": float(habit.target_value) if habit.target_value is not None else None,
             "unit_label": habit.unit_label,
         })
@@ -197,26 +202,75 @@ def habit_complete_api(request, pk):
     else:
         logged_val = None
 
+    raw_lat = request.POST.get("latitude")
+    raw_lng = request.POST.get("longitude")
+    comp_lat = None
+    comp_lng = None
+    comp_dist = None
+    if raw_lat is not None and raw_lng is not None and str(raw_lat).strip() and str(raw_lng).strip():
+        try:
+            comp_lat = Decimal(str(raw_lat).strip())
+            comp_lng = Decimal(str(raw_lng).strip())
+            if habit.target_latitude is not None and habit.target_longitude is not None:
+                from habits.validators import haversine_distance_meters
+                comp_dist = int(round(haversine_distance_meters(
+                    float(comp_lat), float(comp_lng), float(habit.target_latitude), float(habit.target_longitude)
+                )))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
 
-    with transaction.atomic():
-        HabitCompletion.objects.create(
-            tenant=habit.tenant,
-            habit=habit,
-            completion_date=target_date,
-            logged_value=logged_val,
-            evidence_file=evidence_file,
-            notes=notes,
-        )
+    raw_dur = request.POST.get("duration_minutes") or request.POST.get("logged_duration_minutes") or request.POST.get("logged_duration")
+    logged_dur = None
+    if raw_dur:
+        try:
+            logged_dur = int(float(str(raw_dur).strip()))
+        except (ValueError, TypeError):
+            logged_dur = None
+
+    ai_status = "SKIPPED"
+    ai_reason = ""
+    ai_confidence = None
+    if evidence_file and getattr(habit, "enable_ai_proof_verification", True):
+        from habits.services import verify_proof_relevance
+        ai_res = verify_proof_relevance(habit, evidence_file)
+        ai_status = ai_res.get("status", "APPROVED")
+        ai_reason = ai_res.get("reason", "")
+        ai_confidence = ai_res.get("confidence")
+
+    is_idempotent_duplicate = False
+    try:
+        with transaction.atomic():
+            HabitCompletion.objects.create(
+                tenant=habit.tenant,
+                habit=habit,
+                completion_date=target_date,
+                logged_value=logged_val,
+                logged_duration_minutes=logged_dur,
+                ai_verification_status=ai_status,
+                ai_verification_reason=ai_reason,
+                ai_confidence_score=ai_confidence,
+                evidence_file=evidence_file,
+                notes=notes,
+                completion_latitude=comp_lat,
+                completion_longitude=comp_lng,
+                completion_distance_meters=comp_dist,
+            )
+    except IntegrityError:
+        # Idempotent response for duplicate submissions / mobile double-clicks (API-01)
+        is_idempotent_duplicate = True
 
     streaks = calculate_streaks(habit, today)
     rate_7d = calculate_completion_rate(habit, today - timedelta(days=6), today, today)
     wallet_data = calculate_user_pixel_wallet(request.user, tenant=habit.tenant, today=today)
 
+    success_msg = f"Habit '{habit.name}' was already completed for {target_date}." if is_idempotent_duplicate else f"Habit '{habit.name}' completed successfully!"
     return JsonResponse({
         "success": True,
-        "message": f"Habit '{habit.name}' completed successfully!",
+        "message": success_msg,
+        "idempotent": is_idempotent_duplicate,
         "habit_id": habit.id,
         "completion_date": str(target_date),
         "is_completed_today": True,
@@ -417,3 +471,309 @@ def admin_performance_reset_api(request):
     performance_tracker.reset()
     return JsonResponse({"status": "success", "message": "Performance metrics reset successfully."})
 
+
+
+def resolve_map_url_api(request):
+    """
+    GET or POST /api/v1/resolve-map-url/?url=...
+    Extracts geographic coordinates and place name from Google Maps URLs or coordinate strings.
+    """
+    url = request.GET.get("url") or request.POST.get("url")
+    if not url:
+        return JsonResponse({"success": False, "error": "URL or coordinates parameter is required."}, status=400)
+
+    from habits.services import parse_google_maps_url_or_coords
+    result = parse_google_maps_url_or_coords(url)
+    status_code = 200 if result.get("success") else 400
+    return JsonResponse(result, status=status_code)
+
+
+@require_http_methods(["GET", "POST"])
+def habit_reminder_api(request, pk):
+    """
+    GET /api/habits/<pk>/reminder/
+    POST /api/habits/<pk>/reminder/
+    Configures or retrieves personal habit alarm settings.
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    tenant = getattr(request, "tenant", None)
+    habit = get_object_or_404(Habit, pk=pk)
+
+    # Permission check: ensure user owns the habit or is super admin
+    if not request.user.is_super_admin:
+        if tenant and habit.tenant != tenant:
+            return JsonResponse({"error": "Forbidden", "detail": "You do not have access to this habit."}, status=403)
+        if not tenant and habit.created_by != request.user:
+            return JsonResponse({"error": "Forbidden", "detail": "You do not have access to this habit."}, status=403)
+
+    if request.method == "GET":
+        return JsonResponse({
+            "success": True,
+            "habit_id": habit.pk,
+            "habit_name": habit.name,
+            "reminder_enabled": habit.reminder_enabled,
+            "reminder_time": habit.reminder_time.strftime("%H:%M") if habit.reminder_time else "",
+            "reminder_snooze_interval": habit.reminder_snooze_interval,
+            "reminder_display": habit.reminder_display or "Off",
+            "snoozed_until": habit.snoozed_until.isoformat() if habit.snoozed_until else None,
+        })
+
+    # POST
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else request.POST
+    except Exception:
+        data = request.POST
+
+    reminder_enabled = bool(data.get("reminder_enabled") in [True, "true", "1", 1, "on"])
+    reminder_time_raw = data.get("reminder_time")
+    try:
+        snooze_interval = int(data.get("reminder_snooze_interval", 0))
+    except (ValueError, TypeError):
+        snooze_interval = 0
+
+    from datetime import datetime, time
+    parsed_time = None
+    if reminder_time_raw:
+        if isinstance(reminder_time_raw, str):
+            clean_time = reminder_time_raw.strip()
+            for fmt in ("%H:%M", "%H:%M:%S", "%I:%M %p", "%I:%M%p"):
+                try:
+                    parsed_time = datetime.strptime(clean_time, fmt).time()
+                    break
+                except ValueError:
+                    continue
+        elif isinstance(reminder_time_raw, time):
+            parsed_time = reminder_time_raw
+
+    habit.reminder_enabled = reminder_enabled
+    if reminder_enabled and parsed_time:
+        habit.reminder_time = parsed_time
+    habit.reminder_snooze_interval = snooze_interval
+    habit.snoozed_until = None
+    habit.last_reminded_at = None
+    habit.save(update_fields=["reminder_enabled", "reminder_time", "reminder_snooze_interval", "snoozed_until", "last_reminded_at", "updated_at"])
+
+    return JsonResponse({
+        "success": True,
+        "habit_id": habit.pk,
+        "habit_name": habit.name,
+        "reminder_enabled": habit.reminder_enabled,
+        "reminder_time": habit.reminder_time.strftime("%H:%M") if habit.reminder_time else "",
+        "reminder_display": habit.reminder_display or "Off",
+        "message": f"Alarm for '{habit.name}' updated successfully.",
+    })
+
+
+@require_POST
+def habit_reminder_snooze_api(request, pk):
+    """
+    POST /api/habits/<pk>/reminder/snooze/
+    Snoozes an active habit alarm intimation by N minutes (default 60).
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    tenant = getattr(request, "tenant", None)
+    habit = get_object_or_404(Habit, pk=pk)
+
+    if not request.user.is_super_admin:
+        if tenant and habit.tenant != tenant:
+            return JsonResponse({"error": "Forbidden", "detail": "You do not have access to this habit."}, status=403)
+        if not tenant and habit.created_by != request.user:
+            return JsonResponse({"error": "Forbidden", "detail": "You do not have access to this habit."}, status=403)
+
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else request.POST
+    except Exception:
+        data = request.POST
+
+    try:
+        minutes = int(data.get("minutes", 60))
+    except (ValueError, TypeError):
+        minutes = 60
+
+    habit.snoozed_until = timezone.now() + timedelta(minutes=minutes)
+    habit.save(update_fields=["snoozed_until", "updated_at"])
+
+    return JsonResponse({
+        "success": True,
+        "habit_id": habit.pk,
+        "snoozed_until": habit.snoozed_until.isoformat(),
+        "minutes": minutes,
+        "message": f"Habit alarm snoozed for {minutes} minutes.",
+    })
+
+
+@require_GET
+def active_reminders_api(request):
+    """
+    GET /api/habits/reminders/active/
+    Returns all active habit alarms for today for the logged-in user,
+    used by the client-side Web Audio + Notification scheduler.
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    tenant = getattr(request, "tenant", None)
+    today = timezone.localdate()
+    now_dt = timezone.localtime()
+    now_time = now_dt.time()
+
+    if tenant:
+        habits_qs = Habit.objects.filter(tenant=tenant, is_template=False, is_active=True)
+    else:
+        habits_qs = Habit.objects.filter(created_by=request.user, is_template=False, is_active=True)
+
+    completed_ids = set(
+        HabitCompletion.objects.filter(
+            habit__in=habits_qs,
+            completion_date=today,
+        ).values_list("habit_id", flat=True)
+    )
+
+    items = []
+    for habit in habits_qs:
+        if not habit.is_scheduled_for_date(today):
+            continue
+        is_completed = habit.id in completed_ids
+
+        # If already completed today, suppress the alarm
+        if is_completed:
+            continue
+
+        # Check if completion is currently allowed / open
+        time_allowed, time_status = habit.is_time_window_active(now_time)
+        if not time_allowed:
+            continue
+
+        if not habit.reminder_enabled or not habit.reminder_time:
+            continue
+
+        alarm_time_str = habit.reminder_time.strftime("%H:%M")
+
+        items.append({
+            "id": habit.id,
+            "name": habit.name,
+            "reminder_enabled": habit.reminder_enabled,
+            "reminder_time": alarm_time_str,
+            "reminder_display": habit.reminder_display or alarm_time_str,
+            "reminder_snooze_interval": habit.reminder_snooze_interval or 0,
+            "snoozed_until": habit.snoozed_until.isoformat() if habit.snoozed_until else None,
+            "pixel_score": habit.pixel_score or 2,
+            "is_completed_today": is_completed,
+            "time_allowed": time_allowed,
+            "time_status": time_status,
+        })
+
+    return JsonResponse({
+        "success": True,
+        "server_time": now_dt.strftime("%H:%M:%S"),
+        "server_date": today.isoformat(),
+        "reminders": items,
+    })
+
+
+@require_http_methods(["POST", "DELETE"])
+def push_subscribe_api(request):
+    """
+    POST /api/push/subscribe/
+    Registers or updates a browser PushSubscription for free Web Push alerts.
+    DELETE /api/push/subscribe/
+    Removes the subscription.
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    from habits.models import PushSubscription
+
+    if request.method == "DELETE":
+        try:
+            data = json.loads(request.body.decode("utf-8")) if request.body else {}
+            endpoint = data.get("endpoint")
+            if endpoint:
+                PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+            else:
+                PushSubscription.objects.filter(user=request.user).delete()
+        except Exception:
+            PushSubscription.objects.filter(user=request.user).delete()
+        return JsonResponse({"success": True, "message": "Push subscription removed."})
+
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else request.POST
+    except Exception:
+        data = request.POST
+
+    endpoint = data.get("endpoint")
+    keys = data.get("keys", {})
+    p256dh = keys.get("p256dh") or data.get("p256dh", "")
+    auth = keys.get("auth") or data.get("auth", "")
+
+    if not endpoint or not p256dh or not auth:
+        return JsonResponse({"error": "Bad Request", "detail": "Missing endpoint, p256dh or auth keys."}, status=400)
+
+    user_agent = request.META.get("HTTP_USER_AGENT", "")[:500]
+
+    PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            "user": request.user,
+            "p256dh": p256dh,
+            "auth": auth,
+            "user_agent": user_agent,
+        },
+    )
+
+    return JsonResponse({"success": True, "message": "Push subscription registered successfully."})
+
+
+@require_POST
+def test_habit_reminder_push_api(request):
+    """
+    POST /api/v1/habits/reminders/test-push/
+    Dispatches an immediate live test Web Push notification to all user's registered devices (phones/desktops).
+    """
+    auth_err = _require_auth(request)
+    if auth_err:
+        return auth_err
+
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else request.POST
+    except Exception:
+        data = request.POST
+
+    habit_id = data.get("habit_id")
+    habit_name = "Habit Reminder"
+    pixel_score = 2
+    if habit_id:
+        try:
+            habit = Habit.objects.get(pk=habit_id)
+            habit_name = habit.name
+            pixel_score = habit.pixel_score or 2
+        except Habit.DoesNotExist:
+            pass
+
+    from habits.services import send_habit_web_push
+    sent_count = send_habit_web_push(
+        user=request.user,
+        title=f"⏰ Test Alert: {habit_name}",
+        body=f"Your habit alarms are active! Time to complete '{habit_name}' and earn {pixel_score} pixels.",
+        habit_id=habit_id,
+        url="/habits/",
+    )
+
+    if sent_count > 0:
+        msg = f"Test alert successfully sent to {sent_count} registered device(s) (including your phone)!"
+    else:
+        msg = "Desktop sound and local alerts are active! To receive push alerts on your phone, open HabitPulse in your phone browser or PWA and enable notifications."
+
+    return JsonResponse({
+        "success": True,
+        "devices_notified": sent_count,
+        "message": msg,
+    })

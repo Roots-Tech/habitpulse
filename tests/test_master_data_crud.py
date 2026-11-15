@@ -326,7 +326,7 @@ class MasterDataCRUDTestCase(TestCase):
 
         # 6. Verify view executes cleanly with bounded queries (no N+1 query loops)
         # Bounded query count includes session, user auth, tenant, categories, and prefetched habits
-        with self.assertNumQueries(10):
+        with self.assertNumQueries(11):
             response = self.client.get(reverse("category_list"))
         self.assertEqual(response.status_code, 200)
 

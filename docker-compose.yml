@@ -1,0 +1,100 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: habitpulse_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-habit_tracker}
+      POSTGRES_USER: ${DB_USER:-habit_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-habit_secure_password_123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init_db.sql:/docker-entrypoint-initdb.d/01-init_db.sql:ro
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-habit_user} -d ${DB_NAME:-habit_tracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - habit_network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: habitpulse_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - habit_network
+
+  ollama-puller:
+    image: curlimages/curl:latest
+    container_name: habitpulse_ollama_puller
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint:
+      - "sh"
+      - "-c"
+      - |
+        echo "==> [Ollama Puller] Checking and ensuring model '$${OLLAMA_MODEL:-llama3.2:1b}' is loaded..."
+        curl -s -f http://ollama:11434/api/pull -d "{\"name\": \"$${OLLAMA_MODEL:-llama3.2:1b}\", \"stream\": false}" || echo "Ollama pull warning: model download in progress or connection retry needed."
+        echo "==> [Ollama Puller] Initialization check finished."
+    environment:
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:1b}
+    networks:
+      - habit_network
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: habitpulse_web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    env_file:
+      - .env.docker
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-habit_user}:${DB_PASSWORD:-habit_secure_password_123}@db:5432/${DB_NAME:-habit_tracker}
+      - DB_USER=${DB_USER:-habit_user}
+      - DB_PASSWORD=${DB_PASSWORD:-habit_secure_password_123}
+      - DB_NAME=${DB_NAME:-habit_tracker}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2:1b}
+    volumes:
+      - ./media:/app/media
+      - static_data:/app/staticfiles
+      - ./backups:/app/backups
+    ports:
+      - "${PORT:-8001}:8000"
+    networks:
+      - habit_network
+
+volumes:
+  postgres_data:
+    name: habitpulse_postgres_data
+  static_data:
+    name: habitpulse_static_data
+  ollama_data:
+    name: habitpulse_ollama_data
+
+networks:
+  habit_network:
+    name: habitpulse_network
+    driver: bridge

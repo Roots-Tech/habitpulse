@@ -50,8 +50,9 @@ class PerformanceTracker:
         })
         self.slow_queries = deque(maxlen=100)
 
-        # Start heap tracking
-        if not tracemalloc.is_tracing():
+        # Start heap tracking only in local development (DEBUG=True) to avoid 20-40% memory overhead in production (PERF-04)
+        from django.conf import settings
+        if getattr(settings, "DEBUG", False) and not tracemalloc.is_tracing():
             try:
                 tracemalloc.start()
             except Exception:

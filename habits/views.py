@@ -517,6 +517,10 @@ def habit_list_view(request):
     if active_tab not in ["user_created", "predefined", "expert"]:
         active_tab = "user_created"
 
+    if not RuleStrategy.objects.exists():
+        seed_default_rule_strategies()
+    rule_strategies = RuleStrategy.objects.filter(is_active=True).order_by("name")
+
     return render(request, "habits/habit_list.html", {
         "my_habits": my_habits,
         "predefined_habits": predefined_habits,
@@ -528,6 +532,7 @@ def habit_list_view(request):
         "all_habits_count": all_habits_count,
         "my_personal_habits_count": my_personal_habits_count,
         "active_tab": active_tab,
+        "rule_strategies": rule_strategies,
     })
 
 
@@ -788,6 +793,17 @@ def habit_adopt_view(request, pk):
                 "frequency",
                 "selected_weekdays",
                 "target_days_per_week",
+                "is_location_restricted",
+                "location_name",
+                "target_latitude",
+                "target_longitude",
+                "allowed_radius_meters",
+                "enable_time_window",
+                "enable_duration_requirement",
+                "min_duration_minutes",
+                "enable_numeric_target",
+                "enable_evidence_upload",
+                "enable_ai_proof_verification",
             ]
         )
         if has_custom_params:
@@ -805,6 +821,11 @@ def habit_adopt_view(request, pk):
             unit_label = cleaned.get("unit_label") or template_habit.unit_label
             frequency = cleaned.get("frequency") or template_habit.frequency
             start_date = cleaned.get("start_date") or timezone.localdate()
+            is_location_restricted = cleaned.get("is_location_restricted", False)
+            location_name = cleaned.get("location_name") or ""
+            target_latitude = cleaned.get("target_latitude")
+            target_longitude = cleaned.get("target_longitude")
+            allowed_radius_meters = cleaned.get("allowed_radius_meters") or 150
 
             if frequency == Habit.Frequency.WEEKLY_TARGET:
                 target_days_per_week = cleaned.get("target_days_per_week") or template_habit.target_days_per_week or 3
@@ -825,6 +846,11 @@ def habit_adopt_view(request, pk):
             selected_weekdays = template_habit.selected_weekdays
             target_days_per_week = template_habit.target_days_per_week
             start_date = timezone.localdate()
+            is_location_restricted = template_habit.is_location_restricted
+            location_name = template_habit.location_name
+            target_latitude = template_habit.target_latitude
+            target_longitude = template_habit.target_longitude
+            allowed_radius_meters = template_habit.allowed_radius_meters
 
         try:
             with transaction.atomic():
@@ -849,6 +875,17 @@ def habit_adopt_view(request, pk):
                     target_days_per_week=target_days_per_week,
                     selected_weekdays=selected_weekdays,
                     start_date=start_date,
+                    is_location_restricted=is_location_restricted,
+                    location_name=location_name,
+                    target_latitude=target_latitude,
+                    target_longitude=target_longitude,
+                    allowed_radius_meters=allowed_radius_meters,
+                    enable_time_window=cleaned.get("enable_time_window", template_habit.has_time_window) if has_custom_params else template_habit.has_time_window,
+                    enable_duration_requirement=cleaned.get("enable_duration_requirement", template_habit.enable_duration_requirement) if has_custom_params else template_habit.enable_duration_requirement,
+                    min_duration_minutes=cleaned.get("min_duration_minutes", template_habit.min_duration_minutes) if has_custom_params else template_habit.min_duration_minutes,
+                    enable_numeric_target=cleaned.get("enable_numeric_target", template_habit.requires_numeric) if has_custom_params else template_habit.requires_numeric,
+                    enable_evidence_upload=cleaned.get("enable_evidence_upload", template_habit.requires_evidence) if has_custom_params else template_habit.requires_evidence,
+                    enable_ai_proof_verification=cleaned.get("enable_ai_proof_verification", template_habit.enable_ai_proof_verification) if has_custom_params else template_habit.enable_ai_proof_verification,
                     is_active=True,
                 )
             messages.success(request, f'Habit "{adopted_habit.name}" has been personalized and added to your habit list!')
@@ -989,8 +1026,45 @@ def habit_complete_view(request, pk):
     else:
         logged_val = None
 
+    raw_lat = request.POST.get("latitude")
+    raw_lng = request.POST.get("longitude")
+    comp_lat = None
+    comp_lng = None
+    comp_dist = None
+    if raw_lat is not None and raw_lng is not None and str(raw_lat).strip() and str(raw_lng).strip():
+        try:
+            comp_lat = Decimal(str(raw_lat).strip())
+            comp_lng = Decimal(str(raw_lng).strip())
+            if habit.target_latitude is not None and habit.target_longitude is not None:
+                from .validators import haversine_distance_meters
+                comp_dist = int(round(haversine_distance_meters(
+                    float(comp_lat), float(comp_lng), float(habit.target_latitude), float(habit.target_longitude)
+                )))
+        except (InvalidOperation, ValueError, TypeError):
+            pass
+
     notes = request.POST.get("notes", "").strip()
     evidence_file = request.FILES.get("evidence_file")
+
+    # Duration parsing
+    raw_dur = request.POST.get("duration_minutes") or request.POST.get("logged_duration_minutes") or request.POST.get("logged_duration")
+    logged_dur = None
+    if raw_dur:
+        try:
+            logged_dur = int(float(str(raw_dur).strip()))
+        except (ValueError, TypeError):
+            logged_dur = None
+
+    # AI Verification results
+    ai_status = "SKIPPED"
+    ai_reason = ""
+    ai_confidence = None
+    if evidence_file and getattr(habit, "enable_ai_proof_verification", True):
+        from .services import verify_proof_relevance
+        ai_res = verify_proof_relevance(habit, evidence_file)
+        ai_status = ai_res.get("status", "APPROVED")
+        ai_reason = ai_res.get("reason", "")
+        ai_confidence = ai_res.get("confidence")
 
     try:
         with transaction.atomic():
@@ -1000,7 +1074,14 @@ def habit_complete_view(request, pk):
                 completion_date=target_date,
                 evidence_file=evidence_file,
                 logged_value=logged_val,
+                logged_duration_minutes=logged_dur,
+                ai_verification_status=ai_status,
+                ai_verification_reason=ai_reason,
+                ai_confidence_score=ai_confidence,
                 notes=notes,
+                completion_latitude=comp_lat,
+                completion_longitude=comp_lng,
+                completion_distance_meters=comp_dist,
             )
         messages.success(request, f'Nice job! "{habit.name}" verified and completed successfully.')
     except IntegrityError:
@@ -1318,8 +1399,13 @@ def rule_strategy_update_view(request, pk):
     if request.method == "POST":
         form = RuleStrategyForm(request.POST, instance=strategy)
         if form.is_valid():
-            form.save()
-            messages.success(request, f'Rule Strategy "{strategy.name}" updated successfully!')
+            strategy = form.save()
+            synced_count = strategy.sync_to_habits()
+            sync_note = f" Updated pixel rewards on {synced_count} linked habit(s)." if synced_count else ""
+            messages.success(
+                request,
+                f'Rule Strategy "{strategy.name}" updated successfully ({strategy.pixel_reward} Px)!{sync_note}'
+            )
             return redirect("rule_strategy_list")
         else:
             messages.error(request, "Please fix the errors below.")
@@ -1494,4 +1580,70 @@ def catalog_import_view(request):
         messages.error(request, f"Error importing catalog templates: {e}")
 
     return redirect(f"{reverse('habit_list')}?tab=predefined")
+
+
+@login_required
+def habit_calendar_ics_view(request, pk):
+    """
+    Generates an iCalendar (.ics) file with a native alarm trigger (VALARM),
+    allowing users to sync their habit alarm directly to Apple Calendar,
+    Google Calendar, Outlook, or Android Clock/Calendar completely free.
+    """
+    from datetime import datetime, time, timedelta
+    from django.http import HttpResponse, Http404
+
+    habit = get_object_or_404(Habit, pk=pk)
+    tenant = getattr(request, "tenant", None)
+
+    if not request.user.is_super_admin:
+        if tenant and habit.tenant != tenant:
+            raise Http404("Habit not found.")
+        if not tenant and habit.created_by != request.user:
+            raise Http404("Habit not found.")
+
+    alarm_t = habit.reminder_time or habit.window_start_time or time(8, 0)
+    today = timezone.localdate()
+    dt_start = datetime.combine(today, alarm_t)
+    dt_end = dt_start + timedelta(minutes=30)
+
+    dt_start_str = dt_start.strftime("%Y%m%dT%H%M00")
+    dt_end_str = dt_end.strftime("%Y%m%dT%H%M00")
+    uid = f"habit-{habit.pk}-{today.strftime('%Y%m%d')}@habitpulse.local"
+
+    rrule = "RRULE:FREQ=DAILY"
+    if habit.frequency == Habit.Frequency.WEEKDAYS and habit.selected_weekdays:
+        day_map = {0: "MO", 1: "TU", 2: "WE", 3: "TH", 4: "FR", 5: "SA", 6: "SU"}
+        days = [day_map[int(d)] for d in habit.selected_weekdays if str(d).isdigit() and int(d) in day_map]
+        if days:
+            rrule = f"RRULE:FREQ=WEEKLY;BYDAY={','.join(days)}"
+
+    snooze_repeat = ""
+    if habit.reminder_snooze_interval in (15, 30, 60):
+        snooze_repeat = f"\nDURATION:PT{habit.reminder_snooze_interval}M\nREPEAT:3"
+
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//HabitPulse//Habit Alarm//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:{uid}
+DTSTAMP:{timezone.now().strftime("%Y%m%dT%H%M%SZ")}
+DTSTART:{dt_start_str}
+DTEND:{dt_end_str}
+{rrule}
+SUMMARY:⏰ HabitPulse: {habit.name}
+DESCRIPTION:Time to complete your habit '{habit.name}'! Earn {habit.pixel_score or 2} pixels on HabitPulse.
+LOCATION:{habit.location_name or 'HabitPulse'}
+BEGIN:VALARM
+TRIGGER:-PT0M
+ACTION:DISPLAY
+DESCRIPTION:Habit Alarm: {habit.name}{snooze_repeat}
+END:VALARM
+END:VEVENT
+END:VCALENDAR"""
+
+    response = HttpResponse(ics_content.strip(), content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="habit_{habit.pk}_alarm.ics"'
+    return response
 

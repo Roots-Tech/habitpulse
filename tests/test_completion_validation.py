@@ -91,7 +91,7 @@ class CompletionValidationEngineTestCase(TestCase):
         self.assertIn("Unsupported file format", res_bad.error_message)
 
         # Valid jpg file
-        good_file = SimpleUploadedFile("workout.jpg", b"fake image bytes", content_type="image/jpeg")
+        good_file = SimpleUploadedFile("workout.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"fake image bytes", content_type="image/jpeg")
         res_good = validator.validate(habit, {}, {"evidence_file": good_file})
         self.assertTrue(res_good.is_valid)
 
@@ -167,7 +167,7 @@ class CompletionValidationViewsIntegrationTestCase(TestCase):
         self.assertEqual(HabitCompletion.objects.filter(habit=habit).count(), 0)
 
         # Submit with valid image proof
-        proof = SimpleUploadedFile("run_track.png", b"image data content", content_type="image/png")
+        proof = SimpleUploadedFile("run_track.png", b"\x89PNG\r\n\x1a\n" + b"image data content", content_type="image/png")
         response = self.client.post(url, {"evidence_file": proof, "notes": "5km in 28 mins"}, follow=True)
         self.assertEqual(response.status_code, 200)
 
